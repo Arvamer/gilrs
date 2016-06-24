@@ -1,0 +1,8 @@
+[package]
+name = "gamepad"
+version = "0.1.0"
+authors = ["Arvamer <arvamer@gmail.com>"]
+
+[dependencies]
+libudev-sys = "0.1"
+
