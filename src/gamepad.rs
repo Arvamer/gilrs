@@ -6,6 +6,7 @@ use std::mem;
 use libc as c;
 use ioctl;
 
+#[derive(Debug)]
 pub struct Gamepads {
     gamepads: Vec<Gamepad>,
 }
@@ -39,15 +40,32 @@ impl Gamepads {
     }
 }
 
-pub struct Gamepad(File);
+#[derive(Debug)]
+pub struct Gamepad {
+    file: File,
+    axes_info: AxesInfo,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct AxesInfo {
+    abs_x_max: f32,
+    abs_y_max: f32,
+    abs_rx_max: f32,
+    abs_ry_max: f32,
+    abs_left_tr_max: f32,
+    abs_right_tr_max: f32,
+    abs_left_tr2_max: f32,
+    abs_right_tr2_max: f32,
+}
+
 
 impl Gamepad {
     fn pool_events(&mut self) -> EventIterator {
-        EventIterator(&mut self.0)
+        EventIterator(&mut self.file, &self.axes_info)
     }
 }
 
-pub struct EventIterator<'a>(&'a mut File);
+pub struct EventIterator<'a>(&'a mut File, &'a AxesInfo);
 
 impl<'a> Iterator for EventIterator<'a> {
     type Item = Event;
@@ -69,6 +87,22 @@ impl<'a> Iterator for EventIterator<'a> {
                         _ => None,
                     }
                 })
+            } else if event._type as u32 == EV_ABS {
+                println!("Axis: {}", event.code);
+                Axis::from_u32(event.code as u32).map(|axis| {
+                    let val = event.value as f32;
+                    let val = match axis {
+                        Axis::LeftStickX => val / self.1.abs_x_max,
+                        Axis::LeftStickY => val / self.1.abs_y_max,
+                        Axis::RightStickX => val / self.1.abs_rx_max,
+                        Axis::RightStickY => val / self.1.abs_ry_max,
+                        Axis::LeftTrigger => val / self.1.abs_left_tr_max,
+                        Axis::LeftTrigger2 => val / self.1.abs_left_tr2_max,
+                        Axis::RightTrigger => val / self.1.abs_right_tr_max,
+                        Axis::RightTrigger2 => val / self.1.abs_right_tr2_max,
+                    };
+                    Event::AxisChanged(axis, val)
+                })
             } else {
                 None
             }
@@ -76,14 +110,15 @@ impl<'a> Iterator for EventIterator<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Event {
     ButtonPressed(Button),
     ButtonReleased(Button),
+    AxisChanged(Axis, f32),
 }
 
 #[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Button {
     // Action Pad
     South = BTN_SOUTH,
@@ -113,9 +148,32 @@ pub enum Button {
 
 impl Button {
     fn from_u32(btn: u32) -> Option<Self> {
-        if btn >= BTN_SOUTH && btn <= BTN_THUMBR ||
-           btn >= BTN_DPAD_UP && btn <= BTN_DPAD_RIGHT {
+        if btn >= BTN_SOUTH && btn <= BTN_THUMBR || btn >= BTN_DPAD_UP && btn <= BTN_DPAD_RIGHT {
             Some(unsafe { mem::transmute(btn) })
+        } else {
+            None
+        }
+    }
+}
+
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Axis {
+    LeftStickX = ABS_X,
+    LeftStickY = ABS_Y,
+    RightStickX = ABS_RX,
+    RightStickY = ABS_RY,
+    LeftTrigger = ABS_HAT1Y,
+    LeftTrigger2 = ABS_HAT2Y,
+    RightTrigger = ABS_HAT1X,
+    RightTrigger2 = ABS_HAT2X,
+}
+
+impl Axis {
+    fn from_u32(axis: u32) -> Option<Self> {
+        if axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY ||
+           axis >= ABS_HAT1X && axis <= ABS_HAT2Y {
+            Some(unsafe { mem::transmute(axis) })
         } else {
             None
         }
@@ -131,23 +189,62 @@ fn open_and_check(path: &CStr) -> Option<Gamepad> {
 
         let mut ev_bits = [0u8; EV_MAX as usize];
         let mut key_bits = [0u8; KEY_MAX as usize];
-        let mut abs_bits = [0u8; 1];
 
         if ioctl::eviocgbit(fd, 0, EV_MAX as i32, ev_bits.as_mut_ptr()) < 0 ||
-           ioctl::eviocgbit(fd, EV_KEY, KEY_MAX as i32, key_bits.as_mut_ptr()) < 0 ||
-           ioctl::eviocgbit(fd, EV_ABS, 1, abs_bits.as_mut_ptr()) < 0 {
+           ioctl::eviocgbit(fd, EV_KEY, KEY_MAX as i32, key_bits.as_mut_ptr()) < 0 {
             c::close(fd);
             return None;
         }
 
-        if !test_bit(EV_ABS, &ev_bits) || !test_bit(BTN_GAMEPAD, &key_bits) {
+        if !test_bit(BTN_GAMEPAD, &key_bits) {
+            println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
             c::close(fd);
             return None;
         }
 
+        let mut gamepad = Gamepad {
+            file: File::open(path.to_str().unwrap()).unwrap(),
+            axes_info: mem::zeroed(),
+        };
+
+        let mut absi = ioctl::input_absinfo::default();
+
+        if ioctl::eviocgabs(fd, ABS_X, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_x_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_Y, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_y_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_RX, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_rx_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_RY, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_ry_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_HAT1X, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_right_tr_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_HAT1Y, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_left_tr_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_HAT2X, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_right_tr2_max = absi.maximum as f32;
+        }
+
+        if ioctl::eviocgabs(fd, ABS_HAT2Y, &mut absi as *mut _) >= 0 {
+            gamepad.axes_info.abs_left_tr2_max = absi.maximum as f32;
+        }
+
+        println!("{:#?}", gamepad);
         // Use Rust IO for reading events
         c::close(fd);
-        Some(Gamepad(File::open(path.to_str().unwrap()).unwrap()))
+        Some(gamepad)
     }
 }
 
@@ -181,3 +278,12 @@ const BTN_DPAD_UP: u32 = 0x220;
 const BTN_DPAD_DOWN: u32 = 0x221;
 const BTN_DPAD_LEFT: u32 = 0x222;
 const BTN_DPAD_RIGHT: u32 = 0x223;
+
+const ABS_X: u32 = 0x00;
+const ABS_Y: u32 = 0x01;
+const ABS_RX: u32 = 0x03;
+const ABS_RY: u32 = 0x04;
+const ABS_HAT1X: u32 = 0x12;
+const ABS_HAT1Y: u32 = 0x13;
+const ABS_HAT2X: u32 = 0x14;
+const ABS_HAT2Y: u32 = 0x15;
