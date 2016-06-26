@@ -1,6 +1,11 @@
 extern crate libudev_sys;
+extern crate libc;
+extern crate ioctl;
 
 pub mod udev;
+mod gamepad;
+
+pub use gamepad::{Gamepads, Gamepad};
 
 #[cfg(test)]
 mod tests {

@@ -61,6 +61,14 @@ impl Enumerate {
         }
     }
 
+    pub fn add_match_property(&self, key: &CStr, val: &CStr) {
+        // TODO: Check for error
+        unsafe {
+            ud::udev_enumerate_add_match_property(self.0, key.as_ptr(), val.as_ptr());
+        }
+    }
+
+
     pub fn iter(&self) -> DeviceIterator {
         DeviceIterator(unsafe { ud::udev_enumerate_get_list_entry(self.0) })
     }
@@ -110,6 +118,17 @@ impl Device {
     pub fn devtype(&self) -> Option<&CStr> {
         unsafe {
             let s = ud::udev_device_get_devtype(self.0);
+            if s.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(s))
+            }
+        }
+    }
+
+    pub fn devnode(&self) -> Option<&CStr> {
+        unsafe {
+            let s = ud::udev_device_get_devnode(self.0);
             if s.is_null() {
                 None
             } else {

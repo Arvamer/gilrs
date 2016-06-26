@@ -5,4 +5,6 @@ authors = ["Arvamer <arvamer@gmail.com>"]
 
 [dependencies]
 libudev-sys = "0.1"
+libc = "0.2"
+ioctl = "0.3"
 
