@@ -72,13 +72,14 @@ impl Gamepad {
 #[derive(Debug)]
 struct Mapping {
     axes: VecMap<u16>,
+    // to save some memory, key is button code - BTN_MISC
     btns: VecMap<u16>,
 }
 
 impl Mapping {
     fn map(&self, code: u16, kind: u16) -> u16 {
         match kind {
-            EV_KEY => *self.btns.get(code as usize).unwrap_or(&code),
+            EV_KEY => *self.btns.get((code - BTN_MISC) as usize).unwrap_or(&code),
             EV_ABS => *self.axes.get(code as usize).unwrap_or(&code),
             _ => code,
         }
@@ -87,7 +88,11 @@ impl Mapping {
     fn map_rev(&self, code: u16, kind: u16) -> u16 {
         match kind {
             EV_KEY => {
-                self.btns.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
+                self.btns
+                    .iter()
+                    .find(|x| *x.1 == code - BTN_MISC)
+                    .unwrap_or((code as usize, &0))
+                    .0 as u16 + BTN_MISC
             }
             EV_ABS => {
                 self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
@@ -297,8 +302,8 @@ fn get_mapping(vendor: u16, model: u16) -> Mapping {
         0x045e => {
             match model {
                 0x028e => {
-                    mapping.btns.insert(BTN_WEST as usize, BTN_NORTH);
-                    mapping.btns.insert(BTN_NORTH as usize, BTN_WEST);
+                    mapping.btns.insert((BTN_WEST - BTN_MISC) as usize, BTN_NORTH);
+                    mapping.btns.insert((BTN_NORTH - BTN_MISC) as usize, BTN_WEST);
                     mapping.axes.insert(5, ABS_HAT2X);
                     mapping.axes.insert(2, ABS_HAT2Y);
                 }
@@ -321,6 +326,7 @@ const EV_MAX: u16 = 0x1f;
 const EV_KEY: u16 = 0x01;
 const EV_ABS: u16 = 0x03;
 
+const BTN_MISC: u16 = 0x100;
 const BTN_GAMEPAD: u16 = 0x130;
 const BTN_SOUTH: u16 = 0x130;
 const BTN_EAST: u16 = 0x131;
