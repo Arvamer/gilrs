@@ -7,4 +7,4 @@ authors = ["Arvamer <arvamer@gmail.com>"]
 libudev-sys = "0.1"
 libc = "0.2"
 ioctl = "0.3"
-
+vec_map = "0.6"
