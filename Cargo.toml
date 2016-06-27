@@ -1,5 +1,5 @@
 [package]
-name = "gamepad"
+name = "gilrs"
 version = "0.1.0"
 authors = ["Arvamer <arvamer@gmail.com>"]
 

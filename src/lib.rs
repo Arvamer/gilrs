@@ -5,7 +5,7 @@ extern crate ioctl;
 pub mod udev;
 mod gamepad;
 
-pub use gamepad::{Gamepads, Gamepad};
+pub use gamepad::{Gilrs, Gamepad};
 
 #[cfg(test)]
 mod tests {

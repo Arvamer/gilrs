@@ -1,10 +1,10 @@
-extern crate gamepad;
-use gamepad::Gamepads;
+extern crate gilrs;
+use gilrs::Gilrs;
 
 fn main() {
-    let mut gamepads = Gamepads::new();
+    let mut gil = Gilrs::new();
     loop {
-        for e in gamepads.pool_events() {
+        for e in gil.pool_events() {
             println!("{:?}", e);
         }
     }

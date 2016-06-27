@@ -7,11 +7,11 @@ use libc as c;
 use ioctl;
 
 #[derive(Debug)]
-pub struct Gamepads {
+pub struct Gilrs {
     gamepads: Vec<Gamepad>,
 }
 
-impl Gamepads {
+impl Gilrs {
     pub fn new() -> Self {
         let mut gamepads = Vec::new();
 
@@ -32,7 +32,7 @@ impl Gamepads {
                 gamepads.push(gamepad);
             }
         }
-        Gamepads { gamepads: gamepads }
+        Gilrs { gamepads: gamepads }
     }
 
     pub fn pool_events(&mut self) -> EventIterator {
