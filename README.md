@@ -1,4 +1,4 @@
-GilRs - Gamepad Input Library for Rust
+GilRs - Game Input Library for Rust
 ======================================
 
 *WIP*

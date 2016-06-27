@@ -1,16 +1,13 @@
+#[cfg(target_os = "linux")]
 extern crate libudev_sys;
+#[cfg(target_os = "linux")]
 extern crate libc;
+#[cfg(target_os = "linux")]
 extern crate ioctl;
+
 extern crate vec_map;
 
-pub mod udev;
 mod gamepad;
+mod platform;
 
-pub use gamepad::{Gilrs, Gamepad};
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
-}
+pub use gamepad::{Gilrs, Gamepad, EventIterator};

@@ -47,20 +47,6 @@ impl Enumerate {
         let _ = unsafe { ud::udev_enumerate_scan_devices(self.0) };
     }
 
-    pub fn add_syspath(&self, path: &CStr) {
-        // TODO: Check for error
-        unsafe {
-            ud::udev_enumerate_add_syspath(self.0, path.as_ptr());
-        }
-    }
-
-    pub fn add_match_subsytem(&self, subsytem: &CStr) {
-        // TODO: Check for error
-        unsafe {
-            ud::udev_enumerate_add_match_subsystem(self.0, subsytem.as_ptr());
-        }
-    }
-
     pub fn add_match_property(&self, key: &CStr, val: &CStr) {
         // TODO: Check for error
         unsafe {
@@ -112,17 +98,6 @@ impl Device {
             None
         } else {
             Some(Device(dev))
-        }
-    }
-
-    pub fn devtype(&self) -> Option<&CStr> {
-        unsafe {
-            let s = ud::udev_device_get_devtype(self.0);
-            if s.is_null() {
-                None
-            } else {
-                Some(CStr::from_ptr(s))
-            }
         }
     }
 
