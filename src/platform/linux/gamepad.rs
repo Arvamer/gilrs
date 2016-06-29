@@ -60,53 +60,65 @@ struct AxesInfo {
 impl Gamepad {
     pub fn event(&mut self) -> Option<Event> {
         let mut event = unsafe { mem::uninitialized::<ioctl::input_event>() };
-        let n = unsafe { c::read(self.fd, mem::transmute(&mut event), 24) };
-        if n == -1 || n == 0 {
-            // Nothing to read (non-blocking IO)
-            None
-        } else if n != 24 {
-            unreachable!()
-        } else {
+        // Skip all unknow events and return Option on first know event or when there is no more
+        // events to read. Returning None on unknow event breaks iterators.
+        loop {
+            let n = unsafe { c::read(self.fd, mem::transmute(&mut event), 24) };
+
+            if n == -1 || n == 0 {
+                // Nothing to read (non-blocking IO)
+                return None;
+            } else if n != 24 {
+                unreachable!()
+            }
+
             let code = self.mapping.map(event.code, event._type);
-            if event._type == EV_KEY {
-                Button::from_u16(code).and_then(|btn| {
-                    match event.value {
-                        0 => Some(Event::ButtonReleased(btn)),
-                        1 => Some(Event::ButtonPressed(btn)),
-                        _ => None,
-                    }
-                })
-            } else if event._type == EV_ABS {
-                if code == ABS_HAT0X || code == ABS_HAT0Y {
-                    match event.value {
-                        -1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadLeft)),
-                        -1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadUp)),
-                        1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadRight)),
-                        1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadDown)),
-                        // FIXME: Generate release event for each pressed button
-                        0 if code == ABS_HAT0X => Some(Event::ButtonReleased(Button::DPadRight)),
-                        0 if code == ABS_HAT0Y => Some(Event::ButtonReleased(Button::DPadUp)),
-                        _ => None,
-                    }
-                } else {
-                    Axis::from_u16(code).map(|axis| {
-                        let val = event.value as f32;
-                        let val = match axis {
-                            Axis::LeftStickX => val / self.axes_info.abs_x_max,
-                            Axis::LeftStickY => val / self.axes_info.abs_y_max,
-                            Axis::RightStickX => val / self.axes_info.abs_rx_max,
-                            Axis::RightStickY => val / self.axes_info.abs_ry_max,
-                            Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
-                            Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
-                            Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
-                            Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
-                        };
-                        Event::AxisChanged(axis, val)
+
+            let ev = match event._type {
+                EV_KEY => {
+                    Button::from_u16(code).and_then(|btn| {
+                        match event.value {
+                            0 => Some(Event::ButtonReleased(btn)),
+                            1 => Some(Event::ButtonPressed(btn)),
+                            _ => None,
+                        }
                     })
                 }
-            } else {
-                None
-            }
+                EV_ABS => {
+                    if code == ABS_HAT0X || code == ABS_HAT0Y {
+                        match event.value {
+                            -1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadLeft)),
+                            -1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadUp)),
+                            1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadRight)),
+                            1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadDown)),
+                            // FIXME: Generate release event for each pressed button
+                            0 if code == ABS_HAT0X => {
+                                Some(Event::ButtonReleased(Button::DPadRight))
+                            }
+                            0 if code == ABS_HAT0Y => Some(Event::ButtonReleased(Button::DPadUp)),
+                            _ => None,
+                        }
+                    } else {
+                        Axis::from_u16(code).map(|axis| {
+                            let val = event.value as f32;
+                            let val = match axis {
+                                Axis::LeftStickX => val / self.axes_info.abs_x_max,
+                                Axis::LeftStickY => val / self.axes_info.abs_y_max,
+                                Axis::RightStickX => val / self.axes_info.abs_rx_max,
+                                Axis::RightStickY => val / self.axes_info.abs_ry_max,
+                                Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
+                                Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
+                                Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
+                                Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
+                            };
+                            Event::AxisChanged(axis, val)
+                        })
+                    }
+                }
+                _ => None,
+            };
+            if ev.is_none() { continue; }
+            return ev;
         }
     }
 }
