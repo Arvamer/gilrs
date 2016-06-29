@@ -3,8 +3,6 @@
 
 use super::udev::*;
 use std::ffi::CString;
-use std::fs::File;
-use std::io::prelude::*;
 use std::mem;
 use vec_map::VecMap;
 use libc as c;
@@ -39,7 +37,7 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    file: File,
+    fd: i32,
     axes_info: AxesInfo,
     mapping: Mapping,
     id: (u16, u16),
@@ -61,14 +59,14 @@ struct AxesInfo {
 
 impl Gamepad {
     pub fn event(&mut self) -> Option<Event> {
-        let mut buff = [0; 24];
-        let n = self.file.read(&mut buff).unwrap();
-        if n == 0 {
+        let mut event = unsafe { mem::uninitialized::<ioctl::input_event>() };
+        let n = unsafe { c::read(self.fd, mem::transmute(&mut event), 24) };
+        if n == -1 || n == 0 {
+            // Nothing to read (non-blocking IO)
             None
         } else if n != 24 {
-            unimplemented!()
+            unreachable!()
         } else {
-            let event = unsafe { mem::transmute::<_, ioctl::input_event>(buff) };
             let code = self.mapping.map(event.code, event._type);
             if event._type == EV_KEY {
                 Button::from_u16(code).and_then(|btn| {
@@ -174,7 +172,7 @@ fn open_and_check(dev: &Device) -> Option<Gamepad> {
     };
 
     unsafe {
-        let fd = c::open(path.as_ptr(), c::O_RDONLY);
+        let fd = c::open(path.as_ptr(), c::O_RDONLY | c::O_NONBLOCK);
         if fd < 0 {
             return None;
         }
@@ -264,7 +262,7 @@ fn open_and_check(dev: &Device) -> Option<Gamepad> {
         }
 
         let gamepad = Gamepad {
-            file: File::open(path.to_str().unwrap()).unwrap(),
+            fd: fd,
             axes_info: axesi,
             mapping: mapping,
             id: (id_vendor, id_model),
@@ -272,8 +270,7 @@ fn open_and_check(dev: &Device) -> Option<Gamepad> {
         };
 
         println!("{:#?}", gamepad);
-        // Use Rust IO for reading events
-        c::close(fd);
+
         Some(gamepad)
     }
 }
