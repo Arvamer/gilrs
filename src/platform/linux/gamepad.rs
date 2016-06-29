@@ -123,6 +123,12 @@ impl Gamepad {
     }
 }
 
+impl Drop for Gamepad {
+    fn drop(&mut self) {
+        unsafe { c::close(self.fd); }
+    }
+}
+
 #[derive(Debug)]
 struct Mapping {
     axes: VecMap<u16>,
