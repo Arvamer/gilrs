@@ -14,7 +14,7 @@ use gamepad::{Event, Button, Axis};
 
 #[derive(Debug)]
 pub struct Gilrs {
-    gamepads: Vec<Gamepad>,
+    pub gamepads: Vec<Gamepad>,
 }
 
 impl Gilrs {
@@ -35,10 +35,6 @@ impl Gilrs {
         }
         Gilrs { gamepads: gamepads }
     }
-
-    pub fn pool_events(&mut self) -> EventIterator {
-        self.gamepads[0].pool_events()
-    }
 }
 
 #[derive(Debug)]
@@ -47,7 +43,7 @@ pub struct Gamepad {
     axes_info: AxesInfo,
     mapping: Mapping,
     id: (u16, u16),
-    name: String,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -64,8 +60,56 @@ struct AxesInfo {
 
 
 impl Gamepad {
-    fn pool_events(&mut self) -> EventIterator {
-        EventIterator(self)
+    pub fn event(&mut self) -> Option<Event> {
+        let mut buff = [0; 24];
+        let n = self.file.read(&mut buff).unwrap();
+        if n == 0 {
+            None
+        } else if n != 24 {
+            unimplemented!()
+        } else {
+            let event = unsafe { mem::transmute::<_, ioctl::input_event>(buff) };
+            let code = self.mapping.map(event.code, event._type);
+            if event._type == EV_KEY {
+                Button::from_u16(code).and_then(|btn| {
+                    match event.value {
+                        0 => Some(Event::ButtonReleased(btn)),
+                        1 => Some(Event::ButtonPressed(btn)),
+                        _ => None,
+                    }
+                })
+            } else if event._type == EV_ABS {
+                if code == ABS_HAT0X || code == ABS_HAT0Y {
+                    match event.value {
+                        -1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadLeft)),
+                        -1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadUp)),
+                        1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadRight)),
+                        1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadDown)),
+                        // FIXME: Generate release event for each pressed button
+                        0 if code == ABS_HAT0X => Some(Event::ButtonReleased(Button::DPadRight)),
+                        0 if code == ABS_HAT0Y => Some(Event::ButtonReleased(Button::DPadUp)),
+                        _ => None,
+                    }
+                } else {
+                    Axis::from_u16(code).map(|axis| {
+                        let val = event.value as f32;
+                        let val = match axis {
+                            Axis::LeftStickX => val / self.axes_info.abs_x_max,
+                            Axis::LeftStickY => val / self.axes_info.abs_y_max,
+                            Axis::RightStickX => val / self.axes_info.abs_rx_max,
+                            Axis::RightStickY => val / self.axes_info.abs_ry_max,
+                            Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
+                            Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
+                            Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
+                            Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
+                        };
+                        Event::AxisChanged(axis, val)
+                    })
+                }
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -98,64 +142,6 @@ impl Mapping {
                 self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
             }
             _ => code,
-        }
-    }
-}
-
-pub struct EventIterator<'a>(&'a mut Gamepad);
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = Event;
-
-    fn next(&mut self) -> Option<Event> {
-        let mut buff = [0; 24];
-        let n = self.0.file.read(&mut buff).unwrap();
-        if n == 0 {
-            None
-        } else if n != 24 {
-            unimplemented!()
-        } else {
-            let event = unsafe { mem::transmute::<_, ioctl::input_event>(buff) };
-            let code = self.0.mapping.map(event.code, event._type);
-            if event._type == EV_KEY {
-                Button::from_u16(code).and_then(|btn| {
-                    match event.value {
-                        0 => Some(Event::ButtonReleased(btn)),
-                        1 => Some(Event::ButtonPressed(btn)),
-                        _ => None,
-                    }
-                })
-            } else if event._type == EV_ABS {
-                if code == ABS_HAT0X || code == ABS_HAT0Y {
-                    match event.value {
-                        -1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadLeft)),
-                        -1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadUp)),
-                        1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadRight)),
-                        1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadDown)),
-                        // FIXME: Generate release event for each pressed button
-                        0 if code == ABS_HAT0X => Some(Event::ButtonReleased(Button::DPadRight)),
-                        0 if code == ABS_HAT0Y => Some(Event::ButtonReleased(Button::DPadUp)),
-                        _ => None,
-                    }
-                } else {
-                    Axis::from_u16(code).map(|axis| {
-                        let val = event.value as f32;
-                        let val = match axis {
-                            Axis::LeftStickX => val / self.0.axes_info.abs_x_max,
-                            Axis::LeftStickY => val / self.0.axes_info.abs_y_max,
-                            Axis::RightStickX => val / self.0.axes_info.abs_rx_max,
-                            Axis::RightStickY => val / self.0.axes_info.abs_ry_max,
-                            Axis::LeftTrigger => val / self.0.axes_info.abs_left_tr_max,
-                            Axis::LeftTrigger2 => val / self.0.axes_info.abs_left_tr2_max,
-                            Axis::RightTrigger => val / self.0.axes_info.abs_right_tr_max,
-                            Axis::RightTrigger2 => val / self.0.axes_info.abs_right_tr2_max,
-                        };
-                        Event::AxisChanged(axis, val)
-                    })
-                }
-            } else {
-                None
-            }
         }
     }
 }
