@@ -1,5 +1,7 @@
 use libudev_sys as ud;
 use std::ffi::{CStr, CString};
+use std::ptr;
+use libc as c;
 
 #[derive(Debug)]
 pub struct Udev(*mut ud::udev);
@@ -116,6 +118,28 @@ impl Device {
         let prop = unsafe { ud::udev_device_get_properties_list_entry(self.0) };
         PropertyIterator(prop)
     }
+
+    pub fn action(&self) -> Option<&CStr> {
+        unsafe {
+            let s = ud::udev_device_get_action(self.0);
+            if s.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(s))
+            }
+        }
+    }
+
+    pub fn property_value(&self, key: &CStr) -> Option<&CStr> {
+        unsafe {
+            let s = ud::udev_device_get_property_value(self.0, key.as_ptr());
+            if s.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(s))
+            }
+        }
+    }
 }
 
 impl Clone for Device {
@@ -158,6 +182,50 @@ impl Iterator for PropertyIterator {
 
             self.0 = unsafe { ud::udev_list_entry_get_next(self.0) };
             Some((name, value))
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Monitor(*mut ud::udev_monitor);
+
+impl Monitor {
+    pub fn new(udev: &Udev) -> Option<Self> {
+        unsafe {
+            let monitor = ud::udev_monitor_new_from_netlink(udev.0,
+                                                            b"udev\0".as_ptr() as *const i8);
+            if monitor.is_null() {
+                None
+            } else {
+                ud::udev_monitor_filter_add_match_subsystem_devtype(monitor,
+                                                            b"input\0".as_ptr() as *const i8,
+                                                            ptr::null());
+                ud::udev_monitor_enable_receiving(monitor);
+                Some(Monitor(monitor))
+            }
+        }
+    }
+
+    pub fn hotplug_available(&self) -> bool {
+        unsafe {
+            let mut fds = c::pollfd {
+                fd: ud::udev_monitor_get_fd(self.0),
+                events: c::POLLIN,
+                revents: 0,
+            };
+            (c::poll(&mut fds as *mut _, 1, 0) == 1) && (fds.revents & c::POLLIN != 0)
+        }
+    }
+
+    pub fn device(&self) -> Device {
+        Device(unsafe { ud::udev_monitor_receive_device(self.0) })
+    }
+}
+
+impl Drop for Monitor {
+    fn drop(&mut self) {
+        unsafe {
+            ud::udev_monitor_unref(self.0);
         }
     }
 }

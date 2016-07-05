@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use super::udev::*;
-use std::ffi::CString;
+use std::ffi::{CString, CStr};
 use std::mem;
 use vec_map::VecMap;
 use libc as c;
@@ -13,6 +13,7 @@ use gamepad::{Event, Button, Axis};
 #[derive(Debug)]
 pub struct Gilrs {
     pub gamepads: Vec<Gamepad>,
+    monitor: Monitor,
 }
 
 impl Gilrs {
@@ -31,8 +32,37 @@ impl Gilrs {
                 gamepads.push(gamepad);
             }
         }
-        Gilrs { gamepads: gamepads }
+        Gilrs { gamepads: gamepads, monitor: Monitor::new(&udev).unwrap() }
     }
+
+    pub fn handle_hotplug(&self) -> Option<Gamepad> {
+        while self.monitor.hotplug_available() {
+            let dev = self.monitor.device();
+
+            if let Some(val) = dev.property_value(&CString::new("ID_INPUT_JOYSTICK").unwrap()) {
+                if !is_eq_cstr(val, b"1\0") {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+
+            let action = dev.action().unwrap();
+
+            if is_eq_cstr(action, b"add\0") {
+                if let Some(gamepad) = open_and_check(&dev) {
+                    return Some(gamepad);
+                }
+            } else if is_eq_cstr(action, b"remove\0") {
+                // TODO
+            }
+        }
+        None
+    }
+}
+
+fn is_eq_cstr(l: &CStr, r: &[u8]) -> bool {
+    unsafe { c::strcmp(l.as_ptr(), r.as_ptr() as *const i8) == 0 }
 }
 
 #[derive(Debug)]

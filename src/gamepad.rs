@@ -27,6 +27,13 @@ impl Gilrs {
         EventIterator(&mut self.gamepads[0])
     }
 
+    //TODO: Rewrite this function and merge with pool_events
+    pub fn handle_hotplug(&self) {
+        while let Some(gamepad) = self.gilrs.handle_hotplug() {
+            println!("Connected: {:?}", gamepad);
+        }
+    }
+
     pub fn gamepad(&self, n: usize) -> &Gamepad {
         self.gamepads.get(n).unwrap_or(&self.not_observed_gp)
     }
