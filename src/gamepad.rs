@@ -6,21 +6,29 @@ use std::mem;
 pub struct Gilrs {
     gilrs: platform::Gilrs,
     gamepads: Vec<Gamepad>,
+    // Use it to out of bound access
+    not_observed_gp: Gamepad,
 }
 
 impl Gilrs {
     pub fn new() -> Self {
         let mut p_gilrs = platform::Gilrs::new();
-        let gamepads = p_gilrs.gamepads.drain(0..).map(|gp| Gamepad::new(gp)).collect();
-        Gilrs { gilrs: p_gilrs, gamepads: gamepads }
+        let gamepads = p_gilrs.gamepads.drain(0..)
+            .map(|gp| Gamepad::new(gp, Status::Connected))
+            .collect();
+        Gilrs {
+            gilrs: p_gilrs,
+            gamepads: gamepads,
+            not_observed_gp: Gamepad::new(platform::Gamepad::none(), Status::NotObserved),
+        }
     }
 
     pub fn pool_events(&mut self) -> EventIterator {
         EventIterator(&mut self.gamepads[0])
     }
 
-    pub fn gamepad(&self, n: usize) -> Option<&Gamepad> {
-        self.gamepads.get(n)
+    pub fn gamepad(&self, n: usize) -> &Gamepad {
+        self.gamepads.get(n).unwrap_or(&self.not_observed_gp)
     }
 }
 
@@ -28,13 +36,15 @@ impl Gilrs {
 pub struct Gamepad {
     gamepad: platform::Gamepad,
     state: GamepadState,
+    status: Status,
 }
 
 impl Gamepad {
-    fn new(gamepad: platform::Gamepad) -> Self {
+    fn new(gamepad: platform::Gamepad, status: Status) -> Self {
         Gamepad {
             gamepad: gamepad,
             state: GamepadState::new(),
+            status: status,
         }
     }
 
@@ -44,6 +54,10 @@ impl Gamepad {
 
     pub fn state(&self) -> &GamepadState {
         &self.state
+    }
+
+    pub fn status(&self) -> Status {
+        self.status
     }
 
     pub fn is_pressed(&self, btn: Button) -> bool {
@@ -163,6 +177,13 @@ impl GamepadState {
             Axis::RightTrigger2 => self.right_trigger2 = val,
         };
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Status {
+    Connected,
+    Disconnected,
+    NotObserved,
 }
 
 pub struct EventIterator<'a>(&'a mut Gamepad);

@@ -58,10 +58,20 @@ struct AxesInfo {
 
 
 impl Gamepad {
+    pub fn none() -> Self {
+        Gamepad {
+            fd: -2,
+            axes_info: unsafe { mem::zeroed() },
+            mapping: Mapping::new(),
+            id: (0, 0),
+            name: String::new(),
+        }
+    }
+
     pub fn event(&mut self) -> Option<Event> {
         let mut event = unsafe { mem::uninitialized::<ioctl::input_event>() };
-        // Skip all unknow events and return Option on first know event or when there is no more
-        // events to read. Returning None on unknow event breaks iterators.
+        // Skip all unknown events and return Option on first know event or when there is no more
+        // events to read. Returning None on unknown event breaks iterators.
         loop {
             let n = unsafe { c::read(self.fd, mem::transmute(&mut event), 24) };
 
@@ -117,7 +127,9 @@ impl Gamepad {
                 }
                 _ => None,
             };
-            if ev.is_none() { continue; }
+            if ev.is_none() {
+                continue;
+            }
             return ev;
         }
     }
@@ -125,7 +137,11 @@ impl Gamepad {
 
 impl Drop for Gamepad {
     fn drop(&mut self) {
-        unsafe { c::close(self.fd); }
+        unsafe {
+            if self.fd >= 0 {
+                c::close(self.fd);
+            }
+        }
     }
 }
 
@@ -137,6 +153,12 @@ struct Mapping {
 }
 
 impl Mapping {
+    fn new() -> Self {
+        Mapping {
+            axes: VecMap::new(),
+            btns: VecMap::new(),
+        }
+    }
     fn map(&self, code: u16, kind: u16) -> u16 {
         match kind {
             EV_KEY => *self.btns.get((code - BTN_MISC) as usize).unwrap_or(&code),
@@ -294,10 +316,7 @@ fn open_and_check(dev: &Device) -> Option<Gamepad> {
 }
 
 fn get_mapping(vendor: u16, model: u16) -> Mapping {
-    let mut mapping = Mapping {
-        axes: VecMap::new(),
-        btns: VecMap::new(),
-    };
+    let mut mapping = Mapping::new();
 
     match vendor {
         0x045e => {
