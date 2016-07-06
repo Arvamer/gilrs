@@ -24,7 +24,7 @@ impl Gilrs {
     }
 
     pub fn pool_events(&mut self) -> EventIterator {
-        EventIterator(&mut self.gamepads[0])
+        EventIterator(&mut self.gamepads, 0)
     }
 
     //TODO: Rewrite this function and merge with pool_events
@@ -193,20 +193,34 @@ pub enum Status {
     NotObserved,
 }
 
-pub struct EventIterator<'a>(&'a mut Gamepad);
+pub struct EventIterator<'a>(&'a mut [Gamepad], usize);
 
 impl<'a> Iterator for EventIterator<'a> {
-    type Item = Event;
+    type Item = (usize, Event);
 
-    fn next(&mut self) -> Option<Event> {
-        self.0.gamepad.event().map(|ev| {
-            match ev {
-                Event::ButtonPressed(btn) => self.0.state.set_btn(btn, true),
-                Event::ButtonReleased(btn) => self.0.state.set_btn(btn, false),
-                Event::AxisChanged(axis, val) => self.0.state.set_axis(axis, val),
+    fn next(&mut self) -> Option<(usize, Event)> {
+        loop {
+            let mut gamepad = match self.0.get_mut(self.1) {
+                Some(gp) => gp,
+                None => return None,
+            };
+
+            match gamepad.gamepad.event() {
+                None => {
+                    self.1 += 1;
+                    continue;
+                }
+                Some(ev) => {
+                    match ev {
+                        Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
+                        Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
+                        Event::AxisChanged(axis, val) => gamepad.state.set_axis(axis, val),
+                        _ => unimplemented!(),
+                    }
+                    return Some((self.1, ev));
+                }
             }
-            ev
-        })
+        }
     }
 }
 
@@ -215,6 +229,8 @@ pub enum Event {
     ButtonPressed(Button),
     ButtonReleased(Button),
     AxisChanged(Axis, f32),
+    Connected,
+    Disconnected,
 }
 
 #[repr(u16)]
