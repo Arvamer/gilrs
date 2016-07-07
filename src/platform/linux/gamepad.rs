@@ -1,6 +1,3 @@
-// TODO: Do something with linux constants.
-#![allow(dead_code)]
-
 use super::udev::*;
 use std::ffi::{CString, CStr};
 use std::mem;
@@ -8,6 +5,7 @@ use vec_map::VecMap;
 use libc as c;
 use ioctl;
 use gamepad::{Event, Button, Axis, Status};
+use constants;
 
 
 #[derive(Debug)]
@@ -367,8 +365,10 @@ impl Mapping {
 
 impl Button {
     fn from_u16(btn: u16) -> Option<Self> {
-        if btn >= BTN_SOUTH && btn <= BTN_THUMBR || btn >= BTN_DPAD_UP && btn <= BTN_DPAD_RIGHT {
-            Some(unsafe { mem::transmute(btn) })
+        if btn >= BTN_SOUTH && btn <= BTN_THUMBR {
+            Some(unsafe { mem::transmute(btn - (BTN_SOUTH - constants::BTN_SOUTH)) })
+        } else if btn >= BTN_DPAD_UP && btn <= BTN_DPAD_RIGHT {
+            Some(unsafe { mem::transmute(btn - (BTN_DPAD_UP - constants::BTN_DPAD_UP)) })
         } else {
             None
         }
@@ -377,11 +377,16 @@ impl Button {
 
 impl Axis {
     fn from_u16(axis: u16) -> Option<Self> {
-        if axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY ||
-           axis >= ABS_HAT1X && axis <= ABS_HAT2Y {
-            Some(unsafe { mem::transmute(axis) })
-        } else {
-            None
+        match axis {
+            ABS_X => Some(Axis::LeftStickX),
+            ABS_Y => Some(Axis::LeftStickY),
+            ABS_RX => Some(Axis::RightStickX),
+            ABS_RY => Some(Axis::RightStickY),
+            ABS_HAT1Y => Some(Axis::LeftTrigger),
+            ABS_HAT2Y => Some(Axis::LeftTrigger2),
+            ABS_HAT1X => Some(Axis::RightTrigger),
+            ABS_HAT2X => Some(Axis::RightTrigger2),
+            _ => None,
         }
     }
 }
@@ -411,7 +416,6 @@ fn test_bit(n: u16, array: &[u8]) -> bool {
     (array[(n / 8) as usize] >> (n % 8)) & 1 != 0
 }
 
-
 const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
 const EV_KEY: u16 = 0x01;
@@ -420,24 +424,11 @@ const EV_ABS: u16 = 0x03;
 const BTN_MISC: u16 = 0x100;
 const BTN_GAMEPAD: u16 = 0x130;
 const BTN_SOUTH: u16 = 0x130;
-const BTN_EAST: u16 = 0x131;
-const BTN_C: u16 = 0x132;
 const BTN_NORTH: u16 = 0x133;
 const BTN_WEST: u16 = 0x134;
-const BTN_Z: u16 = 0x135;
-const BTN_TL: u16 = 0x136;
-const BTN_TR: u16 = 0x137;
-const BTN_TL2: u16 = 0x138;
-const BTN_TR2: u16 = 0x139;
-const BTN_SELECT: u16 = 0x13a;
-const BTN_START: u16 = 0x13b;
-const BTN_MODE: u16 = 0x13c;
-const BTN_THUMBL: u16 = 0x13d;
 const BTN_THUMBR: u16 = 0x13e;
 
 const BTN_DPAD_UP: u16 = 0x220;
-const BTN_DPAD_DOWN: u16 = 0x221;
-const BTN_DPAD_LEFT: u16 = 0x222;
 const BTN_DPAD_RIGHT: u16 = 0x223;
 
 const ABS_X: u16 = 0x00;

@@ -1,6 +1,7 @@
 use platform;
 
 use std::mem;
+use constants::*;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -277,17 +278,17 @@ pub enum Button {
     C = BTN_C,
     Z = BTN_Z,
     // Triggers
-    LeftTrigger = BTN_TL,
-    LeftTrigger2 = BTN_TL2,
-    RightTrigger = BTN_TR,
-    RightTrigger2 = BTN_TR2,
+    LeftTrigger = BTN_LT,
+    LeftTrigger2 = BTN_LT2,
+    RightTrigger = BTN_RT,
+    RightTrigger2 = BTN_RT2,
     // Menu Pad
     Select = BTN_SELECT,
     Start = BTN_START,
     Mode = BTN_MODE,
     // Sticks
-    LeftThumb = BTN_THUMBL,
-    RightThumb = BTN_THUMBR,
+    LeftThumb = BTN_LTHUMB,
+    RightThumb = BTN_RTHUMB,
     // D-Pad
     DPadUp = BTN_DPAD_UP,
     DPadDown = BTN_DPAD_DOWN,
@@ -298,43 +299,13 @@ pub enum Button {
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Axis {
-    LeftStickX = ABS_X,
-    LeftStickY = ABS_Y,
-    RightStickX = ABS_RX,
-    RightStickY = ABS_RY,
-    LeftTrigger = ABS_HAT1Y,
-    LeftTrigger2 = ABS_HAT2Y,
-    RightTrigger = ABS_HAT1X,
-    RightTrigger2 = ABS_HAT2X,
+    LeftStickX = AXIS_LSTICKX,
+    LeftStickY = AXIS_LSTICKY,
+    RightStickX = AXIS_RSTICKX,
+    RightStickY = AXIS_RSTICKY,
+    LeftTrigger = AXIS_LT,
+    LeftTrigger2 = AXIS_LT2,
+    RightTrigger = AXIS_RT,
+    RightTrigger2 = AXIS_RT2,
 }
 
-// Move this to platform::linux
-const BTN_SOUTH: u16 = 0x130;
-const BTN_EAST: u16 = 0x131;
-const BTN_C: u16 = 0x132;
-const BTN_NORTH: u16 = 0x133;
-const BTN_WEST: u16 = 0x134;
-const BTN_Z: u16 = 0x135;
-const BTN_TL: u16 = 0x136;
-const BTN_TR: u16 = 0x137;
-const BTN_TL2: u16 = 0x138;
-const BTN_TR2: u16 = 0x139;
-const BTN_SELECT: u16 = 0x13a;
-const BTN_START: u16 = 0x13b;
-const BTN_MODE: u16 = 0x13c;
-const BTN_THUMBL: u16 = 0x13d;
-const BTN_THUMBR: u16 = 0x13e;
-
-const BTN_DPAD_UP: u16 = 0x220;
-const BTN_DPAD_DOWN: u16 = 0x221;
-const BTN_DPAD_LEFT: u16 = 0x222;
-const BTN_DPAD_RIGHT: u16 = 0x223;
-
-const ABS_X: u16 = 0x00;
-const ABS_Y: u16 = 0x01;
-const ABS_RX: u16 = 0x03;
-const ABS_RY: u16 = 0x04;
-const ABS_HAT1X: u16 = 0x12;
-const ABS_HAT1Y: u16 = 0x13;
-const ABS_HAT2X: u16 = 0x14;
-const ABS_HAT2Y: u16 = 0x15;
