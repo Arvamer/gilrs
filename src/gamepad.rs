@@ -114,10 +114,10 @@ impl Gamepad {
             Button::LeftThumb => self.state.btn_left_thumb,
             Button::RightThumb => self.state.btn_right_thumb,
 
-            Button::DPadUp => self.state.dpad_up,
-            Button::DPadDown => self.state.dpad_down,
-            Button::DPadLeft => self.state.dpad_left,
-            Button::DPadRight => self.state.dpad_right,
+            Button::DPadUp => self.state.dpad.0 > 0.0,
+            Button::DPadDown => self.state.dpad.0 < 0.0,
+            Button::DPadRight => self.state.dpad.1 > 0.0,
+            Button::DPadLeft => self.state.dpad.1 < 0.0,
         }
     }
 
@@ -127,6 +127,8 @@ impl Gamepad {
             Axis::LeftStickY => self.state.left_stick.1,
             Axis::RightStickX => self.state.right_stick.0,
             Axis::RightStickY => self.state.right_stick.1,
+            Axis::DPadX => self.state.dpad.0,
+            Axis::DPadY => self.state.dpad.1,
             Axis::LeftTrigger => self.state.left_trigger,
             Axis::LeftTrigger2 => self.state.left_trigger2,
             Axis::RightTrigger => self.state.right_trigger,
@@ -159,10 +161,7 @@ pub struct GamepadState {
     pub btn_start: bool,
     pub btn_mode: bool,
     // dpad
-    pub dpad_up: bool,
-    pub dpad_down: bool,
-    pub dpad_left: bool,
-    pub dpad_right: bool,
+    pub dpad: (f32, f32),
 }
 
 impl GamepadState {
@@ -191,10 +190,10 @@ impl GamepadState {
             Button::LeftThumb => self.btn_left_thumb = val,
             Button::RightThumb => self.btn_right_thumb = val,
 
-            Button::DPadUp => self.dpad_up = val,
-            Button::DPadDown => self.dpad_down = val,
-            Button::DPadLeft => self.dpad_left = val,
-            Button::DPadRight => self.dpad_right = val,
+            Button::DPadUp => self.dpad.0 = if val { 1.0 } else { 0.0 },
+            Button::DPadDown => self.dpad.0 = if val { -1.0 } else { 0.0 },
+            Button::DPadRight => self.dpad.1 = if val { 1.0 } else { 0.0 },
+            Button::DPadLeft => self.dpad.1 = if val { -1.0 } else { 0.0 },
         };
     }
 
@@ -204,6 +203,8 @@ impl GamepadState {
             Axis::LeftStickY => self.left_stick.1 = val,
             Axis::RightStickX => self.right_stick.0 = val,
             Axis::RightStickY => self.right_stick.1 = val,
+            Axis::DPadX => self.dpad.0 = val,
+            Axis::DPadY => self.dpad.1 = val,
             Axis::LeftTrigger => self.left_trigger = val,
             Axis::LeftTrigger2 => self.left_trigger2 = val,
             Axis::RightTrigger => self.right_trigger = val,
@@ -303,6 +304,8 @@ pub enum Axis {
     LeftStickY = AXIS_LSTICKY,
     RightStickX = AXIS_RSTICKX,
     RightStickY = AXIS_RSTICKY,
+    DPadX = AXIS_DPADX,
+    DPadY = AXIS_DPADY,
     LeftTrigger = AXIS_LT,
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,

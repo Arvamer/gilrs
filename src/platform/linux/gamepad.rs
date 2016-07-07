@@ -84,6 +84,8 @@ struct AxesInfo {
     abs_y_max: f32,
     abs_rx_max: f32,
     abs_ry_max: f32,
+    abs_dpadx_max: f32,
+    abs_dpady_max: f32,
     abs_left_tr_max: f32,
     abs_right_tr_max: f32,
     abs_left_tr2_max: f32,
@@ -189,6 +191,18 @@ impl Gamepad {
             }
 
             if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_HAT0X, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_dpadx_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_HAT0Y, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_dpady_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
                                 mapping.map_rev(ABS_HAT1X, EV_ABS) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_right_tr_max = absi.maximum as f32;
@@ -258,35 +272,22 @@ impl Gamepad {
                     })
                 }
                 EV_ABS => {
-                    if code == ABS_HAT0X || code == ABS_HAT0Y {
-                        match event.value {
-                            -1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadLeft)),
-                            -1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadUp)),
-                            1 if code == ABS_HAT0X => Some(Event::ButtonPressed(Button::DPadRight)),
-                            1 if code == ABS_HAT0Y => Some(Event::ButtonPressed(Button::DPadDown)),
-                            // FIXME: Generate release event for each pressed button
-                            0 if code == ABS_HAT0X => {
-                                Some(Event::ButtonReleased(Button::DPadRight))
-                            }
-                            0 if code == ABS_HAT0Y => Some(Event::ButtonReleased(Button::DPadUp)),
-                            _ => None,
-                        }
-                    } else {
-                        Axis::from_u16(code).map(|axis| {
-                            let val = event.value as f32;
-                            let val = match axis {
-                                Axis::LeftStickX => val / self.axes_info.abs_x_max,
-                                Axis::LeftStickY => val / self.axes_info.abs_y_max,
-                                Axis::RightStickX => val / self.axes_info.abs_rx_max,
-                                Axis::RightStickY => val / self.axes_info.abs_ry_max,
-                                Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
-                                Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
-                                Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
-                                Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
-                            };
-                            Event::AxisChanged(axis, val)
-                        })
-                    }
+                    Axis::from_u16(code).map(|axis| {
+                        let val = event.value as f32;
+                        let val = match axis {
+                            Axis::LeftStickX => val / self.axes_info.abs_x_max,
+                            Axis::LeftStickY => val / self.axes_info.abs_y_max,
+                            Axis::RightStickX => val / self.axes_info.abs_rx_max,
+                            Axis::RightStickY => val / self.axes_info.abs_ry_max,
+                            Axis::DPadX => val / self.axes_info.abs_dpadx_max,
+                            Axis::DPadY => val / self.axes_info.abs_dpady_max,
+                            Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
+                            Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
+                            Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
+                            Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
+                        };
+                        Event::AxisChanged(axis, val)
+                    })
                 }
                 _ => None,
             };
@@ -382,6 +383,8 @@ impl Axis {
             ABS_Y => Some(Axis::LeftStickY),
             ABS_RX => Some(Axis::RightStickX),
             ABS_RY => Some(Axis::RightStickY),
+            ABS_HAT0X => Some(Axis::DPadX),
+            ABS_HAT0Y => Some(Axis::DPadY),
             ABS_HAT1Y => Some(Axis::LeftTrigger),
             ABS_HAT2Y => Some(Axis::LeftTrigger2),
             ABS_HAT1X => Some(Axis::RightTrigger),

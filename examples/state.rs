@@ -9,7 +9,7 @@ fn main() {
         for _ in gilrs.pool_events() {}
         // Clear
         print!("{}[2J", 0o33 as char);
-        println!("{:#?}", gilrs.gamepad(0).unwrap().state());
+        println!("{:#?}", gilrs.gamepad(0).state());
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
 }
