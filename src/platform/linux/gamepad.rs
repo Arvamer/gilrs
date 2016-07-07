@@ -7,7 +7,7 @@ use std::mem;
 use vec_map::VecMap;
 use libc as c;
 use ioctl;
-use gamepad::{Event, Button, Axis};
+use gamepad::{Event, Button, Axis, Status};
 
 
 #[derive(Debug)]
@@ -32,10 +32,13 @@ impl Gilrs {
                 gamepads.push(gamepad);
             }
         }
-        Gilrs { gamepads: gamepads, monitor: Monitor::new(&udev).unwrap() }
+        Gilrs {
+            gamepads: gamepads,
+            monitor: Monitor::new(&udev).unwrap(),
+        }
     }
 
-    pub fn handle_hotplug(&self) -> Option<Gamepad> {
+    pub fn handle_hotplug(&mut self) -> Option<(Gamepad, Status)> {
         while self.monitor.hotplug_available() {
             let dev = self.monitor.device();
 
@@ -51,10 +54,12 @@ impl Gilrs {
 
             if is_eq_cstr(action, b"add\0") {
                 if let Some(gamepad) = open_and_check(&dev) {
-                    return Some(gamepad);
+                    return Some((gamepad, Status::Connected));
                 }
             } else if is_eq_cstr(action, b"remove\0") {
-                // TODO
+                if let Some(gamepad) = Gamepad::dummy(&dev) {
+                    return Some((gamepad, Status::Disconnected));
+                }
             }
         }
         None
@@ -71,6 +76,7 @@ pub struct Gamepad {
     axes_info: AxesInfo,
     mapping: Mapping,
     id: (u16, u16),
+    devpath: String,
     pub name: String,
 }
 
@@ -90,12 +96,30 @@ struct AxesInfo {
 impl Gamepad {
     pub fn none() -> Self {
         Gamepad {
-            fd: -2,
+            fd: -3,
             axes_info: unsafe { mem::zeroed() },
             mapping: Mapping::new(),
             id: (0, 0),
+            devpath: String::new(),
             name: String::new(),
         }
+    }
+
+    fn dummy(dev: &Device) -> Option<Self> {
+        dev.devnode().map(|devpath| {
+            Gamepad {
+                fd: -3,
+                axes_info: unsafe { mem::uninitialized() },
+                mapping: Mapping::new(),
+                id: (0, 0),
+                devpath: devpath.to_string_lossy().into_owned(),
+                name: String::new(),
+            }
+        })
+    }
+
+    pub fn eq_disconnect(&self, other: &Self) -> bool {
+        self.devpath == other.devpath
     }
 
     pub fn event(&mut self) -> Option<Event> {
@@ -162,6 +186,16 @@ impl Gamepad {
             }
             return ev;
         }
+    }
+
+    pub fn disconnect(&mut self) {
+        unsafe {
+            if self.fd >= 0 {
+                c::close(self.fd);
+            }
+        }
+        self.fd = -2;
+        self.devpath.clear();
     }
 }
 
@@ -336,6 +370,7 @@ fn open_and_check(dev: &Device) -> Option<Gamepad> {
             axes_info: axesi,
             mapping: mapping,
             id: (id_vendor, id_model),
+            devpath: path.to_string_lossy().into_owned(),
             name: name,
         };
 

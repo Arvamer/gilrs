@@ -24,14 +24,31 @@ impl Gilrs {
     }
 
     pub fn pool_events(&mut self) -> EventIterator {
-        EventIterator(&mut self.gamepads, 0)
+        EventIterator(self, 0)
     }
 
-    //TODO: Rewrite this function and merge with pool_events
-    pub fn handle_hotplug(&self) {
-        while let Some(gamepad) = self.gilrs.handle_hotplug() {
-            println!("Connected: {:?}", gamepad);
-        }
+    fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
+        self.gilrs.handle_hotplug().and_then(|(gamepad, status)| {
+            match status {
+                Status::Connected => Some((self.gamepad_connected(gamepad), Event::Connected)),
+                Status::Disconnected => self.gamepad_disconnected(gamepad).map(|id| (id, Event::Disconnected)),
+                Status::NotObserved => unreachable!(),
+            }
+        })
+    }
+
+    fn gamepad_connected(&mut self, gamepad: platform::Gamepad) -> usize {
+        // TODO: Reuse id of disconnected gamepad if connected gamepad is same
+        self.gamepads.push(Gamepad::new(gamepad, Status::Connected));
+        self.gamepads.len() - 1
+    }
+
+    fn gamepad_disconnected(&mut self, gamepad: platform::Gamepad) -> Option<usize> {
+        self.gamepads.iter().position(|gp| gp.gamepad.eq_disconnect(&gamepad)).map(|id| {
+            self.gamepads[id].gamepad.disconnect();
+            self.gamepads[id].status = Status::Disconnected;
+            id
+        })
     }
 
     pub fn gamepad(&self, n: usize) -> &Gamepad {
@@ -193,17 +210,25 @@ pub enum Status {
     NotObserved,
 }
 
-pub struct EventIterator<'a>(&'a mut [Gamepad], usize);
+pub struct EventIterator<'a>(&'a mut Gilrs, usize);
 
 impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
         loop {
-            let mut gamepad = match self.0.get_mut(self.1) {
+            if let Some(ev) = self.0.handle_hotplug() {
+                return Some(ev);
+            }
+
+            let mut gamepad = match self.0.gamepads.get_mut(self.1) {
                 Some(gp) => gp,
                 None => return None,
             };
+
+            if gamepad.status != Status::Connected {
+                continue;
+            }
 
             match gamepad.gamepad.event() {
                 None => {
@@ -215,7 +240,7 @@ impl<'a> Iterator for EventIterator<'a> {
                         Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
                         Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
                         Event::AxisChanged(axis, val) => gamepad.state.set_axis(axis, val),
-                        _ => unimplemented!(),
+                        _ => unreachable!(),
                     }
                     return Some((self.1, ev));
                 }
