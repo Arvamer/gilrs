@@ -28,7 +28,7 @@ impl Gilrs {
 
         for dev in en.iter() {
             let dev = Device::from_syspath(&udev, &dev).unwrap();
-            if let Some(gamepad) = open_and_check(&dev) {
+            if let Some(gamepad) = Gamepad::open(&dev) {
                 gamepads.push(gamepad);
             }
         }
@@ -53,7 +53,7 @@ impl Gilrs {
             let action = dev.action().unwrap();
 
             if is_eq_cstr(action, b"add\0") {
-                if let Some(gamepad) = open_and_check(&dev) {
+                if let Some(gamepad) = Gamepad::open(&dev) {
                     return Some((gamepad, Status::Connected));
                 }
             } else if is_eq_cstr(action, b"remove\0") {
@@ -116,6 +116,117 @@ impl Gamepad {
                 name: String::new(),
             }
         })
+    }
+
+    fn open(dev: &Device) -> Option<Gamepad> {
+        let path = match dev.devnode() {
+            Some(path) => path,
+            None => return None,
+        };
+
+        unsafe {
+            let fd = c::open(path.as_ptr(), c::O_RDONLY | c::O_NONBLOCK);
+            if fd < 0 {
+                return None;
+            }
+
+            let mut ev_bits = [0u8; EV_MAX as usize];
+            let mut key_bits = [0u8; KEY_MAX as usize];
+
+            if ioctl::eviocgbit(fd, 0, EV_MAX as i32, ev_bits.as_mut_ptr()) < 0 ||
+               ioctl::eviocgbit(fd, EV_KEY as u32, KEY_MAX as i32, key_bits.as_mut_ptr()) < 0 {
+                c::close(fd);
+                return None;
+            }
+
+            let mut id_model = 0u16;
+            let mut id_vendor = 0u16;
+            let mut name = String::new();
+
+            for (key, val) in dev.properties() {
+                if key == "ID_MODEL_ID" {
+                    id_model = u16::from_str_radix(&val, 16).unwrap_or(0);
+                }
+                if key == "ID_VENDOR_ID" {
+                    id_vendor = u16::from_str_radix(&val, 16).unwrap_or(0);
+                }
+                if key == "ID_MODEL" {
+                    name = val;
+                }
+            }
+
+            let mapping = get_mapping(id_vendor, id_model);
+
+            if !test_bit(BTN_GAMEPAD, &key_bits) {
+                println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
+                c::close(fd);
+                return None;
+            }
+
+            let mut absi = ioctl::input_absinfo::default();
+            let mut axesi = mem::zeroed::<AxesInfo>();
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_X, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_x_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_Y, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_y_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_RX, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_rx_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_RY, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_ry_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_HAT1X, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_right_tr_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_HAT1Y, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_left_tr_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_HAT2X, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_right_tr2_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_HAT2Y, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_left_tr2_max = absi.maximum as f32;
+            }
+
+            let gamepad = Gamepad {
+                fd: fd,
+                axes_info: axesi,
+                mapping: mapping,
+                id: (id_vendor, id_model),
+                devpath: path.to_string_lossy().into_owned(),
+                name: name,
+            };
+
+            println!("{:#?}", gamepad);
+
+            Some(gamepad)
+        }
     }
 
     pub fn eq_disconnect(&self, other: &Self) -> bool {
@@ -266,117 +377,6 @@ impl Axis {
         } else {
             None
         }
-    }
-}
-
-fn open_and_check(dev: &Device) -> Option<Gamepad> {
-    let path = match dev.devnode() {
-        Some(path) => path,
-        None => return None,
-    };
-
-    unsafe {
-        let fd = c::open(path.as_ptr(), c::O_RDONLY | c::O_NONBLOCK);
-        if fd < 0 {
-            return None;
-        }
-
-        let mut ev_bits = [0u8; EV_MAX as usize];
-        let mut key_bits = [0u8; KEY_MAX as usize];
-
-        if ioctl::eviocgbit(fd, 0, EV_MAX as i32, ev_bits.as_mut_ptr()) < 0 ||
-           ioctl::eviocgbit(fd, EV_KEY as u32, KEY_MAX as i32, key_bits.as_mut_ptr()) < 0 {
-            c::close(fd);
-            return None;
-        }
-
-        let mut id_model = 0u16;
-        let mut id_vendor = 0u16;
-        let mut name = String::new();
-
-        for (key, val) in dev.properties() {
-            if key == "ID_MODEL_ID" {
-                id_model = u16::from_str_radix(&val, 16).unwrap_or(0);
-            }
-            if key == "ID_VENDOR_ID" {
-                id_vendor = u16::from_str_radix(&val, 16).unwrap_or(0);
-            }
-            if key == "ID_MODEL" {
-                name = val;
-            }
-        }
-
-        let mapping = get_mapping(id_vendor, id_model);
-
-        if !test_bit(BTN_GAMEPAD, &key_bits) {
-            println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
-            c::close(fd);
-            return None;
-        }
-
-        let mut absi = ioctl::input_absinfo::default();
-        let mut axesi = mem::zeroed::<AxesInfo>();
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_X, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_x_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_Y, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_y_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_RX, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_rx_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_RY, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_ry_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_HAT1X, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_right_tr_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_HAT1Y, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_left_tr_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_HAT2X, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_right_tr2_max = absi.maximum as f32;
-        }
-
-        if ioctl::eviocgabs(fd,
-                            mapping.map_rev(ABS_HAT2Y, EV_ABS) as u32,
-                            &mut absi as *mut _) >= 0 {
-            axesi.abs_left_tr2_max = absi.maximum as f32;
-        }
-
-        let gamepad = Gamepad {
-            fd: fd,
-            axes_info: axesi,
-            mapping: mapping,
-            id: (id_vendor, id_model),
-            devpath: path.to_string_lossy().into_owned(),
-            name: name,
-        };
-
-        println!("{:#?}", gamepad);
-
-        Some(gamepad)
     }
 }
 
