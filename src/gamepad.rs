@@ -4,7 +4,7 @@ use std::mem;
 
 #[derive(Debug)]
 pub struct Gilrs {
-    gilrs: platform::Gilrs,
+    inner: platform::Gilrs,
     gamepads: Vec<Gamepad>,
     // Use it to out of bound access
     not_observed_gp: Gamepad,
@@ -12,12 +12,12 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub fn new() -> Self {
-        let mut p_gilrs = platform::Gilrs::new();
-        let gamepads = p_gilrs.gamepads.drain(0..)
+        let mut inner = platform::Gilrs::new();
+        let gamepads = inner.gamepads.drain(0..)
             .map(|gp| Gamepad::new(gp, Status::Connected))
             .collect();
         Gilrs {
-            gilrs: p_gilrs,
+            inner: inner,
             gamepads: gamepads,
             not_observed_gp: Gamepad::new(platform::Gamepad::none(), Status::NotObserved),
         }
@@ -28,7 +28,7 @@ impl Gilrs {
     }
 
     fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
-        self.gilrs.handle_hotplug().and_then(|(gamepad, status)| {
+        self.inner.handle_hotplug().and_then(|(gamepad, status)| {
             match status {
                 Status::Connected => Some((self.gamepad_connected(gamepad), Event::Connected)),
                 Status::Disconnected => self.gamepad_disconnected(gamepad).map(|id| (id, Event::Disconnected)),
@@ -44,8 +44,8 @@ impl Gilrs {
     }
 
     fn gamepad_disconnected(&mut self, gamepad: platform::Gamepad) -> Option<usize> {
-        self.gamepads.iter().position(|gp| gp.gamepad.eq_disconnect(&gamepad)).map(|id| {
-            self.gamepads[id].gamepad.disconnect();
+        self.gamepads.iter().position(|gp| gp.inner.eq_disconnect(&gamepad)).map(|id| {
+            self.gamepads[id].inner.disconnect();
             self.gamepads[id].status = Status::Disconnected;
             id
         })
@@ -58,7 +58,7 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    gamepad: platform::Gamepad,
+    inner: platform::Gamepad,
     state: GamepadState,
     status: Status,
 }
@@ -66,14 +66,14 @@ pub struct Gamepad {
 impl Gamepad {
     fn new(gamepad: platform::Gamepad, status: Status) -> Self {
         Gamepad {
-            gamepad: gamepad,
+            inner: gamepad,
             state: GamepadState::new(),
             status: status,
         }
     }
 
     pub fn name(&self) -> &String {
-        &self.gamepad.name
+        &self.inner.name
     }
 
     pub fn state(&self) -> &GamepadState {
@@ -230,7 +230,7 @@ impl<'a> Iterator for EventIterator<'a> {
                 continue;
             }
 
-            match gamepad.gamepad.event() {
+            match gamepad.inner.event() {
                 None => {
                     self.1 += 1;
                     continue;
