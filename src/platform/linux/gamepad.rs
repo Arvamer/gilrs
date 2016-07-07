@@ -320,6 +320,12 @@ impl Drop for Gamepad {
     }
 }
 
+impl PartialEq for Gamepad {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 #[derive(Debug)]
 struct Mapping {
     axes: VecMap<u16>,

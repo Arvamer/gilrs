@@ -38,9 +38,17 @@ impl Gilrs {
     }
 
     fn gamepad_connected(&mut self, gamepad: platform::Gamepad) -> usize {
-        // TODO: Reuse id of disconnected gamepad if connected gamepad is same
-        self.gamepads.push(Gamepad::new(gamepad, Status::Connected));
-        self.gamepads.len() - 1
+        match self.gamepads.iter()
+                           .position(|gp| gp.status == Status::Disconnected && gp.inner == gamepad) {
+            Some(id) => {
+                self.gamepads[id] = Gamepad::new(gamepad, Status::Connected);
+                id
+            }
+            None => {
+                self.gamepads.push(Gamepad::new(gamepad, Status::Connected));
+                self.gamepads.len() - 1
+            }
+        }
     }
 
     fn gamepad_disconnected(&mut self, gamepad: platform::Gamepad) -> Option<usize> {
