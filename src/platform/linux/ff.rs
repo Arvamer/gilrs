@@ -51,6 +51,15 @@ impl<'a> Effect<'a> {
     }
 }
 
+impl<'a> Drop for Effect<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            // bug in ioctl crate, second argument is i32 not pointer to i32
+            ioctl::eviocrmff(self.gamepad.fd(), mem::transmute(self.id as isize));
+        }
+    }
+}
+
 impl Into<ff_effect> for EffectData {
     fn into(self) -> ff_effect {
         let mut effect = ff_effect {
