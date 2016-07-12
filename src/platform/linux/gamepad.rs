@@ -105,6 +105,10 @@ impl Gamepad {
         }
     }
 
+    pub fn fd(&self) -> i32 {
+        self.fd
+    }
+
     fn dummy(dev: &Device) -> Option<Self> {
         dev.devnode().map(|devpath| {
             Gamepad {
@@ -125,7 +129,7 @@ impl Gamepad {
         };
 
         unsafe {
-            let fd = c::open(path.as_ptr(), c::O_RDONLY | c::O_NONBLOCK);
+            let fd = c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK);
             if fd < 0 {
                 return None;
             }

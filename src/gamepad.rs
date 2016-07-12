@@ -3,6 +3,8 @@ use platform;
 use std::mem;
 use constants::*;
 
+use GamepadExt;
+
 #[derive(Debug)]
 pub struct Gilrs {
     inner: platform::Gilrs,
@@ -118,6 +120,8 @@ impl Gamepad {
             Button::DPadDown => self.state.dpad.0 < 0.0,
             Button::DPadRight => self.state.dpad.1 > 0.0,
             Button::DPadLeft => self.state.dpad.1 < 0.0,
+
+            Button::Unknow => false,
         }
     }
 
@@ -134,6 +138,12 @@ impl Gamepad {
             Axis::RightTrigger => self.state.right_trigger,
             Axis::RightTrigger2 => self.state.right_trigger2,
         }
+    }
+}
+
+impl GamepadExt for Gamepad {
+    fn inner(&self) -> &platform::Gamepad {
+        &self.inner
     }
 }
 
@@ -194,6 +204,8 @@ impl GamepadState {
             Button::DPadDown => self.dpad.0 = if val { -1.0 } else { 0.0 },
             Button::DPadRight => self.dpad.1 = if val { 1.0 } else { 0.0 },
             Button::DPadLeft => self.dpad.1 = if val { -1.0 } else { 0.0 },
+
+            Button::Unknow => (),
         };
     }
 
@@ -295,6 +307,12 @@ pub enum Button {
     DPadDown = BTN_DPAD_DOWN,
     DPadLeft = BTN_DPAD_LEFT,
     DPadRight = BTN_DPAD_RIGHT,
+
+    Unknow,
+}
+
+impl Default for Button {
+    fn default() -> Self { Button::Unknow }
 }
 
 #[repr(u16)]
