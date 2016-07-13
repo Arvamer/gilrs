@@ -1,9 +1,7 @@
 use platform;
-
 use std::mem;
 use constants::*;
-
-use GamepadExt;
+use ff::EffectData;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -65,6 +63,10 @@ impl Gilrs {
     pub fn gamepad(&self, n: usize) -> &Gamepad {
         self.gamepads.get(n).unwrap_or(&self.not_observed_gp)
     }
+
+    pub fn gamepad_mut(&mut self, n: usize) -> &mut Gamepad {
+        self.gamepads.get_mut(n).unwrap_or(&mut self.not_observed_gp)
+    }
 }
 
 #[derive(Debug)]
@@ -72,14 +74,17 @@ pub struct Gamepad {
     inner: platform::Gamepad,
     state: GamepadState,
     status: Status,
+    ff_effects: Vec<Option<Effect>>,
 }
 
 impl Gamepad {
     fn new(gamepad: platform::Gamepad, status: Status) -> Self {
+        let max_effects = gamepad.max_ff_effects();
         Gamepad {
             inner: gamepad,
             state: GamepadState::new(),
             status: status,
+            ff_effects: (0..max_effects).map(|_| None).collect(),
         }
     }
 
@@ -139,11 +144,47 @@ impl Gamepad {
             Axis::RightTrigger2 => self.state.right_trigger2,
         }
     }
+
+    pub fn add_ff_effect(&mut self, data: EffectData) -> Option<usize> {
+        self.ff_effects.iter().position(|effect| effect.is_none()).and_then(|pos| {
+            Effect::new(self, data).map(|effect| {
+                unsafe {
+                    *self.ff_effects.get_unchecked_mut(pos) = Some(effect);
+                }
+                pos
+            })
+        })
+    }
+
+    pub fn drop_ff_effect(&mut self, idx: usize) {
+        self.ff_effects.get_mut(idx).map(|effect| effect.take());
+    }
+
+    pub fn ff_effect(&mut self, idx: usize) -> Option<&mut Effect> {
+        self.ff_effects.get_mut(idx).and_then(|effect| effect.as_mut())
+    }
 }
 
-impl GamepadExt for Gamepad {
-    fn inner(&self) -> &platform::Gamepad {
-        &self.inner
+#[derive(Debug)]
+pub struct Effect {
+    inner: platform::Effect,
+}
+
+impl Effect {
+    fn new(gamepad: &Gamepad, data: EffectData) -> Option<Self> {
+        platform::Effect::new(&gamepad.inner, data).map(|effect| Effect { inner: effect })
+    }
+
+    pub fn upload(&mut self, data: EffectData) -> Option<()> {
+        self.inner.upload(data)
+    }
+
+    pub fn play(&mut self, n: u16) {
+        self.inner.play(n)
+    }
+
+    pub fn stop(&mut self) {
+        self.inner.stop()
     }
 }
 

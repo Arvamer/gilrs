@@ -1,30 +1,7 @@
-use gamepad::{Button, Gamepad};
+use gamepad::Button;
 use std::u16::MAX as U16_MAX;
-use platform;
-use GamepadExt;
 
-#[derive(Debug)]
-pub struct Effect<'a> {
-    inner: platform::Effect<'a>,
-}
-
-impl<'a> Effect<'a> {
-    pub fn new(gamepad: &'a Gamepad, data: EffectData) -> Option<Self> {
-        platform::Effect::new(gamepad.inner(), data).map(|effect| Effect { inner: effect })
-    }
-
-    pub fn upload(&mut self, data: EffectData) -> Option<()> {
-        self.inner.upload(data)
-    }
-
-    pub fn play(&mut self, n: u16) {
-        self.inner.play(n)
-    }
-
-    pub fn stop(&mut self) {
-        self.inner.stop()
-    }
-}
+pub use gamepad::Effect;
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct EffectData {

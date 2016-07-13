@@ -311,6 +311,14 @@ impl Gamepad {
         self.fd = -2;
         self.devpath.clear();
     }
+
+    pub fn max_ff_effects(&self) -> usize {
+        let mut max_effects = 0;
+        unsafe {
+            ioctl::eviocgeffects(self.fd, &mut max_effects as *mut _);
+        }
+        max_effects as usize
+    }
 }
 
 impl Drop for Gamepad {

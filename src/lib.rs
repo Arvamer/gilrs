@@ -14,7 +14,3 @@ pub mod constants;
 pub mod ff;
 
 pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis};
-
-trait GamepadExt {
-    fn inner(&self) -> &platform::Gamepad;
-}

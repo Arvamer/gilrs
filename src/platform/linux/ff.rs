@@ -6,13 +6,13 @@ use libc as c;
 use std::mem;
 
 #[derive(Debug)]
-pub struct Effect<'a> {
+pub struct Effect {
     id: i16,
-    gamepad: &'a Gamepad,
+    fd: i32,
 }
 
-impl<'a> Effect<'a> {
-    pub fn new(gamepad: &'a Gamepad, data: EffectData) -> Option<Self> {
+impl Effect {
+    pub fn new(gamepad: &Gamepad, data: EffectData) -> Option<Self> {
         let mut data: ff_effect = data.into();
         let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data as *mut _) };
         if res == -1 {
@@ -20,7 +20,7 @@ impl<'a> Effect<'a> {
         } else {
             Some(Effect {
                 id: data.id,
-                gamepad: gamepad,
+                fd: gamepad.fd(),
             })
         }
     }
@@ -28,7 +28,7 @@ impl<'a> Effect<'a> {
     pub fn upload(&mut self, data: EffectData) -> Option<()> {
         let mut data: ff_effect = data.into();
         data.id = self.id;
-        let res = unsafe { ioctl::eviocsff(self.gamepad.fd(), &mut data as *mut _) };
+        let res = unsafe { ioctl::eviocsff(self.fd, &mut data as *mut _) };
         if res == -1 {
             None
         } else {
@@ -43,7 +43,7 @@ impl<'a> Effect<'a> {
             value: n as i32,
             time: unsafe { mem::uninitialized() },
         };
-        unsafe { c::write(self.gamepad.fd(), mem::transmute(&ev), 24) };
+        unsafe { c::write(self.fd, mem::transmute(&ev), 24) };
     }
 
     pub fn stop(&mut self) {
@@ -51,11 +51,11 @@ impl<'a> Effect<'a> {
     }
 }
 
-impl<'a> Drop for Effect<'a> {
+impl Drop for Effect {
     fn drop(&mut self) {
         unsafe {
             // bug in ioctl crate, second argument is i32 not pointer to i32
-            ioctl::eviocrmff(self.gamepad.fd(), mem::transmute(self.id as isize));
+            ioctl::eviocrmff(self.fd, mem::transmute(self.id as isize));
         }
     }
 }
