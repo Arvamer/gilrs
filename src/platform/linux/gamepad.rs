@@ -73,6 +73,7 @@ pub struct Gamepad {
     fd: i32,
     axes_info: AxesInfo,
     mapping: Mapping,
+    ff_supported: bool,
     id: (u16, u16),
     devpath: String,
     pub name: String,
@@ -99,6 +100,7 @@ impl Gamepad {
             fd: -3,
             axes_info: unsafe { mem::zeroed() },
             mapping: Mapping::new(),
+            ff_supported: false,
             id: (0, 0),
             devpath: String::new(),
             name: String::new(),
@@ -115,6 +117,7 @@ impl Gamepad {
                 fd: -3,
                 axes_info: unsafe { mem::uninitialized() },
                 mapping: Mapping::new(),
+                ff_supported: false,
                 id: (0, 0),
                 devpath: devpath.to_string_lossy().into_owned(),
                 name: String::new(),
@@ -165,6 +168,16 @@ impl Gamepad {
                 println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
                 c::close(fd);
                 return None;
+            }
+
+            let mut ff_bits = [0u8; FF_MAX as usize];
+            let mut ff_supported = false;
+
+            if ioctl::eviocgbit(fd, EV_FF as u32, FF_MAX as i32, ff_bits.as_mut_ptr()) >= 0 {
+                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
+                   test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
+                        ff_supported = true;
+                    }
             }
 
             let mut absi = ioctl::input_absinfo::default();
@@ -234,6 +247,7 @@ impl Gamepad {
                 fd: fd,
                 axes_info: axesi,
                 mapping: mapping,
+                ff_supported: ff_supported,
                 id: (id_vendor, id_model),
                 devpath: path.to_string_lossy().into_owned(),
                 name: name,
@@ -313,11 +327,31 @@ impl Gamepad {
     }
 
     pub fn max_ff_effects(&self) -> usize {
-        let mut max_effects = 0;
-        unsafe {
-            ioctl::eviocgeffects(self.fd, &mut max_effects as *mut _);
+        if self.ff_supported {
+            let mut max_effects = 0;
+            unsafe {
+                ioctl::eviocgeffects(self.fd, &mut max_effects as *mut _);
+            }
+            max_effects as usize
+        } else {
+            0
         }
-        max_effects as usize
+    }
+
+    pub fn is_ff_supported(&self) -> bool {
+        self.ff_supported
+    }
+
+    pub fn set_ff_gain(&mut self, gain: u16) {
+        let ev = ioctl::input_event {
+            _type: EV_FF,
+            code: FF_GAIN,
+            value: gain as i32,
+            time: unsafe { mem::uninitialized() },
+        };
+        unsafe {
+            c::write(self.fd, mem::transmute(&ev), 24);
+        }
     }
 }
 
@@ -435,6 +469,7 @@ const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
 const EV_KEY: u16 = 0x01;
 const EV_ABS: u16 = 0x03;
+const EV_FF: u16 = 0x15;
 
 const BTN_MISC: u16 = 0x100;
 const BTN_GAMEPAD: u16 = 0x130;
@@ -456,3 +491,9 @@ const ABS_HAT1X: u16 = 0x12;
 const ABS_HAT1Y: u16 = 0x13;
 const ABS_HAT2X: u16 = 0x14;
 const ABS_HAT2Y: u16 = 0x15;
+
+const FF_MAX: u16 = FF_GAIN;
+const FF_SQUARE: u16 = 0x58;
+const FF_TRIANGLE: u16 = 0x59;
+const FF_SINE: u16 = 0x5a;
+const FF_GAIN: u16 = 0x60;

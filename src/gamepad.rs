@@ -163,6 +163,18 @@ impl Gamepad {
     pub fn ff_effect(&mut self, idx: usize) -> Option<&mut Effect> {
         self.ff_effects.get_mut(idx).and_then(|effect| effect.as_mut())
     }
+
+    pub fn max_ff_effects(&self) -> usize {
+        self.inner.max_ff_effects()
+    }
+
+    pub fn is_ff_supported(&self) -> bool {
+        self.inner.is_ff_supported()
+    }
+
+    pub fn set_ff_gain(&mut self, gain: u16) {
+        self.inner.set_ff_gain(gain)
+    }
 }
 
 #[derive(Debug)]

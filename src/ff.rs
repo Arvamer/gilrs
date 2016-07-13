@@ -1,5 +1,6 @@
 use gamepad::Button;
 use std::u16::MAX as U16_MAX;
+use std::f32::consts::PI;
 
 pub use gamepad::Effect;
 
@@ -47,7 +48,11 @@ impl From<f32> for Direction {
 
 impl From<[f32; 2]> for Direction {
     fn from(f: [f32; 2]) -> Self {
-        (f[0].sin() + f[1].cos()).into()
+        let mut val = f[1].atan2(f[0]);
+        if val.is_sign_negative() {
+            val += 2.0 * PI;
+        }
+        (val / (2.0 * PI)).into()
     }
 }
 
