@@ -9,8 +9,8 @@ extern crate vec_map;
 
 mod gamepad;
 mod platform;
+mod constants;
 
-pub mod constants;
 pub mod ff;
 
 pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis};

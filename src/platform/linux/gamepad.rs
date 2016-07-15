@@ -162,7 +162,7 @@ impl Gamepad {
                 }
             }
 
-            let mapping = get_mapping(id_vendor, id_model);
+            let mapping = Mapping::from_vendor_model(id_vendor, id_model);
 
             if !test_bit(BTN_GAMEPAD, &key_bits) {
                 println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
@@ -176,8 +176,8 @@ impl Gamepad {
             if ioctl::eviocgbit(fd, EV_FF as u32, FF_MAX as i32, ff_bits.as_mut_ptr()) >= 0 {
                 if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
-                        ff_supported = true;
-                    }
+                    ff_supported = true;
+                }
             }
 
             let mut absi = ioctl::input_absinfo::default();
@@ -385,6 +385,28 @@ impl Mapping {
             btns: VecMap::new(),
         }
     }
+
+    fn from_vendor_model(vendor: u16, model: u16) -> Mapping {
+        let mut mapping = Mapping::new();
+
+        match vendor {
+            0x045e => {
+                match model {
+                    0x028e => {
+                        mapping.btns.insert((BTN_WEST - BTN_MISC) as usize, BTN_NORTH);
+                        mapping.btns.insert((BTN_NORTH - BTN_MISC) as usize, BTN_WEST);
+                        mapping.axes.insert(5, ABS_HAT2X);
+                        mapping.axes.insert(2, ABS_HAT2Y);
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
+        };
+
+        mapping
+    }
+
     fn map(&self, code: u16, kind: u16) -> u16 {
         match kind {
             EV_KEY => *self.btns.get((code - BTN_MISC) as usize).unwrap_or(&code),
@@ -438,27 +460,6 @@ impl Axis {
             _ => None,
         }
     }
-}
-
-fn get_mapping(vendor: u16, model: u16) -> Mapping {
-    let mut mapping = Mapping::new();
-
-    match vendor {
-        0x045e => {
-            match model {
-                0x028e => {
-                    mapping.btns.insert((BTN_WEST - BTN_MISC) as usize, BTN_NORTH);
-                    mapping.btns.insert((BTN_NORTH - BTN_MISC) as usize, BTN_WEST);
-                    mapping.axes.insert(5, ABS_HAT2X);
-                    mapping.axes.insert(2, ABS_HAT2Y);
-                }
-                _ => (),
-            }
-        }
-        _ => (),
-    };
-
-    mapping
 }
 
 fn test_bit(n: u16, array: &[u8]) -> bool {
