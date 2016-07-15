@@ -83,8 +83,10 @@ pub struct Gamepad {
 struct AxesInfo {
     abs_x_max: f32,
     abs_y_max: f32,
+    abs_z_max: f32,
     abs_rx_max: f32,
     abs_ry_max: f32,
+    abs_rz_max: f32,
     abs_dpadx_max: f32,
     abs_dpady_max: f32,
     abs_left_tr_max: f32,
@@ -137,8 +139,8 @@ impl Gamepad {
                 return None;
             }
 
-            let mut ev_bits = [0u8; EV_MAX as usize];
-            let mut key_bits = [0u8; KEY_MAX as usize];
+            let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
+            let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
 
             if ioctl::eviocgbit(fd, 0, EV_MAX as i32, ev_bits.as_mut_ptr()) < 0 ||
                ioctl::eviocgbit(fd, EV_KEY as u32, KEY_MAX as i32, key_bits.as_mut_ptr()) < 0 {
@@ -170,7 +172,7 @@ impl Gamepad {
                 return None;
             }
 
-            let mut ff_bits = [0u8; FF_MAX as usize];
+            let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             let mut ff_supported = false;
 
             if ioctl::eviocgbit(fd, EV_FF as u32, FF_MAX as i32, ff_bits.as_mut_ptr()) >= 0 {
@@ -196,6 +198,12 @@ impl Gamepad {
             }
 
             if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_Z, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_z_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
                                 mapping.map_rev(ABS_RX, EV_ABS) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_rx_max = absi.maximum as f32;
@@ -205,6 +213,12 @@ impl Gamepad {
                                 mapping.map_rev(ABS_RY, EV_ABS) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_ry_max = absi.maximum as f32;
+            }
+
+            if ioctl::eviocgabs(fd,
+                                mapping.map_rev(ABS_RZ, EV_ABS) as u32,
+                                &mut absi as *mut _) >= 0 {
+                axesi.abs_rz_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
@@ -295,8 +309,10 @@ impl Gamepad {
                         let val = match axis {
                             Axis::LeftStickX => val / self.axes_info.abs_x_max,
                             Axis::LeftStickY => val / self.axes_info.abs_y_max,
+                            Axis::LeftZ => val / self.axes_info.abs_z_max,
                             Axis::RightStickX => val / self.axes_info.abs_rx_max,
                             Axis::RightStickY => val / self.axes_info.abs_ry_max,
+                            Axis::RightZ => val / self.axes_info.abs_rz_max,
                             Axis::DPadX => val / self.axes_info.abs_dpadx_max,
                             Axis::DPadY => val / self.axes_info.abs_dpady_max,
                             Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
@@ -446,18 +462,12 @@ impl Button {
 
 impl Axis {
     fn from_u16(axis: u16) -> Option<Self> {
-        match axis {
-            ABS_X => Some(Axis::LeftStickX),
-            ABS_Y => Some(Axis::LeftStickY),
-            ABS_RX => Some(Axis::RightStickX),
-            ABS_RY => Some(Axis::RightStickY),
-            ABS_HAT0X => Some(Axis::DPadX),
-            ABS_HAT0Y => Some(Axis::DPadY),
-            ABS_HAT1Y => Some(Axis::LeftTrigger),
-            ABS_HAT2Y => Some(Axis::LeftTrigger2),
-            ABS_HAT1X => Some(Axis::RightTrigger),
-            ABS_HAT2X => Some(Axis::RightTrigger2),
-            _ => None,
+        if axis >= ABS_X && axis <= ABS_RZ {
+            Some(unsafe { mem::transmute(axis) })
+        } else if axis >= ABS_HAT0X && axis <= ABS_HAT2Y {
+            Some(unsafe { mem::transmute(axis - 10) })
+        } else {
+            None
         }
     }
 }
@@ -484,8 +494,10 @@ const BTN_DPAD_RIGHT: u16 = 0x223;
 
 const ABS_X: u16 = 0x00;
 const ABS_Y: u16 = 0x01;
+const ABS_Z: u16 = 0x02;
 const ABS_RX: u16 = 0x03;
 const ABS_RY: u16 = 0x04;
+const ABS_RZ: u16 = 0x05;
 const ABS_HAT0X: u16 = 0x10;
 const ABS_HAT0Y: u16 = 0x11;
 const ABS_HAT1X: u16 = 0x12;

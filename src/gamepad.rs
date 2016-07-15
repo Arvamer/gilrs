@@ -134,8 +134,10 @@ impl Gamepad {
         match axis {
             Axis::LeftStickX => self.state.left_stick.0,
             Axis::LeftStickY => self.state.left_stick.1,
+            Axis::LeftZ => self.state.z.0,
             Axis::RightStickX => self.state.right_stick.0,
             Axis::RightStickY => self.state.right_stick.1,
+            Axis::RightZ => self.state.z.1,
             Axis::DPadX => self.state.dpad.0,
             Axis::DPadY => self.state.dpad.1,
             Axis::LeftTrigger => self.state.left_trigger,
@@ -205,6 +207,7 @@ pub struct GamepadState {
     // sticks
     pub right_stick: (f32, f32),
     pub left_stick: (f32, f32),
+    pub z: (f32, f32),
     pub btn_left_thumb: bool,
     pub btn_right_thumb: bool,
     // triggers
@@ -266,8 +269,10 @@ impl GamepadState {
         match axis {
             Axis::LeftStickX => self.left_stick.0 = val,
             Axis::LeftStickY => self.left_stick.1 = val,
+            Axis::LeftZ => self.z.0 = val,
             Axis::RightStickX => self.right_stick.0 = val,
             Axis::RightStickY => self.right_stick.1 = val,
+            Axis::RightZ => self.z.1 = val,
             Axis::DPadX => self.dpad.0 = val,
             Axis::DPadY => self.dpad.1 = val,
             Axis::LeftTrigger => self.left_trigger = val,
@@ -373,8 +378,10 @@ impl Default for Button {
 pub enum Axis {
     LeftStickX = AXIS_LSTICKX,
     LeftStickY = AXIS_LSTICKY,
+    LeftZ = AXIS_LEFTZ,
     RightStickX = AXIS_RSTICKX,
     RightStickY = AXIS_RSTICKY,
+    RightZ = AXIS_RIGHTZ,
     DPadX = AXIS_DPADX,
     DPadY = AXIS_DPADY,
     LeftTrigger = AXIS_LT,
