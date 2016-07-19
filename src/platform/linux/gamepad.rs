@@ -142,8 +142,8 @@ impl Gamepad {
             let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
 
-            if ioctl::eviocgbit(fd, 0, EV_MAX as i32, ev_bits.as_mut_ptr()) < 0 ||
-               ioctl::eviocgbit(fd, EV_KEY as u32, KEY_MAX as i32, key_bits.as_mut_ptr()) < 0 {
+            if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
+               ioctl::eviocgbit(fd, EV_KEY as u32, key_bits.len() as i32, key_bits.as_mut_ptr()) < 0 {
                 c::close(fd);
                 return None;
             }
@@ -175,7 +175,7 @@ impl Gamepad {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             let mut ff_supported = false;
 
-            if ioctl::eviocgbit(fd, EV_FF as u32, FF_MAX as i32, ff_bits.as_mut_ptr()) >= 0 {
+            if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
                 if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
                     ff_supported = true;
