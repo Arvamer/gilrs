@@ -2,5 +2,7 @@ mod gamepad;
 mod udev;
 mod ff;
 
-pub use self::gamepad::{Gilrs, Gamepad};
+pub use self::gamepad::{Gilrs, Gamepad, native_ev_codes};
 pub use self::ff::Effect;
+
+pub const NAME: &'static str = "Linux";

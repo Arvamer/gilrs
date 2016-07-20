@@ -6,18 +6,20 @@ use libc as c;
 use ioctl;
 use gamepad::{Event, Button, Axis, Status};
 use constants;
-use mapping::{Mapping, Kind};
+use mapping::{Mapping, Kind, MappingDb};
 
 
 #[derive(Debug)]
 pub struct Gilrs {
     pub gamepads: Vec<Gamepad>,
+    mapping_db: MappingDb,
     monitor: Monitor,
 }
 
 impl Gilrs {
     pub fn new() -> Self {
         let mut gamepads = Vec::new();
+        let mapping_db = MappingDb::new();
 
         let udev = Udev::new().unwrap();
         let en = udev.enumerate().unwrap();
@@ -27,12 +29,13 @@ impl Gilrs {
 
         for dev in en.iter() {
             let dev = Device::from_syspath(&udev, &dev).unwrap();
-            if let Some(gamepad) = Gamepad::open(&dev) {
+            if let Some(gamepad) = Gamepad::open(&dev, &mapping_db) {
                 gamepads.push(gamepad);
             }
         }
         Gilrs {
             gamepads: gamepads,
+            mapping_db: mapping_db,
             monitor: Monitor::new(&udev).unwrap(),
         }
     }
@@ -52,7 +55,7 @@ impl Gilrs {
             let action = dev.action().unwrap();
 
             if is_eq_cstr(action, b"add\0") {
-                if let Some(gamepad) = Gamepad::open(&dev) {
+                if let Some(gamepad) = Gamepad::open(&dev, &self.mapping_db) {
                     return Some((gamepad, Status::Connected));
                 }
             } else if is_eq_cstr(action, b"remove\0") {
@@ -131,7 +134,7 @@ impl Gamepad {
         })
     }
 
-    fn open(dev: &Device) -> Option<Gamepad> {
+    fn open(dev: &Device, mapping_db: &MappingDb) -> Option<Gamepad> {
         let path = match dev.devnode() {
             Some(path) => path,
             None => return None,
@@ -145,19 +148,32 @@ impl Gamepad {
 
             let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
+            let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
 
             if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
                ioctl::eviocgbit(fd,
                                 EV_KEY as u32,
                                 key_bits.len() as i32,
-                                key_bits.as_mut_ptr()) < 0 {
+                                key_bits.as_mut_ptr()) < 0 ||
+               ioctl::eviocgbit(fd,
+                                EV_ABS as u32,
+                                abs_bits.len() as i32,
+                                abs_bits.as_mut_ptr()) < 0 {
                 c::close(fd);
                 return None;
             }
 
+            let mut buttons = Vec::with_capacity(16);
+            let mut axes = Vec::with_capacity(8);
+
             for bit in 0..(key_bits.len() * 8) {
                 if test_bit(bit as u16, &key_bits) {
-                    // TODO
+                    buttons.push(bit as u16);
+                }
+            }
+            for bit in 0..(abs_bits.len() * 8) {
+                if test_bit(bit as u16, &abs_bits) {
+                    axes.push(bit as u16);
                 }
             }
 
@@ -172,11 +188,6 @@ impl Gamepad {
                 return None;
             }
 
-            if !test_bit(BTN_GAMEPAD, &key_bits) {
-                println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
-                c::close(fd);
-                return None;
-            }
 
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             let mut ff_supported = false;
@@ -190,7 +201,19 @@ impl Gamepad {
 
             let mut absi = ioctl::input_absinfo::default();
             let mut axesi = mem::zeroed::<AxesInfo>();
-            let mapping = Mapping::new();
+            let uuid = create_uuid(input_id);
+            let mapping = mapping_db.get(uuid)
+                                    .and_then(|s| {
+                                        Mapping::parse_sdl_mapping(s, &buttons, &axes).ok()
+                                    })
+                                    .unwrap_or(Mapping::new());
+
+            println!("{:?}, {:?}", axes, mapping);
+            if !test_bit(mapping.map_rev(BTN_GAMEPAD, Kind::Button), &key_bits) {
+                println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
+                c::close(fd);
+                return None;
+            }
 
             if ioctl::eviocgabs(fd,
                                 mapping.map_rev(ABS_X, Kind::Axis) as u32,
@@ -268,11 +291,11 @@ impl Gamepad {
                 fd: fd,
                 axes_info: axesi,
                 abs_dpad_prev_val: (0, 0),
-                mapping: Mapping::new(),
+                mapping: mapping,
                 ff_supported: ff_supported,
                 devpath: path.to_string_lossy().into_owned(),
                 name: CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned(),
-                uuid: create_uuid(input_id),
+                uuid: uuid,
             };
 
             println!("{:#?}", gamepad);
@@ -489,36 +512,126 @@ const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
 const EV_KEY: u16 = 0x01;
 const EV_ABS: u16 = 0x03;
+const ABS_MAX: u16 = 0x3f;
 const EV_FF: u16 = 0x15;
 
+#[allow(dead_code)]
 const BTN_MISC: u16 = 0x100;
+#[allow(dead_code)]
 const BTN_GAMEPAD: u16 = 0x130;
+#[allow(dead_code)]
 const BTN_SOUTH: u16 = 0x130;
+#[allow(dead_code)]
+const BTN_EAST: u16 = 0x131;
+#[allow(dead_code)]
+const BTN_C: u16 = 0x132;
+#[allow(dead_code)]
 const BTN_NORTH: u16 = 0x133;
+#[allow(dead_code)]
 const BTN_WEST: u16 = 0x134;
+#[allow(dead_code)]
+const BTN_Z: u16 = 0x135;
+#[allow(dead_code)]
+const BTN_TL: u16 = 0x136;
+#[allow(dead_code)]
+const BTN_TR: u16 = 0x137;
+#[allow(dead_code)]
+const BTN_TL2: u16 = 0x138;
+#[allow(dead_code)]
+const BTN_TR2: u16 = 0x139;
+#[allow(dead_code)]
+const BTN_SELECT: u16 = 0x13a;
+#[allow(dead_code)]
+const BTN_START: u16 = 0x13b;
+#[allow(dead_code)]
+const BTN_MODE: u16 = 0x13c;
+#[allow(dead_code)]
+const BTN_THUMBL: u16 = 0x13d;
+#[allow(dead_code)]
 const BTN_THUMBR: u16 = 0x13e;
 
+#[allow(dead_code)]
 const BTN_DPAD_UP: u16 = 0x220;
+#[allow(dead_code)]
+const BTN_DPAD_DOWN: u16 = 0x221;
+#[allow(dead_code)]
+const BTN_DPAD_LEFT: u16 = 0x222;
+#[allow(dead_code)]
 const BTN_DPAD_RIGHT: u16 = 0x223;
 
+#[allow(dead_code)]
 const ABS_X: u16 = 0x00;
+#[allow(dead_code)]
 const ABS_Y: u16 = 0x01;
+#[allow(dead_code)]
 const ABS_Z: u16 = 0x02;
+#[allow(dead_code)]
 const ABS_RX: u16 = 0x03;
+#[allow(dead_code)]
 const ABS_RY: u16 = 0x04;
+#[allow(dead_code)]
 const ABS_RZ: u16 = 0x05;
+#[allow(dead_code)]
 const ABS_HAT0X: u16 = 0x10;
+#[allow(dead_code)]
 const ABS_HAT0Y: u16 = 0x11;
+#[allow(dead_code)]
 const ABS_HAT1X: u16 = 0x12;
+#[allow(dead_code)]
 const ABS_HAT1Y: u16 = 0x13;
+#[allow(dead_code)]
 const ABS_HAT2X: u16 = 0x14;
+#[allow(dead_code)]
 const ABS_HAT2Y: u16 = 0x15;
 
+#[allow(dead_code)]
 const FF_MAX: u16 = FF_GAIN;
+#[allow(dead_code)]
 const FF_SQUARE: u16 = 0x58;
+#[allow(dead_code)]
 const FF_TRIANGLE: u16 = 0x59;
+#[allow(dead_code)]
 const FF_SINE: u16 = 0x5a;
+#[allow(dead_code)]
+#[allow(dead_code)]
 const FF_GAIN: u16 = 0x60;
+
+pub mod native_ev_codes {
+    #![allow(dead_code)]
+    pub const BTN_SOUTH: u16 = super::BTN_SOUTH;
+    pub const BTN_EAST: u16 = super::BTN_EAST;
+    pub const BTN_C: u16 = super::BTN_C;
+    pub const BTN_NORTH: u16 = super::BTN_NORTH;
+    pub const BTN_WEST: u16 = super::BTN_WEST;
+    pub const BTN_Z: u16 = super::BTN_Z;
+    pub const BTN_LT: u16 = super::BTN_TL;
+    pub const BTN_RT: u16 = super::BTN_TR;
+    pub const BTN_LT2: u16 = super::BTN_TL2;
+    pub const BTN_RT2: u16 = super::BTN_TR2;
+    pub const BTN_SELECT: u16 = super::BTN_SELECT;
+    pub const BTN_START: u16 = super::BTN_START;
+    pub const BTN_MODE: u16 = super::BTN_MODE;
+    pub const BTN_LTHUMB: u16 = super::BTN_THUMBL;
+    pub const BTN_RTHUMB: u16 = super::BTN_THUMBR;
+
+    pub const BTN_DPAD_UP: u16 = super::BTN_DPAD_UP;
+    pub const BTN_DPAD_DOWN: u16 = super::BTN_DPAD_DOWN;
+    pub const BTN_DPAD_LEFT: u16 = super::BTN_DPAD_LEFT;
+    pub const BTN_DPAD_RIGHT: u16 = super::BTN_DPAD_RIGHT;
+
+    pub const AXIS_LSTICKX: u16 = super::ABS_X;
+    pub const AXIS_LSTICKY: u16 = super::ABS_Y;
+    pub const AXIS_LEFTZ: u16 = super::ABS_Z;
+    pub const AXIS_RSTICKX: u16 = super::ABS_RX;
+    pub const AXIS_RSTICKY: u16 = super::ABS_RY;
+    pub const AXIS_RIGHTZ: u16 = super::ABS_RZ;
+    pub const AXIS_DPADX: u16 = super::ABS_HAT0X;
+    pub const AXIS_DPADY: u16 = super::ABS_HAT0Y;
+    pub const AXIS_RT: u16 = super::ABS_HAT1X;
+    pub const AXIS_LT: u16 = super::ABS_HAT1Y;
+    pub const AXIS_RT2: u16 = super::ABS_HAT2X;
+    pub const AXIS_LT2: u16 = super::ABS_HAT2Y;
+}
 
 #[cfg(test)]
 mod tests {

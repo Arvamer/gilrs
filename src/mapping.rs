@@ -1,9 +1,17 @@
 use vec_map::VecMap;
+use std::collections::HashMap;
+use platform;
+use platform::native_ev_codes;
+use std::env;
+use std::error::Error;
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use uuid::{Uuid, ParseError as UuidError};
 
 #[derive(Debug)]
 pub struct Mapping {
     axes: VecMap<u16>,
     btns: VecMap<u16>,
+    name: String,
 }
 
 impl Mapping {
@@ -11,6 +19,264 @@ impl Mapping {
         Mapping {
             axes: VecMap::new(),
             btns: VecMap::new(),
+            name: String::new(),
+        }
+    }
+
+    pub fn parse_sdl_mapping(line: &str,
+                             buttons: &[u16],
+                             axes: &[u16])
+                             -> Result<Self, ParseSdlMappingError> {
+        let mut parts = line.split(',');
+
+        let _ = match parts.next() {
+            Some(uuid) => uuid,
+            None => return Err(ParseSdlMappingError::MissingGuid),
+        };
+
+        let name = match parts.next() {
+            Some(name) => name,
+            None => return Err(ParseSdlMappingError::MissingName),
+        };
+
+        let mut mapping = Mapping::new();
+        mapping.name = name.to_owned();
+
+        for pair in parts {
+            let mut pair = pair.split(':');
+
+            let key = match pair.next() {
+                Some(key) => key,
+                None => return Err(ParseSdlMappingError::InvalidPair),
+            };
+            let val = match pair.next() {
+                Some(val) => val,
+                None => continue,
+            };
+
+            if val.is_empty() {
+                return Err(ParseSdlMappingError::MissingValue);
+            }
+
+            match key {
+                "platform" => {
+                    if val != platform::NAME {
+                        return Err(ParseSdlMappingError::NotTargetPlatform);
+                    }
+                }
+                "x" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_EAST);
+                }
+                "a" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_SOUTH);
+                }
+                "b" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_WEST);
+                }
+                "y" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_NORTH);
+                }
+                "back" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_SELECT);
+                }
+                "guide" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_MODE);
+                }
+                "start" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_START);
+                }
+                "leftstick" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_LTHUMB);
+                }
+                "rightstick" => {
+                    let code = try!(Mapping::get_btn(val, buttons));
+                    mapping.btns.insert(code as usize, native_ev_codes::BTN_RTHUMB);
+                }
+                "leftx" => {
+                    let code = try!(Mapping::get_axis(val, axes));
+                    mapping.axes.insert(code as usize, native_ev_codes::AXIS_LSTICKX);
+                }
+                "lefty" => {
+                    let code = try!(Mapping::get_axis(val, axes));
+                    mapping.axes.insert(code as usize, native_ev_codes::AXIS_LSTICKY);
+                }
+                "rightx" => {
+                    let code = try!(Mapping::get_axis(val, axes));
+                    mapping.axes.insert(code as usize, native_ev_codes::AXIS_RSTICKX);
+                }
+                "righty" => {
+                    let code = try!(Mapping::get_axis(val, axes));
+                    mapping.axes.insert(code as usize, native_ev_codes::AXIS_RSTICKY);
+                }
+                "leftshoulder" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_LT)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_LT)
+                        }
+                    };
+                }
+                "lefttrigger" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_LT2)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_LT2)
+                        }
+                    };
+                }
+                "rightshoulder" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_RT)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_RT)
+                        }
+                    };
+                }
+                "righttrigger" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_RT2)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_RT2)
+                        }
+                    };
+                }
+                "dpleft" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_DPADX)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_DPAD_LEFT)
+                        }
+                    };
+                }
+                "dpright" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_DPADX)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_DPAD_RIGHT)
+                        }
+                    };
+                }
+                "dpup" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_DPADY)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_DPAD_UP)
+                        }
+                    };
+                }
+                "dpdown" => {
+                    match try!(Mapping::get_btn_or_axis(val, buttons, axes)) {
+                        BtnOrAxis::Axis(val) => {
+                            mapping.axes.insert(val as usize, native_ev_codes::AXIS_DPADY)
+                        }
+                        BtnOrAxis::Button(val) => {
+                            mapping.btns.insert(val as usize, native_ev_codes::BTN_DPAD_DOWN)
+                        }
+                    };
+                }
+                _ => (),
+            }
+        }
+
+        Ok(mapping)
+    }
+
+    fn get_btn(val: &str, buttons: &[u16]) -> Result<u16, ParseSdlMappingError> {
+        if let Some(n) = val.as_bytes()
+                            .get(1)
+                            .and_then(|&n| if n >= 0x30 && n <= 0x39 {
+                                Some(n - 0x30)
+                            } else {
+                                None
+                            }) {
+            if val.as_bytes().get(0) != Some(&('b' as u8)) {
+                return Err(ParseSdlMappingError::InvalidValue);
+            }
+
+            match buttons.get(n as usize) {
+                Some(&code) => Ok(code),
+                None => Err(ParseSdlMappingError::InvalidValue),
+            }
+        } else {
+            Err(ParseSdlMappingError::InvalidValue)
+        }
+    }
+
+    fn get_axis(val: &str, axes: &[u16]) -> Result<u16, ParseSdlMappingError> {
+        if let Some(n) = val.as_bytes()
+                            .get(1)
+                            .and_then(|&n| if n >= 0x30 && n <= 0x39 {
+                                Some(n - 0x30)
+                            } else {
+                                None
+                            }) {
+            if val.as_bytes().get(0) == Some(&('a' as u8)) {
+                match axes.get(n as usize) {
+                    Some(&code) => Ok(code),
+                    None => Err(ParseSdlMappingError::InvalidValue),
+                }
+            } else if val.as_bytes().get(0) == Some(&('h' as u8)) {
+                // Assume that there is only hat 0 and that .1 = up, .2 = right, .4 = down, .8 =
+                // left
+                if n != 0 || val.as_bytes().get(2) != Some(&('.' as u8)) {
+                    return Err(ParseSdlMappingError::InvalidValue);
+                }
+                if let Some(n) = val.as_bytes().get(3).and_then(|&n| if n >= 0x30 && n <= 0x39 {
+                    Some(n - 0x30)
+                } else {
+                    None
+                }) {
+                    match n {
+                        1 | 4 => Ok(platform::native_ev_codes::AXIS_DPADY),
+                        2 | 8 => Ok(platform::native_ev_codes::AXIS_DPADX),
+                        _ => Err(ParseSdlMappingError::InvalidValue),
+                    }
+                } else {
+                    Err(ParseSdlMappingError::InvalidValue)
+                }
+            } else {
+                Err(ParseSdlMappingError::InvalidValue)
+            }
+
+        } else {
+            Err(ParseSdlMappingError::InvalidValue)
+        }
+    }
+
+    fn get_btn_or_axis(val: &str,
+                       buttons: &[u16],
+                       axes: &[u16])
+                       -> Result<BtnOrAxis, ParseSdlMappingError> {
+        if let Some(c) = val.as_bytes().get(0) {
+            match *c as char {
+                'a' | 'h' => Mapping::get_axis(val, axes).and_then(|val| Ok(BtnOrAxis::Axis(val))),
+                'b' => Mapping::get_btn(val, buttons).and_then(|val| Ok(BtnOrAxis::Button(val))),
+                _ => Err(ParseSdlMappingError::InvalidValue),
+            }
+        } else {
+            Err(ParseSdlMappingError::InvalidValue)
         }
     }
 
@@ -37,7 +303,98 @@ impl Mapping {
     }
 }
 
+enum BtnOrAxis {
+    Axis(u16),
+    Button(u16),
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum ParseSdlMappingError {
+    MissingGuid,
+    InvalidGuid,
+    MissingName,
+    InvalidPair,
+    NotTargetPlatform,
+    InvalidValue,
+    MissingValue,
+}
+
+impl ParseSdlMappingError {
+    fn to_str(self) -> &'static str {
+        match self {
+            ParseSdlMappingError::MissingGuid => "GUID is missing",
+            ParseSdlMappingError::InvalidGuid => "GUID is invalid",
+            ParseSdlMappingError::MissingName => "device name is missing",
+            ParseSdlMappingError::InvalidPair => "key-value pair is invalid",
+            ParseSdlMappingError::NotTargetPlatform => "mapping for different OS than target",
+            ParseSdlMappingError::InvalidValue => "value is invalid",
+            ParseSdlMappingError::MissingValue => "value is missing",
+        }
+    }
+}
+
+impl Error for ParseSdlMappingError {
+    fn description(&self) -> &str {
+        self.to_str()
+    }
+}
+
+impl Display for ParseSdlMappingError {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        fmt.write_str(self.to_str())
+    }
+}
+
+impl From<UuidError> for ParseSdlMappingError {
+    fn from(_: UuidError) -> Self {
+        ParseSdlMappingError::InvalidGuid
+    }
+}
+
 pub enum Kind {
     Button,
     Axis,
+}
+
+#[derive(Debug)]
+pub struct MappingDb {
+    mappings: HashMap<Uuid, String>,
+}
+
+impl MappingDb {
+    pub fn new() -> Self {
+        let mut hmap = HashMap::new();
+        if let Ok(mapping) = env::var("SDL_GAMECONTROLLERCONFIG") {
+            for mapping in mapping.lines() {
+                mapping.split(',')
+                       .next()
+                       .and_then(|s| Uuid::parse_str(s).ok())
+                       .and_then(|uuid| hmap.insert(uuid, mapping.to_owned()));
+            }
+        }
+        MappingDb { mappings: hmap }
+    }
+
+    pub fn get(&self, uuid: Uuid) -> Option<&String> {
+        self.mappings.get(&uuid)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // Do not include platform, mapping from
+    // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
+    const TEST_STR: &'static str = "03000000260900008888000000010000,GameCube {WiseGroup USB \
+                                    box},a:b0,b:b2,y:b3,x:b1,start:b7,rightshoulder:b6,dpup:h0.1,\
+                                    dpleft:h0.8,dpdown:h0.4,dpright:h0.2,leftx:a0,lefty:a1,rightx:\
+                                    a2,righty:a3,lefttrigger:a4,righttrigger:a5,";
+
+    const BUTTONS: [u16; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const AXES: [u16; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+
+    #[test]
+    fn mapping() {
+        let mapping = Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
+    }
 }
