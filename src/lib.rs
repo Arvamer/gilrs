@@ -11,6 +11,7 @@ extern crate uuid;
 mod gamepad;
 mod platform;
 mod constants;
+mod mapping;
 
 pub mod ff;
 

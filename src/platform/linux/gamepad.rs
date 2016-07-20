@@ -1,12 +1,12 @@
 use super::udev::*;
 use std::ffi::{CString, CStr};
 use std::mem;
-use vec_map::VecMap;
 use uuid::Uuid;
 use libc as c;
 use ioctl;
 use gamepad::{Event, Button, Axis, Status};
 use constants;
+use mapping::{Mapping, Kind};
 
 
 #[derive(Debug)]
@@ -190,73 +190,73 @@ impl Gamepad {
             let mapping = Mapping::new();
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_X, EV_ABS) as u32,
+                                mapping.map_rev(ABS_X, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_x_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_Y, EV_ABS) as u32,
+                                mapping.map_rev(ABS_Y, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_y_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_Z, EV_ABS) as u32,
+                                mapping.map_rev(ABS_Z, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_z_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_RX, EV_ABS) as u32,
+                                mapping.map_rev(ABS_RX, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_rx_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_RY, EV_ABS) as u32,
+                                mapping.map_rev(ABS_RY, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_ry_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_RZ, EV_ABS) as u32,
+                                mapping.map_rev(ABS_RZ, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_rz_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT0X, EV_ABS) as u32,
+                                mapping.map_rev(ABS_HAT0X, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_dpadx_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT0Y, EV_ABS) as u32,
+                                mapping.map_rev(ABS_HAT0Y, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_dpady_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT1X, EV_ABS) as u32,
+                                mapping.map_rev(ABS_HAT1X, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_right_tr_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT1Y, EV_ABS) as u32,
+                                mapping.map_rev(ABS_HAT1Y, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_left_tr_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT2X, EV_ABS) as u32,
+                                mapping.map_rev(ABS_HAT2X, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_right_tr2_max = absi.maximum as f32;
             }
 
             if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT2Y, EV_ABS) as u32,
+                                mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
                                 &mut absi as *mut _) >= 0 {
                 axesi.abs_left_tr2_max = absi.maximum as f32;
             }
@@ -295,10 +295,10 @@ impl Gamepad {
                 unreachable!()
             }
 
-            let code = self.mapping.map(event.code, event._type);
 
             let ev = match event._type {
                 EV_KEY => {
+                    let code = self.mapping.map(event.code, Kind::Button);
                     Button::from_u16(code).and_then(|btn| {
                         match event.value {
                             0 => Some(Event::ButtonReleased(btn)),
@@ -308,6 +308,7 @@ impl Gamepad {
                     })
                 }
                 EV_ABS => {
+                    let code = self.mapping.map(event.code, Kind::Axis);
                     Axis::from_u16(code).map(|axis| {
                         let val = event.value as f32;
                         let val = match axis {
@@ -408,46 +409,6 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
                         0,
                         0])
         .unwrap()
-}
-
-#[derive(Debug)]
-struct Mapping {
-    axes: VecMap<u16>,
-    // to save some memory, key is button code - BTN_MISC
-    btns: VecMap<u16>,
-}
-
-impl Mapping {
-    fn new() -> Self {
-        Mapping {
-            axes: VecMap::new(),
-            btns: VecMap::new(),
-        }
-    }
-
-    fn map(&self, code: u16, kind: u16) -> u16 {
-        match kind {
-            EV_KEY => *self.btns.get((code - BTN_MISC) as usize).unwrap_or(&code),
-            EV_ABS => *self.axes.get(code as usize).unwrap_or(&code),
-            _ => code,
-        }
-    }
-
-    fn map_rev(&self, code: u16, kind: u16) -> u16 {
-        match kind {
-            EV_KEY => {
-                self.btns
-                    .iter()
-                    .find(|x| *x.1 == code - BTN_MISC)
-                    .unwrap_or((code as usize, &0))
-                    .0 as u16 + BTN_MISC
-            }
-            EV_ABS => {
-                self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
-            }
-            _ => code,
-        }
-    }
 }
 
 impl Button {
