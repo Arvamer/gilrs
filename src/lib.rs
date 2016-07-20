@@ -14,4 +14,4 @@ mod constants;
 
 pub mod ff;
 
-pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis};
+pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis, Event};
