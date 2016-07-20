@@ -73,6 +73,7 @@ fn is_eq_cstr(l: &CStr, r: &[u8]) -> bool {
 pub struct Gamepad {
     fd: i32,
     axes_info: AxesInfo,
+    abs_dpad_prev_val: (i16, i16),
     mapping: Mapping,
     ff_supported: bool,
     devpath: String,
@@ -102,6 +103,7 @@ impl Gamepad {
         Gamepad {
             fd: -3,
             axes_info: unsafe { mem::zeroed() },
+            abs_dpad_prev_val: (0, 0),
             mapping: Mapping::new(),
             ff_supported: false,
             devpath: String::new(),
@@ -119,6 +121,7 @@ impl Gamepad {
             Gamepad {
                 fd: -3,
                 axes_info: unsafe { mem::uninitialized() },
+                abs_dpad_prev_val: (0, 0),
                 mapping: Mapping::new(),
                 ff_supported: false,
                 devpath: devpath.to_string_lossy().into_owned(),
@@ -264,6 +267,7 @@ impl Gamepad {
             let gamepad = Gamepad {
                 fd: fd,
                 axes_info: axesi,
+                abs_dpad_prev_val: (0, 0),
                 mapping: Mapping::new(),
                 ff_supported: ff_supported,
                 devpath: path.to_string_lossy().into_owned(),
@@ -309,24 +313,66 @@ impl Gamepad {
                 }
                 EV_ABS => {
                     let code = self.mapping.map(event.code, Kind::Axis);
-                    Axis::from_u16(code).map(|axis| {
-                        let val = event.value as f32;
-                        let val = match axis {
-                            Axis::LeftStickX => val / self.axes_info.abs_x_max,
-                            Axis::LeftStickY => val / self.axes_info.abs_y_max,
-                            Axis::LeftZ => val / self.axes_info.abs_z_max,
-                            Axis::RightStickX => val / self.axes_info.abs_rx_max,
-                            Axis::RightStickY => val / self.axes_info.abs_ry_max,
-                            Axis::RightZ => val / self.axes_info.abs_rz_max,
-                            Axis::DPadX => val / self.axes_info.abs_dpadx_max,
-                            Axis::DPadY => val / self.axes_info.abs_dpady_max,
-                            Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
-                            Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
-                            Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
-                            Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
-                        };
-                        Event::AxisChanged(axis, val)
-                    })
+                    match code {
+                        ABS_HAT0Y => {
+                            let ev = match event.value {
+                                0 => {
+                                    match self.abs_dpad_prev_val.1 {
+                                        val if val > 0 => {
+                                            Some(Event::ButtonReleased(Button::DPadDown))
+                                        }
+                                        val if val < 0 => {
+                                            Some(Event::ButtonReleased(Button::DPadUp))
+                                        }
+                                        _ => None,
+                                    }
+                                }
+                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadDown)),
+                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadUp)),
+                                _ => unreachable!(),
+                            };
+                            self.abs_dpad_prev_val.1 = event.value as i16;
+                            ev
+                        }
+                        ABS_HAT0X => {
+                            let ev = match event.value {
+                                0 => {
+                                    match self.abs_dpad_prev_val.0 {
+                                        val if val > 0 => {
+                                            Some(Event::ButtonReleased(Button::DPadRight))
+                                        }
+                                        val if val < 0 => {
+                                            Some(Event::ButtonReleased(Button::DPadLeft))
+                                        }
+                                        _ => None,
+                                    }
+                                }
+                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadRight)),
+                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadLeft)),
+                                _ => unreachable!(),
+                            };
+                            self.abs_dpad_prev_val.0 = event.value as i16;
+                            ev
+                        }
+                        code => {
+                            Axis::from_u16(code).map(|axis| {
+                                let val = event.value as f32;
+                                let val = match axis {
+                                    Axis::LeftStickX => val / self.axes_info.abs_x_max,
+                                    Axis::LeftStickY => val / self.axes_info.abs_y_max,
+                                    Axis::LeftZ => val / self.axes_info.abs_z_max,
+                                    Axis::RightStickX => val / self.axes_info.abs_rx_max,
+                                    Axis::RightStickY => val / self.axes_info.abs_ry_max,
+                                    Axis::RightZ => val / self.axes_info.abs_rz_max,
+                                    Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
+                                    Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
+                                    Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
+                                    Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
+                                };
+                                Event::AxisChanged(axis, val)
+                            })
+                        }
+                    }
                 }
                 _ => None,
             };
@@ -427,7 +473,7 @@ impl Axis {
     fn from_u16(axis: u16) -> Option<Self> {
         if axis >= ABS_X && axis <= ABS_RZ {
             Some(unsafe { mem::transmute(axis) })
-        } else if axis >= ABS_HAT0X && axis <= ABS_HAT2Y {
+        } else if axis >= ABS_HAT1X && axis <= ABS_HAT2Y {
             Some(unsafe { mem::transmute(axis - 10) })
         } else {
             None
