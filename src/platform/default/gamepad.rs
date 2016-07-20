@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 
 use gamepad::{Event, Status};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -20,6 +21,7 @@ impl Gilrs {
 #[derive(Debug)]
 pub struct Gamepad {
     pub name: String,
+    pub uuid: Uuid,
 }
 
 impl Gamepad {
@@ -27,6 +29,7 @@ impl Gamepad {
     pub fn none() -> Self {
         Gamepad {
             name: String::new(),
+            uuid: Uuid::nil(),
         }
     }
 
@@ -53,6 +56,6 @@ impl Gamepad {
 
 impl PartialEq for Gamepad {
     fn eq(&self, other: &Self) -> bool {
-        false
+        self.uuid == other.uuid
     }
 }

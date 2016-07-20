@@ -2,6 +2,7 @@ use super::udev::*;
 use std::ffi::{CString, CStr};
 use std::mem;
 use vec_map::VecMap;
+use uuid::Uuid;
 use libc as c;
 use ioctl;
 use gamepad::{Event, Button, Axis, Status};
@@ -74,9 +75,9 @@ pub struct Gamepad {
     axes_info: AxesInfo,
     mapping: Mapping,
     ff_supported: bool,
-    id: (u16, u16),
     devpath: String,
     pub name: String,
+    pub uuid: Uuid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -103,9 +104,9 @@ impl Gamepad {
             axes_info: unsafe { mem::zeroed() },
             mapping: Mapping::new(),
             ff_supported: false,
-            id: (0, 0),
             devpath: String::new(),
             name: String::new(),
+            uuid: Uuid::nil(),
         }
     }
 
@@ -120,9 +121,9 @@ impl Gamepad {
                 axes_info: unsafe { mem::uninitialized() },
                 mapping: Mapping::new(),
                 ff_supported: false,
-                id: (0, 0),
                 devpath: devpath.to_string_lossy().into_owned(),
                 name: String::new(),
+                uuid: Uuid::nil(),
             }
         })
     }
@@ -143,28 +144,30 @@ impl Gamepad {
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
 
             if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
-               ioctl::eviocgbit(fd, EV_KEY as u32, key_bits.len() as i32, key_bits.as_mut_ptr()) < 0 {
+               ioctl::eviocgbit(fd,
+                                EV_KEY as u32,
+                                key_bits.len() as i32,
+                                key_bits.as_mut_ptr()) < 0 {
                 c::close(fd);
                 return None;
             }
 
-            let mut id_model = 0u16;
-            let mut id_vendor = 0u16;
-            let mut name = String::new();
-
-            for (key, val) in dev.properties() {
-                if key == "ID_MODEL_ID" {
-                    id_model = u16::from_str_radix(&val, 16).unwrap_or(0);
-                }
-                if key == "ID_VENDOR_ID" {
-                    id_vendor = u16::from_str_radix(&val, 16).unwrap_or(0);
-                }
-                if key == "ID_MODEL" {
-                    name = val;
+            for bit in 0..(key_bits.len() * 8) {
+                if test_bit(bit as u16, &key_bits) {
+                    // TODO
                 }
             }
 
-            let mapping = Mapping::from_vendor_model(id_vendor, id_model);
+            let mut namebuff = mem::uninitialized::<[u8; 128]>();
+            let mut input_id = mem::uninitialized::<ioctl::input_id>();
+
+            if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
+                return None;
+            }
+
+            if ioctl::eviocgid(fd, &mut input_id as *mut _) < 0 {
+                return None;
+            }
 
             if !test_bit(BTN_GAMEPAD, &key_bits) {
                 println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
@@ -184,6 +187,7 @@ impl Gamepad {
 
             let mut absi = ioctl::input_absinfo::default();
             let mut axesi = mem::zeroed::<AxesInfo>();
+            let mapping = Mapping::new();
 
             if ioctl::eviocgabs(fd,
                                 mapping.map_rev(ABS_X, EV_ABS) as u32,
@@ -260,11 +264,11 @@ impl Gamepad {
             let gamepad = Gamepad {
                 fd: fd,
                 axes_info: axesi,
-                mapping: mapping,
+                mapping: Mapping::new(),
                 ff_supported: ff_supported,
-                id: (id_vendor, id_model),
                 devpath: path.to_string_lossy().into_owned(),
-                name: name,
+                name: CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned(),
+                uuid: create_uuid(input_id),
             };
 
             println!("{:#?}", gamepad);
@@ -383,8 +387,27 @@ impl Drop for Gamepad {
 
 impl PartialEq for Gamepad {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.uuid == other.uuid
     }
+}
+
+fn create_uuid(iid: ioctl::input_id) -> Uuid {
+    let bus = (iid.bustype as u32).to_be();
+    let vendor = iid.vendor.to_be();
+    let product = iid.product.to_be();
+    let version = iid.version.to_be();
+    Uuid::from_fields(bus,
+                      vendor,
+                      0,
+                      &[(product >> 8) as u8,
+                        product as u8,
+                        0,
+                        0,
+                        (version >> 8) as u8,
+                        version as u8,
+                        0,
+                        0])
+        .unwrap()
 }
 
 #[derive(Debug)]
@@ -400,27 +423,6 @@ impl Mapping {
             axes: VecMap::new(),
             btns: VecMap::new(),
         }
-    }
-
-    fn from_vendor_model(vendor: u16, model: u16) -> Mapping {
-        let mut mapping = Mapping::new();
-
-        match vendor {
-            0x045e => {
-                match model {
-                    0x028e => {
-                        mapping.btns.insert((BTN_WEST - BTN_MISC) as usize, BTN_NORTH);
-                        mapping.btns.insert((BTN_NORTH - BTN_MISC) as usize, BTN_WEST);
-                        mapping.axes.insert(5, ABS_HAT2X);
-                        mapping.axes.insert(2, ABS_HAT2Y);
-                    }
-                    _ => (),
-                }
-            }
-            _ => (),
-        };
-
-        mapping
     }
 
     fn map(&self, code: u16, kind: u16) -> u16 {
@@ -510,3 +512,21 @@ const FF_SQUARE: u16 = 0x58;
 const FF_TRIANGLE: u16 = 0x59;
 const FF_SINE: u16 = 0x5a;
 const FF_GAIN: u16 = 0x60;
+
+#[cfg(test)]
+mod tests {
+    use uuid::Uuid;
+    use ioctl;
+
+    #[test]
+    fn sdl_uuid() {
+        let x = Uuid::parse_str("030000005e0400008e02000020200000").unwrap();
+        let y = super::create_uuid(ioctl::input_id {
+            bustype: 0x3,
+            vendor: 0x045e,
+            product: 0x028e,
+            version: 0x2020,
+        });
+        assert_eq!(x, y);
+    }
+}

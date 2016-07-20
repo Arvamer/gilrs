@@ -114,6 +114,7 @@ impl Device {
         }
     }
 
+    #[allow(dead_code)]
     pub fn properties(&self) -> PropertyIterator {
         let prop = unsafe { ud::udev_device_get_properties_list_entry(self.0) };
         PropertyIterator(prop)
@@ -156,6 +157,7 @@ impl Drop for Device {
     }
 }
 
+#[allow(dead_code)]
 pub struct PropertyIterator(*mut ud::udev_list_entry);
 
 impl Iterator for PropertyIterator {

@@ -2,6 +2,7 @@ use platform;
 use std::mem;
 use constants::*;
 use ff::EffectData;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -90,6 +91,10 @@ impl Gamepad {
 
     pub fn name(&self) -> &String {
         &self.inner.name
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        self.inner.uuid
     }
 
     pub fn state(&self) -> &GamepadState {

@@ -6,6 +6,7 @@ extern crate libc;
 extern crate ioctl;
 
 extern crate vec_map;
+extern crate uuid;
 
 mod gamepad;
 mod platform;
