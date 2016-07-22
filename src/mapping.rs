@@ -204,62 +204,43 @@ impl Mapping {
     }
 
     fn get_btn(val: &str, buttons: &[u16]) -> Result<u16, ParseSdlMappingError> {
-        if let Some(n) = val.as_bytes()
-                            .get(1)
-                            .and_then(|&n| if n >= 0x30 && n <= 0x39 {
-                                Some(n - 0x30)
-                            } else {
-                                None
-                            }) {
-            if val.as_bytes().get(0) != Some(&('b' as u8)) {
-                return Err(ParseSdlMappingError::InvalidValue);
-            }
-
-            match buttons.get(n as usize) {
-                Some(&code) => Ok(code),
-                None => Err(ParseSdlMappingError::InvalidValue),
-            }
-        } else {
-            Err(ParseSdlMappingError::InvalidValue)
+        let (ident, val) = val.split_at(1);
+        if ident != "b" {
+            return Err(ParseSdlMappingError::InvalidValue);
         }
+        let val = match val.parse() {
+            Ok(val) => val,
+            Err(_) => return Err(ParseSdlMappingError::InvalidValue),
+        };
+        buttons.get(val).cloned().ok_or(ParseSdlMappingError::InvalidValue)
     }
 
     fn get_axis(val: &str, axes: &[u16]) -> Result<u16, ParseSdlMappingError> {
-        if let Some(n) = val.as_bytes()
-                            .get(1)
-                            .and_then(|&n| if n >= 0x30 && n <= 0x39 {
-                                Some(n - 0x30)
-                            } else {
-                                None
-                            }) {
-            if val.as_bytes().get(0) == Some(&('a' as u8)) {
-                match axes.get(n as usize) {
-                    Some(&code) => Ok(code),
-                    None => Err(ParseSdlMappingError::InvalidValue),
-                }
-            } else if val.as_bytes().get(0) == Some(&('h' as u8)) {
-                // Assume that there is only hat 0 and that .1 = up, .2 = right, .4 = down, .8 =
-                // left
-                if n != 0 || val.as_bytes().get(2) != Some(&('.' as u8)) {
-                    return Err(ParseSdlMappingError::InvalidValue);
-                }
-                if let Some(n) = val.as_bytes().get(3).and_then(|&n| if n >= 0x30 && n <= 0x39 {
-                    Some(n - 0x30)
-                } else {
-                    None
-                }) {
-                    match n {
-                        1 | 4 => Ok(platform::native_ev_codes::AXIS_DPADY),
-                        2 | 8 => Ok(platform::native_ev_codes::AXIS_DPADX),
-                        _ => Err(ParseSdlMappingError::InvalidValue),
-                    }
-                } else {
-                    Err(ParseSdlMappingError::InvalidValue)
-                }
-            } else {
-                Err(ParseSdlMappingError::InvalidValue)
-            }
+        let (ident, val) = val.split_at(1);
+        if ident == "a" {
+            let val = match val.parse() {
+                Ok(val) => val,
+                Err(_) => return Err(ParseSdlMappingError::InvalidValue),
+            };
+            axes.get(val).cloned().ok_or(ParseSdlMappingError::InvalidValue)
+        } else if ident == "h" {
+            let mut val_it = val.split('.');
 
+            match val_it.next().and_then(|s| s.parse::<u16>().ok()) {
+                Some(hat) if hat == 0 => hat,
+                _ => return Err(ParseSdlMappingError::InvalidValue),
+            };
+
+            let dir = match val_it.next().and_then(|s| s.parse().ok()) {
+                Some(dir) => dir,
+                None => return Err(ParseSdlMappingError::InvalidValue),
+            };
+
+            match dir {
+                1 | 4 => Ok(platform::native_ev_codes::AXIS_DPADY),
+                2 | 8 => Ok(platform::native_ev_codes::AXIS_DPADX),
+                _ => Err(ParseSdlMappingError::InvalidValue),
+            }
         } else {
             Err(ParseSdlMappingError::InvalidValue)
         }
@@ -395,6 +376,6 @@ mod tests {
 
     #[test]
     fn mapping() {
-        let mapping = Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
+        let _ = Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
     }
 }
