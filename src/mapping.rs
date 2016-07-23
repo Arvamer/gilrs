@@ -345,15 +345,32 @@ pub struct MappingDb {
 impl MappingDb {
     pub fn new() -> Self {
         let mut hmap = HashMap::new();
+
+        Self::insert_to(include_str!("../SDL_GameControllerDB/gamecontrollerdb.txt"), &mut hmap);
+
         if let Ok(mapping) = env::var("SDL_GAMECONTROLLERCONFIG") {
-            for mapping in mapping.lines() {
-                mapping.split(',')
-                       .next()
-                       .and_then(|s| Uuid::parse_str(s).ok())
-                       .and_then(|uuid| hmap.insert(uuid, mapping.to_owned()));
+            Self::insert_to(&mapping, &mut hmap);
+        }
+
+        /*
+        let mut c = 0;
+        for s in hmap.values() {
+            if Mapping::parse_sdl_mapping(s, &[0u16; 16], &[0u16; 16]).is_ok() {
+                c += 1;
             }
         }
+        println!("{}", c);
+        */
         MappingDb { mappings: hmap }
+    }
+
+    fn insert_to(s: &str, map: &mut HashMap<Uuid, String>) {
+        for mapping in s.lines() {
+            mapping.split(',')
+                   .next()
+                   .and_then(|s| Uuid::parse_str(s).ok())
+                   .and_then(|uuid| map.insert(uuid, mapping.to_owned()));
+        }
     }
 
     pub fn get(&self, uuid: Uuid) -> Option<&String> {
