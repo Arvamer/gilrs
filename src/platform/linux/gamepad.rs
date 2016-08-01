@@ -7,6 +7,7 @@ use ioctl;
 use gamepad::{Event, Button, Axis, Status};
 use constants;
 use mapping::{Mapping, Kind, MappingDb};
+use ioctl::input_absinfo as AbsInfo;
 
 
 #[derive(Debug)]
@@ -86,18 +87,18 @@ pub struct Gamepad {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct AxesInfo {
-    abs_x_max: f32,
-    abs_y_max: f32,
-    abs_z_max: f32,
-    abs_rx_max: f32,
-    abs_ry_max: f32,
-    abs_rz_max: f32,
-    abs_dpadx_max: f32,
-    abs_dpady_max: f32,
-    abs_left_tr_max: f32,
-    abs_right_tr_max: f32,
-    abs_left_tr2_max: f32,
-    abs_right_tr2_max: f32,
+    x: AbsInfo,
+    y: AbsInfo,
+    z: AbsInfo,
+    rx: AbsInfo,
+    ry: AbsInfo,
+    rz: AbsInfo,
+    dpadx: AbsInfo,
+    dpady: AbsInfo,
+    left_tr: AbsInfo,
+    right_tr: AbsInfo,
+    left_tr2: AbsInfo,
+    right_tr2: AbsInfo,
 }
 
 
@@ -199,14 +200,11 @@ impl Gamepad {
                 }
             }
 
-            let mut absi = ioctl::input_absinfo::default();
             let mut axesi = mem::zeroed::<AxesInfo>();
             let uuid = create_uuid(input_id);
             let mapping = mapping_db.get(uuid)
-                                    .and_then(|s| {
-                                        Mapping::parse_sdl_mapping(s, &buttons, &axes).ok()
-                                    })
-                                    .unwrap_or(Mapping::new());
+                .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
+                .unwrap_or(Mapping::new());
 
             println!("{:?}, {:?}", axes, mapping);
             if !test_bit(mapping.map_rev(BTN_GAMEPAD, Kind::Button), &key_bits) {
@@ -215,77 +213,53 @@ impl Gamepad {
                 return None;
             }
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_X, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_x_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_X, Kind::Axis) as u32,
+                             &mut axesi.x as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_Y, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_y_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_Y, Kind::Axis) as u32,
+                             &mut axesi.y as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_Z, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_z_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_Z, Kind::Axis) as u32,
+                             &mut axesi.z as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_RX, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_rx_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_RX, Kind::Axis) as u32,
+                             &mut axesi.rx as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_RY, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_ry_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_RY, Kind::Axis) as u32,
+                             &mut axesi.ry as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_RZ, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_rz_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_RZ, Kind::Axis) as u32,
+                             &mut axesi.rz as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT0X, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_dpadx_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT0X, Kind::Axis) as u32,
+                             &mut axesi.dpadx as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT0Y, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_dpady_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT0Y, Kind::Axis) as u32,
+                             &mut axesi.dpady as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT1X, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_right_tr_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT1X, Kind::Axis) as u32,
+                             &mut axesi.right_tr as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT1Y, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_left_tr_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT1Y, Kind::Axis) as u32,
+                             &mut axesi.left_tr as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT2X, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_right_tr2_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT2X, Kind::Axis) as u32,
+                             &mut axesi.right_tr2 as *mut _);
 
-            if ioctl::eviocgabs(fd,
-                                mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
-                                &mut absi as *mut _) >= 0 {
-                axesi.abs_left_tr2_max = absi.maximum as f32;
-            }
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
+                             &mut axesi.left_tr2 as *mut _);
 
             let gamepad = Gamepad {
                 fd: fd,
@@ -379,18 +353,19 @@ impl Gamepad {
                         }
                         code => {
                             Axis::from_u16(code).map(|axis| {
-                                let val = event.value as f32;
+                                let ai = &self.axes_info;
+                                let val = event.value;
                                 let val = match axis {
-                                    Axis::LeftStickX => val / self.axes_info.abs_x_max,
-                                    Axis::LeftStickY => val / self.axes_info.abs_y_max,
-                                    Axis::LeftZ => val / self.axes_info.abs_z_max,
-                                    Axis::RightStickX => val / self.axes_info.abs_rx_max,
-                                    Axis::RightStickY => val / self.axes_info.abs_ry_max,
-                                    Axis::RightZ => val / self.axes_info.abs_rz_max,
-                                    Axis::LeftTrigger => val / self.axes_info.abs_left_tr_max,
-                                    Axis::LeftTrigger2 => val / self.axes_info.abs_left_tr2_max,
-                                    Axis::RightTrigger => val / self.axes_info.abs_right_tr_max,
-                                    Axis::RightTrigger2 => val / self.axes_info.abs_right_tr2_max,
+                                    Axis::LeftStickX => Self::axis_value(ai.x, val),
+                                    Axis::LeftStickY => Self::axis_value(ai.y, val),
+                                    Axis::LeftZ => Self::axis_value(ai.z, val),
+                                    Axis::RightStickX => Self::axis_value(ai.rx, val),
+                                    Axis::RightStickY => Self::axis_value(ai.ry, val),
+                                    Axis::RightZ => Self::axis_value(ai.rz, val),
+                                    Axis::LeftTrigger => Self::axis_value(ai.left_tr, val),
+                                    Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val),
+                                    Axis::RightTrigger => Self::axis_value(ai.right_tr, val),
+                                    Axis::RightTrigger2 => Self::axis_value(ai.right_tr2, val),
                                 };
                                 Event::AxisChanged(axis, val)
                             })
@@ -404,6 +379,10 @@ impl Gamepad {
             }
             return ev;
         }
+    }
+
+    fn axis_value(axes_info: AbsInfo, val: i32) -> f32 {
+        val as f32 / axes_info.maximum as f32
     }
 
     pub fn disconnect(&mut self) {
