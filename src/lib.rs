@@ -5,6 +5,11 @@ extern crate libc;
 #[cfg(target_os = "linux")]
 extern crate ioctl;
 
+#[cfg(target_os = "windows")]
+extern crate winapi;
+#[cfg(target_os = "windows")]
+extern crate xinput;
+
 extern crate vec_map;
 extern crate uuid;
 
