@@ -356,16 +356,18 @@ impl Gamepad {
                                 let ai = &self.axes_info;
                                 let val = event.value;
                                 let val = match axis {
-                                    Axis::LeftStickX => Self::axis_value(ai.x, val),
-                                    Axis::LeftStickY => Self::axis_value(ai.y, val),
-                                    Axis::LeftZ => Self::axis_value(ai.z, val),
-                                    Axis::RightStickX => Self::axis_value(ai.rx, val),
-                                    Axis::RightStickY => Self::axis_value(ai.ry, val),
-                                    Axis::RightZ => Self::axis_value(ai.rz, val),
-                                    Axis::LeftTrigger => Self::axis_value(ai.left_tr, val),
-                                    Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val),
-                                    Axis::RightTrigger => Self::axis_value(ai.right_tr, val),
-                                    Axis::RightTrigger2 => Self::axis_value(ai.right_tr2, val),
+                                    Axis::LeftStickX => Self::axis_value(ai.x, val, true),
+                                    Axis::LeftStickY => Self::axis_value(ai.y, val, true),
+                                    Axis::LeftZ => Self::axis_value(ai.z, val, false),
+                                    Axis::RightStickX => Self::axis_value(ai.rx, val, true),
+                                    Axis::RightStickY => Self::axis_value(ai.ry, val, true),
+                                    Axis::RightZ => Self::axis_value(ai.rz, val, false),
+                                    Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, false),
+                                    Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, false),
+                                    Axis::RightTrigger => Self::axis_value(ai.right_tr, val, false),
+                                    Axis::RightTrigger2 => {
+                                        Self::axis_value(ai.right_tr2, val, false)
+                                    }
                                 };
                                 Event::AxisChanged(axis, val)
                             })
@@ -381,8 +383,26 @@ impl Gamepad {
         }
     }
 
-    fn axis_value(axes_info: AbsInfo, val: i32) -> f32 {
-        val as f32 / axes_info.maximum as f32
+    fn axis_value(axes_info: AbsInfo, val: i32, stick: bool) -> f32 {
+        let (val, axes_info) = if stick && axes_info.minimum == 0 {
+            let maxh = axes_info.maximum / 2;
+            let maximum = axes_info.maximum - maxh;
+            (val - maxh,
+             AbsInfo {
+                maximum: maximum,
+                ..axes_info
+            })
+        } else {
+            (val, axes_info)
+        };
+        let val = if val.abs() < axes_info.flat {
+            0
+        } else if val > 0 {
+            val - axes_info.flat
+        } else {
+            val + axes_info.flat
+        };
+        val as f32 / (axes_info.maximum - axes_info.flat) as f32
     }
 
     pub fn disconnect(&mut self) {
