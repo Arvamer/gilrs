@@ -27,6 +27,7 @@ pub struct Gilrs {
 impl Gilrs {
     pub fn new() -> Self {
         let mut gamepads = Vec::new();
+        unsafe { xinput::XInputEnable(1) };
         for i in 0..4 {
             if let Some(gamepad) = Gamepad::try_create(i) {
                 gamepads.push(gamepad);
