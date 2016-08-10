@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", allow(dead_code))]
+
 use vec_map::VecMap;
 use std::collections::HashMap;
 use platform;

@@ -63,6 +63,10 @@ impl Gamepad {
         self.status
     }
 
+    pub fn is_connected(&self) -> bool {
+        self.status == Status::Connected
+    }
+
     pub fn is_pressed(&self, btn: Button) -> bool {
         let state = &self.state;
         match btn {
