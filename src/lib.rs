@@ -16,3 +16,8 @@ mod mapping;
 pub mod ff;
 
 pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis, Event};
+
+trait AsInner<T> {
+    fn as_inner(&self) -> &T;
+    fn as_inner_mut(&mut self) -> &mut T;
+}

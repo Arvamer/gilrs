@@ -1,10 +1,11 @@
 use super::udev::*;
+use AsInner;
+use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, GamepadImplExt};
 use std::ffi::{CString, CStr};
 use std::mem;
 use uuid::Uuid;
 use libc as c;
 use ioctl;
-use gamepad::{Event, Button, Axis, Status};
 use constants;
 use mapping::{Mapping, Kind, MappingDb};
 use ioctl::input_absinfo as AbsInfo;
@@ -12,9 +13,10 @@ use ioctl::input_absinfo as AbsInfo;
 
 #[derive(Debug)]
 pub struct Gilrs {
-    pub gamepads: Vec<Gamepad>,
+    gamepads: Vec<MainGamepad>,
     mapping_db: MappingDb,
     monitor: Monitor,
+    not_observed: MainGamepad,
 }
 
 impl Gilrs {
@@ -31,17 +33,30 @@ impl Gilrs {
         for dev in en.iter() {
             let dev = Device::from_syspath(&udev, &dev).unwrap();
             if let Some(gamepad) = Gamepad::open(&dev, &mapping_db) {
-                gamepads.push(gamepad);
+                gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected));
             }
         }
         Gilrs {
             gamepads: gamepads,
             mapping_db: mapping_db,
             monitor: Monitor::new(&udev).unwrap(),
+            not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
         }
     }
 
-    pub fn handle_hotplug(&mut self) -> Option<(Gamepad, Status)> {
+    pub fn pool_events(&mut self) -> EventIterator {
+        EventIterator(self, 0)
+    }
+
+    pub fn gamepad(&self, id: usize) -> &MainGamepad {
+        self.gamepads.get(id).unwrap_or(&self.not_observed)
+    }
+
+    pub fn gamepad_mut(&mut self, id: usize) -> &mut MainGamepad {
+        self.gamepads.get_mut(id).unwrap_or(&mut self.not_observed)
+    }
+
+    fn handle_hotplug(&mut self) -> Option<(usize, Status)> {
         while self.monitor.hotplug_available() {
             let dev = self.monitor.device();
 
@@ -57,11 +72,25 @@ impl Gilrs {
 
             if is_eq_cstr(action, b"add\0") {
                 if let Some(gamepad) = Gamepad::open(&dev, &self.mapping_db) {
-                    return Some((gamepad, Status::Connected));
+                    if let Some(id) = self.gamepads.iter().position(|gp| {
+                        gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
+                    }) {
+                        self.gamepads[id] = MainGamepad::from_inner_status(gamepad, Status::Connected);
+                        return Some((id, Status::Connected));
+                    } else {
+                        self.gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected));
+                        return Some((self.gamepads.len() - 1, Status::Connected));
+                    }
                 }
             } else if is_eq_cstr(action, b"remove\0") {
-                if let Some(gamepad) = Gamepad::dummy(&dev) {
-                    return Some((gamepad, Status::Disconnected));
+                if let Some(devnode) = dev.devnode() {
+                    if let Some(id) = self.gamepads
+                        .iter()
+                        .position(|gp| is_eq_cstr(devnode, gp.as_inner().devpath.as_bytes())) {
+                        *self.gamepads[id].status_mut() = Status::Disconnected;
+                        self.gamepads[id].as_inner_mut().disconnect();
+                        return Some((id, Status::Disconnected));
+                    }
                 }
             }
         }
@@ -81,8 +110,8 @@ pub struct Gamepad {
     mapping: Mapping,
     ff_supported: bool,
     devpath: String,
-    pub name: String,
-    pub uuid: Uuid,
+    name: String,
+    uuid: Uuid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -103,7 +132,7 @@ struct AxesInfo {
 
 
 impl Gamepad {
-    pub fn none() -> Self {
+    fn none() -> Self {
         Gamepad {
             fd: -3,
             axes_info: unsafe { mem::zeroed() },
@@ -118,21 +147,6 @@ impl Gamepad {
 
     pub fn fd(&self) -> i32 {
         self.fd
-    }
-
-    fn dummy(dev: &Device) -> Option<Self> {
-        dev.devnode().map(|devpath| {
-            Gamepad {
-                fd: -3,
-                axes_info: unsafe { mem::uninitialized() },
-                abs_dpad_prev_val: (0, 0),
-                mapping: Mapping::new(),
-                ff_supported: false,
-                devpath: devpath.to_string_lossy().into_owned(),
-                name: String::new(),
-                uuid: Uuid::nil(),
-            }
-        })
     }
 
     fn open(dev: &Device, mapping_db: &MappingDb) -> Option<Gamepad> {
@@ -278,10 +292,6 @@ impl Gamepad {
         }
     }
 
-    pub fn eq_disconnect(&self, other: &Self) -> bool {
-        self.devpath == other.devpath
-    }
-
     pub fn event(&mut self) -> Option<Event> {
         let mut event = unsafe { mem::uninitialized::<ioctl::input_event>() };
         // Skip all unknown events and return Option on first know event or when there is no more
@@ -387,11 +397,7 @@ impl Gamepad {
         let (val, axes_info) = if stick && axes_info.minimum == 0 {
             let maxh = axes_info.maximum / 2;
             let maximum = axes_info.maximum - maxh;
-            (val - maxh,
-             AbsInfo {
-                maximum: maximum,
-                ..axes_info
-            })
+            (val - maxh, AbsInfo { maximum: maximum, ..axes_info })
         } else {
             (val, axes_info)
         };
@@ -405,7 +411,7 @@ impl Gamepad {
         val as f32 / (axes_info.maximum - axes_info.flat) as f32
     }
 
-    pub fn disconnect(&mut self) {
+    fn disconnect(&mut self) {
         unsafe {
             if self.fd >= 0 {
                 c::close(self.fd);
@@ -442,6 +448,14 @@ impl Gamepad {
             c::write(self.fd, mem::transmute(&ev), 24);
         }
     }
+
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
+    }
 }
 
 impl Drop for Gamepad {
@@ -457,6 +471,51 @@ impl Drop for Gamepad {
 impl PartialEq for Gamepad {
     fn eq(&self, other: &Self) -> bool {
         self.uuid == other.uuid
+    }
+}
+
+
+pub struct EventIterator<'a>(&'a mut Gilrs, usize);
+
+impl<'a> Iterator for EventIterator<'a> {
+    type Item = (usize, Event);
+
+    fn next(&mut self) -> Option<(usize, Event)> {
+        loop {
+            if let Some((id, status)) = self.0.handle_hotplug() {
+                let ev = match status {
+                    Status::Connected => Event::Connected,
+                    Status::Disconnected => Event::Disconnected,
+                    Status::NotObserved => unreachable!(),
+                };
+                return Some((id, ev));
+            }
+
+            let mut gamepad = match self.0.gamepads.get_mut(self.1) {
+                Some(gp) => gp,
+                None => return None,
+            };
+
+            if gamepad.status() != Status::Connected {
+                continue;
+            }
+
+            match gamepad.as_inner_mut().event() {
+                None => {
+                    self.1 += 1;
+                    continue;
+                }
+                Some(ev) => {
+                    match ev {
+                        Event::ButtonPressed(btn) => gamepad.state_mut().set_btn(btn, true),
+                        Event::ButtonReleased(btn) => gamepad.state_mut().set_btn(btn, false),
+                        Event::AxisChanged(axis, val) => gamepad.state_mut().set_axis(axis, val),
+                        _ => unreachable!(),
+                    }
+                    return Some((self.1, ev));
+                }
+            }
+        }
     }
 }
 

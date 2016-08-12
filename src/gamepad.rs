@@ -3,70 +3,28 @@ use std::mem;
 use constants::*;
 use ff::EffectData;
 use uuid::Uuid;
+use AsInner;
 
 #[derive(Debug)]
 pub struct Gilrs {
     inner: platform::Gilrs,
-    gamepads: Vec<Gamepad>,
-    // Use it to out of bound access
-    not_observed_gp: Gamepad,
 }
 
 impl Gilrs {
     pub fn new() -> Self {
-        let mut inner = platform::Gilrs::new();
-        let gamepads = inner.gamepads.drain(0..)
-            .map(|gp| Gamepad::new(gp, Status::Connected))
-            .collect();
-        Gilrs {
-            inner: inner,
-            gamepads: gamepads,
-            not_observed_gp: Gamepad::new(platform::Gamepad::none(), Status::NotObserved),
-        }
+        Gilrs { inner: platform::Gilrs::new() }
     }
 
     pub fn pool_events(&mut self) -> EventIterator {
-        EventIterator(self, 0)
+        EventIterator { inner: self.inner.pool_events() }
     }
 
-    fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
-        self.inner.handle_hotplug().and_then(|(gamepad, status)| {
-            match status {
-                Status::Connected => Some((self.gamepad_connected(gamepad), Event::Connected)),
-                Status::Disconnected => self.gamepad_disconnected(gamepad).map(|id| (id, Event::Disconnected)),
-                Status::NotObserved => unreachable!(),
-            }
-        })
+    pub fn gamepad(&self, id: usize) -> &Gamepad {
+        self.inner.gamepad(id)
     }
 
-    fn gamepad_connected(&mut self, gamepad: platform::Gamepad) -> usize {
-        match self.gamepads.iter()
-                           .position(|gp| gp.status == Status::Disconnected && gp.inner == gamepad) {
-            Some(id) => {
-                self.gamepads[id] = Gamepad::new(gamepad, Status::Connected);
-                id
-            }
-            None => {
-                self.gamepads.push(Gamepad::new(gamepad, Status::Connected));
-                self.gamepads.len() - 1
-            }
-        }
-    }
-
-    fn gamepad_disconnected(&mut self, gamepad: platform::Gamepad) -> Option<usize> {
-        self.gamepads.iter().position(|gp| gp.inner.eq_disconnect(&gamepad)).map(|id| {
-            self.gamepads[id].inner.disconnect();
-            self.gamepads[id].status = Status::Disconnected;
-            id
-        })
-    }
-
-    pub fn gamepad(&self, n: usize) -> &Gamepad {
-        self.gamepads.get(n).unwrap_or(&self.not_observed_gp)
-    }
-
-    pub fn gamepad_mut(&mut self, n: usize) -> &mut Gamepad {
-        self.gamepads.get_mut(n).unwrap_or(&mut self.not_observed_gp)
+    pub fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
+        self.inner.gamepad_mut(id)
     }
 }
 
@@ -90,11 +48,11 @@ impl Gamepad {
     }
 
     pub fn name(&self) -> &String {
-        &self.inner.name
+        self.inner.name()
     }
 
     pub fn uuid(&self) -> Uuid {
-        self.inner.uuid
+        self.inner.uuid()
     }
 
     pub fn state(&self) -> &GamepadState {
@@ -106,47 +64,49 @@ impl Gamepad {
     }
 
     pub fn is_pressed(&self, btn: Button) -> bool {
+        let state = &self.state;
         match btn {
-            Button::South => self.state.btn_south,
-            Button::East => self.state.btn_east,
-            Button::North => self.state.btn_north,
-            Button::West => self.state.btn_west,
-            Button::C => self.state.btn_c,
-            Button::Z => self.state.btn_z,
+            Button::South => state.btn_south,
+            Button::East => state.btn_east,
+            Button::North => state.btn_north,
+            Button::West => state.btn_west,
+            Button::C => state.btn_c,
+            Button::Z => state.btn_z,
 
-            Button::LeftTrigger => self.state.left_trigger != 0.0,
-            Button::LeftTrigger2 => self.state.left_trigger2 != 0.0,
-            Button::RightTrigger => self.state.right_trigger != 0.0,
-            Button::RightTrigger2 => self.state.right_trigger2 != 0.0,
+            Button::LeftTrigger => state.left_trigger != 0.0,
+            Button::LeftTrigger2 => state.left_trigger2 != 0.0,
+            Button::RightTrigger => state.right_trigger != 0.0,
+            Button::RightTrigger2 => state.right_trigger2 != 0.0,
 
-            Button::Select => self.state.btn_select,
-            Button::Start => self.state.btn_start,
-            Button::Mode => self.state.btn_mode,
+            Button::Select => state.btn_select,
+            Button::Start => state.btn_start,
+            Button::Mode => state.btn_mode,
 
-            Button::LeftThumb => self.state.btn_left_thumb,
-            Button::RightThumb => self.state.btn_right_thumb,
+            Button::LeftThumb => state.btn_left_thumb,
+            Button::RightThumb => state.btn_right_thumb,
 
-            Button::DPadUp => self.state.btn_dpad_up,
-            Button::DPadDown => self.state.btn_dpad_down,
-            Button::DPadRight => self.state.btn_dpad_right,
-            Button::DPadLeft => self.state.btn_dpad_left,
+            Button::DPadUp => state.btn_dpad_up,
+            Button::DPadDown => state.btn_dpad_down,
+            Button::DPadRight => state.btn_dpad_right,
+            Button::DPadLeft => state.btn_dpad_left,
 
             Button::Unknow => false,
         }
     }
 
     pub fn axis_val(&self, axis: Axis) -> f32 {
+        let state = &self.state;
         match axis {
-            Axis::LeftStickX => self.state.left_stick.0,
-            Axis::LeftStickY => self.state.left_stick.1,
-            Axis::LeftZ => self.state.z.0,
-            Axis::RightStickX => self.state.right_stick.0,
-            Axis::RightStickY => self.state.right_stick.1,
-            Axis::RightZ => self.state.z.1,
-            Axis::LeftTrigger => self.state.left_trigger,
-            Axis::LeftTrigger2 => self.state.left_trigger2,
-            Axis::RightTrigger => self.state.right_trigger,
-            Axis::RightTrigger2 => self.state.right_trigger2,
+            Axis::LeftStickX => state.left_stick.0,
+            Axis::LeftStickY => state.left_stick.1,
+            Axis::LeftZ => state.z.0,
+            Axis::RightStickX => state.right_stick.0,
+            Axis::RightStickY => state.right_stick.1,
+            Axis::RightZ => state.z.1,
+            Axis::LeftTrigger => state.left_trigger,
+            Axis::LeftTrigger2 => state.left_trigger2,
+            Axis::RightTrigger => state.right_trigger,
+            Axis::RightTrigger2 => state.right_trigger2,
         }
     }
 
@@ -179,6 +139,36 @@ impl Gamepad {
 
     pub fn set_ff_gain(&mut self, gain: u16) {
         self.inner.set_ff_gain(gain)
+    }
+}
+
+impl AsInner<platform::Gamepad> for Gamepad {
+    fn as_inner(&self) -> &platform::Gamepad {
+        &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut platform::Gamepad {
+        &mut self.inner
+    }
+}
+
+pub trait GamepadImplExt {
+    fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self;
+    fn state_mut(&mut self) -> &mut GamepadState;
+    fn status_mut(&mut self) -> &mut Status;
+}
+
+impl GamepadImplExt for Gamepad {
+    fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self {
+        Self::new(inner, status)
+    }
+
+    fn state_mut(&mut self) -> &mut GamepadState {
+        &mut self.state
+    }
+
+    fn status_mut(&mut self) -> &mut Status {
+        &mut self.status
     }
 }
 
@@ -241,7 +231,7 @@ impl GamepadState {
         unsafe { mem::zeroed() }
     }
 
-    fn set_btn(&mut self, btn: Button, val: bool) {
+    pub fn set_btn(&mut self, btn: Button, val: bool) {
         match btn {
             Button::South => self.btn_south = val,
             Button::East => self.btn_east = val,
@@ -271,7 +261,7 @@ impl GamepadState {
         };
     }
 
-    fn set_axis(&mut self, axis: Axis, val: f32) {
+    pub fn set_axis(&mut self, axis: Axis, val: f32) {
         match axis {
             Axis::LeftStickX => self.left_stick.0 = val,
             Axis::LeftStickY => self.left_stick.1 = val,
@@ -294,42 +284,15 @@ pub enum Status {
     NotObserved,
 }
 
-pub struct EventIterator<'a>(&'a mut Gilrs, usize);
+pub struct EventIterator<'a> {
+    inner: platform::EventIterator<'a>,
+}
 
 impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
-        loop {
-            if let Some(ev) = self.0.handle_hotplug() {
-                return Some(ev);
-            }
-
-            let mut gamepad = match self.0.gamepads.get_mut(self.1) {
-                Some(gp) => gp,
-                None => return None,
-            };
-
-            if gamepad.status != Status::Connected {
-                continue;
-            }
-
-            match gamepad.inner.event() {
-                None => {
-                    self.1 += 1;
-                    continue;
-                }
-                Some(ev) => {
-                    match ev {
-                        Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
-                        Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
-                        Event::AxisChanged(axis, val) => gamepad.state.set_axis(axis, val),
-                        _ => unreachable!(),
-                    }
-                    return Some((self.1, ev));
-                }
-            }
-        }
+        self.inner.next()
     }
 }
 
