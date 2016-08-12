@@ -1,20 +1,30 @@
 #![allow(unused_variables)]
 
-use gamepad::{Event, Status};
+use gamepad::{Event, Status, GamepadImplExt, self};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Gilrs {
-    pub gamepads: Vec<Gamepad>,
+    not_observed: gamepad::Gamepad,
 }
 
 impl Gilrs {
     pub fn new() -> Self {
-        Gilrs { gamepads: Vec::new() }
+        Gilrs {
+            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
+        }
     }
 
-    pub fn handle_hotplug(&mut self) -> Option<(Gamepad, Status)> {
-        None
+    pub fn pool_events(&mut self) -> EventIterator {
+        EventIterator(self)
+    }
+
+    pub fn gamepad(&self, id: usize) -> &gamepad::Gamepad {
+        &self.not_observed
+    }
+
+    pub fn gamepad_mut(&mut self, id: usize) -> &mut gamepad::Gamepad {
+        &mut self.not_observed
     }
 }
 
@@ -25,23 +35,20 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    /// Returns gamepad that had never existed. All actions performed on returned object are no-op.
-    pub fn none() -> Self {
+    fn none() -> Self {
         Gamepad {
             name: String::new(),
             uuid: Uuid::nil(),
         }
     }
 
-    pub fn eq_disconnect(&self, other: &Self) -> bool {
-        false
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
-    pub fn event(&mut self) -> Option<Event> {
-        None
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
     }
-
-    pub fn disconnect(&mut self) {}
 
     pub fn max_ff_effects(&self) -> usize {
         0
@@ -54,9 +61,13 @@ impl Gamepad {
     pub fn set_ff_gain(&mut self, gain: u16) {}
 }
 
-impl PartialEq for Gamepad {
-    fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+pub struct EventIterator<'a>(&'a mut Gilrs);
+
+impl<'a> Iterator for EventIterator<'a> {
+    type Item = (usize, Event);
+
+    fn next(&mut self) -> Option<(usize, Event)> {
+        None
     }
 }
 
