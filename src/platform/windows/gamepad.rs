@@ -20,7 +20,7 @@ use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAME
 use xinput;
 
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
-const ITERATIONS_TO_CHECK_IF_CONNECTED: u64 = 300;
+const ITERATIONS_TO_CHECK_IF_CONNECTED: u64 = 100;
 
 #[derive(Debug)]
 pub struct Gilrs {
