@@ -279,7 +279,7 @@ fn is_mask_eq(l: u16, r: u16, mask: u16) -> bool {
 
 fn gamepad_new(id: u32) -> gamepad::Gamepad {
     let gamepad = Gamepad {
-        name: String::new(),
+        name: format!("XInput Controller {}", id + 1),
         uuid: Uuid::nil(),
         id: id,
     };
