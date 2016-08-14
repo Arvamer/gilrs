@@ -414,6 +414,7 @@ impl Gamepad {
         } else {
             (val, axes_info)
         };
+
         let val = if val.abs() < axes_info.flat {
             0
         } else if val > 0 {
@@ -421,7 +422,9 @@ impl Gamepad {
         } else {
             val + axes_info.flat
         };
+
         let val = val as f32 / (axes_info.maximum - axes_info.flat) as f32;
+
         val *
         if (kind == Axis::LeftStickY || kind == Axis::RightStickY) && val != 0.0 {
             -1.0

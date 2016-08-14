@@ -340,6 +340,49 @@ pub enum Button {
     Unknow,
 }
 
+impl Button {
+    pub fn is_action(self) -> bool {
+        use Button::*;
+        match self {
+            South | East | North | West | C | Z => true,
+            _ => false
+        }
+    }
+
+    pub fn is_trigger(self) -> bool {
+        use Button::*;
+        match self {
+            LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 => true,
+            _ => false
+        }
+    }
+
+    pub fn is_menu(self) -> bool {
+        use Button::*;
+        match self {
+            Select | Start | Mode => true,
+            _ => false
+        }
+    }
+
+    pub fn is_stick(self) -> bool {
+        use Button::*;
+        match self {
+            LeftThumb | RightThumb => true,
+            _ => false
+        }
+    }
+
+    pub fn is_dpad(self) -> bool {
+        use Button::*;
+        match self {
+            DPadUp | DPadDown | DPadLeft | DPadRight => true,
+            _ => false
+        }
+    }
+
+}
+
 impl Default for Button {
     fn default() -> Self { Button::Unknow }
 }
@@ -364,6 +407,14 @@ impl Axis {
         use Axis::*;
         match self {
             LeftStickX | LeftStickY | RightStickX | RightStickY => true,
+            _ => false
+        }
+    }
+
+    pub fn is_trigger(self) -> bool {
+        use Axis::*;
+        match self {
+            LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 | LeftZ | RightZ => true,
             _ => false
         }
     }
