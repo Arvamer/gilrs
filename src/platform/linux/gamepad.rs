@@ -160,6 +160,7 @@ impl Gamepad {
         unsafe {
             let fd = c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK);
             if fd < 0 {
+                error!("Failed to open {:?}", path);
                 return None;
             }
 
@@ -177,6 +178,9 @@ impl Gamepad {
                                 abs_bits.len() as i32,
                                 abs_bits.as_mut_ptr()) < 0 {
                 c::close(fd);
+                info!("Unable to get essential information about device {:?}, probably js \
+                       interface, skipping…",
+                      path);
                 return None;
             }
 
@@ -198,10 +202,12 @@ impl Gamepad {
             let mut input_id = mem::uninitialized::<ioctl::input_id>();
 
             if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
+                error!("Failed to get name of device {:?}", path);
                 return None;
             }
 
             if ioctl::eviocgid(fd, &mut input_id as *mut _) < 0 {
+                error!("Failed to get id of device {:?}", path);
                 return None;
             }
 
@@ -222,9 +228,14 @@ impl Gamepad {
                 .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
                 .unwrap_or(Mapping::new());
 
-            println!("{:?}, {:?}", axes, mapping);
+            let name = if mapping.name().is_empty() {
+                CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned()
+            } else {
+                mapping.name().to_owned()
+            };
+
             if !test_bit(mapping.map_rev(BTN_GAMEPAD, Kind::Button), &key_bits) {
-                println!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
+                warn!("{:?}({}) doesn't have BTN_GAMEPAD, ignoring.", path, name);
                 c::close(fd);
                 return None;
             }
@@ -277,12 +288,6 @@ impl Gamepad {
                              mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
                              &mut axesi.left_tr2 as *mut _);
 
-            let name = if mapping.name().is_empty() {
-                CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned()
-            } else {
-                mapping.name().to_owned()
-            };
-
             let gamepad = Gamepad {
                 fd: fd,
                 axes_info: axesi,
@@ -294,7 +299,7 @@ impl Gamepad {
                 uuid: uuid,
             };
 
-            println!("{:#?}", gamepad);
+            info!("Found {:#?}", gamepad);
 
             Some(gamepad)
         }
@@ -417,7 +422,8 @@ impl Gamepad {
             val + axes_info.flat
         };
         let val = val as f32 / (axes_info.maximum - axes_info.flat) as f32;
-        val * if (kind == Axis::LeftStickY || kind == Axis::RightStickY) && val != 0.0 {
+        val *
+        if (kind == Axis::LeftStickY || kind == Axis::RightStickY) && val != 0.0 {
             -1.0
         } else {
             1.0

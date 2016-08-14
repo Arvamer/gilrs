@@ -1,8 +1,11 @@
 extern crate gilrs;
+extern crate env_logger;
+
 use gilrs::Gilrs;
 use gilrs::ff::EffectData;
 
 fn main() {
+    env_logger::init().unwrap();
     let mut gil = Gilrs::new();
     let mut effect = EffectData::default();
     effect.period = 1000;

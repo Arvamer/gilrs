@@ -12,6 +12,8 @@ extern crate xinput;
 
 extern crate vec_map;
 extern crate uuid;
+#[macro_use]
+extern crate log;
 
 mod gamepad;
 mod platform;

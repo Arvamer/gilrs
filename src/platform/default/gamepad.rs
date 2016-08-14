@@ -10,6 +10,7 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub fn new() -> Self {
+        warn!("Current platform is not supported, gamepad input will not work");
         Gilrs {
             not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
         }
