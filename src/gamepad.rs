@@ -26,6 +26,24 @@ impl Gilrs {
     pub fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
         self.inner.gamepad_mut(id)
     }
+
+    pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
+        let gp = self.inner.gamepad(id);
+        if gp.is_connected() {
+            Some(gp)
+        } else {
+            None
+        }
+    }
+
+    pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
+        let mut gp = self.inner.gamepad_mut(id);
+        if gp.is_connected() {
+            Some(gp)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
