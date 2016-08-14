@@ -67,7 +67,7 @@ impl Gamepad {
         self.status == Status::Connected
     }
 
-    pub fn is_pressed(&self, btn: Button) -> bool {
+    pub fn is_btn_pressed(&self, btn: Button) -> bool {
         let state = &self.state;
         match btn {
             Button::South => state.btn_south,
@@ -359,3 +359,12 @@ pub enum Axis {
     RightTrigger2 = AXIS_RT2,
 }
 
+impl Axis {
+    pub fn is_stick(self) -> bool {
+        use Axis::*;
+        match self {
+            LeftStickX | LeftStickY | RightStickX | RightStickY => true,
+            _ => false
+        }
+    }
+}

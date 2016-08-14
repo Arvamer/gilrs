@@ -75,10 +75,12 @@ impl Gilrs {
                     if let Some(id) = self.gamepads.iter().position(|gp| {
                         gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
                     }) {
-                        self.gamepads[id] = MainGamepad::from_inner_status(gamepad, Status::Connected);
+                        self.gamepads[id] = MainGamepad::from_inner_status(gamepad,
+                                                                           Status::Connected);
                         return Some((id, Status::Connected));
                     } else {
-                        self.gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected));
+                        self.gamepads
+                            .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
                         return Some((self.gamepads.len() - 1, Status::Connected));
                     }
                 }
@@ -372,17 +374,17 @@ impl Gamepad {
                                 let ai = &self.axes_info;
                                 let val = event.value;
                                 let val = match axis {
-                                    Axis::LeftStickX => Self::axis_value(ai.x, val, true),
-                                    Axis::LeftStickY => Self::axis_value(ai.y, val, true),
-                                    Axis::LeftZ => Self::axis_value(ai.z, val, false),
-                                    Axis::RightStickX => Self::axis_value(ai.rx, val, true),
-                                    Axis::RightStickY => Self::axis_value(ai.ry, val, true),
-                                    Axis::RightZ => Self::axis_value(ai.rz, val, false),
-                                    Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, false),
-                                    Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, false),
-                                    Axis::RightTrigger => Self::axis_value(ai.right_tr, val, false),
-                                    Axis::RightTrigger2 => {
-                                        Self::axis_value(ai.right_tr2, val, false)
+                                    a @ Axis::LeftStickX => Self::axis_value(ai.x, val, a),
+                                    a @ Axis::LeftStickY => Self::axis_value(ai.y, val, a),
+                                    a @ Axis::LeftZ => Self::axis_value(ai.z, val, a),
+                                    a @ Axis::RightStickX => Self::axis_value(ai.rx, val, a),
+                                    a @ Axis::RightStickY => Self::axis_value(ai.ry, val, a),
+                                    a @ Axis::RightZ => Self::axis_value(ai.rz, val, a),
+                                    a @ Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, a),
+                                    a @ Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, a),
+                                    a @ Axis::RightTrigger => Self::axis_value(ai.right_tr, val, a),
+                                    a @ Axis::RightTrigger2 => {
+                                        Self::axis_value(ai.right_tr2, val, a)
                                     }
                                 };
                                 Event::AxisChanged(axis, val)
@@ -399,8 +401,8 @@ impl Gamepad {
         }
     }
 
-    fn axis_value(axes_info: AbsInfo, val: i32, stick: bool) -> f32 {
-        let (val, axes_info) = if stick && axes_info.minimum == 0 {
+    fn axis_value(axes_info: AbsInfo, val: i32, kind: Axis) -> f32 {
+        let (val, axes_info) = if kind.is_stick() && axes_info.minimum == 0 {
             let maxh = axes_info.maximum / 2;
             let maximum = axes_info.maximum - maxh;
             (val - maxh, AbsInfo { maximum: maximum, ..axes_info })
@@ -414,7 +416,12 @@ impl Gamepad {
         } else {
             val + axes_info.flat
         };
-        val as f32 / (axes_info.maximum - axes_info.flat) as f32
+        let val = val as f32 / (axes_info.maximum - axes_info.flat) as f32;
+        val * if (kind == Axis::LeftStickY || kind == Axis::RightStickY) && val != 0.0 {
+            -1.0
+        } else {
+            1.0
+        }
     }
 
     fn disconnect(&mut self) {
@@ -515,7 +522,15 @@ impl<'a> Iterator for EventIterator<'a> {
                     match ev {
                         Event::ButtonPressed(btn) => gamepad.state_mut().set_btn(btn, true),
                         Event::ButtonReleased(btn) => gamepad.state_mut().set_btn(btn, false),
-                        Event::AxisChanged(axis, val) => gamepad.state_mut().set_axis(axis, val),
+                        Event::AxisChanged(axis, val) => {
+                            // Because we report values in flat range as 0 we have to filter axis
+                            // events to not report multiple same events.
+                            if gamepad.axis_val(axis) != val {
+                                gamepad.state_mut().set_axis(axis, val)
+                            } else {
+                                continue;
+                            }
+                        }
                         _ => unreachable!(),
                     }
                     return Some((self.1, ev));
