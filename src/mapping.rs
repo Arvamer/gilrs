@@ -25,6 +25,10 @@ impl Mapping {
         }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn parse_sdl_mapping(line: &str,
                              buttons: &[u16],
                              axes: &[u16])

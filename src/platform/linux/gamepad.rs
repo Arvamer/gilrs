@@ -275,6 +275,12 @@ impl Gamepad {
                              mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
                              &mut axesi.left_tr2 as *mut _);
 
+            let name = if mapping.name().is_empty() {
+                CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned()
+            } else {
+                mapping.name().to_owned()
+            };
+
             let gamepad = Gamepad {
                 fd: fd,
                 axes_info: axesi,
@@ -282,7 +288,7 @@ impl Gamepad {
                 mapping: mapping,
                 ff_supported: ff_supported,
                 devpath: path.to_string_lossy().into_owned(),
-                name: CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned(),
+                name: name,
                 uuid: uuid,
             };
 
