@@ -1,5 +1,9 @@
 image: "scorpil/rust:stable"
 
+before_script:
+- apt-get update -yqq
+- apt-get install -yqq pkg-config libudev-dev
+
 test:cargo:
   script:
   - rustc --version && cargo --version
