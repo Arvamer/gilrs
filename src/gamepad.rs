@@ -5,28 +5,66 @@ use ff::EffectData;
 use uuid::Uuid;
 use AsInner;
 
+/// Main object responsible of managing gamepads.
+///
+/// # Event loop
+///
+/// All interesting actions like button was pressed or new controller was connected are represented
+/// by tuple `(usize, `[`Event`](enum.Event.html)`)`. You should call `pool_events()` method once in
+/// your event loop and then iterate over all available events.
+///
+/// ```
+/// use gilrs::{Event, Button};
+///
+/// let mut gilrs = Gilrs::new();
+///
+/// // Event loop
+/// loop {
+///     for event in gilrs.pool_events() {
+///         match event {
+///             (id, Event::ButtonPressed(Button::South)) => println!("Player {}: jump!", id + 1),
+///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
+///         };
+///     }
+///     # break;
+/// }
+/// ```
+///
+/// Additionally, every time you use `pool_events()`, cached gamepad state is updated. Use
+/// `gamepad(usize)` method to borrow gamepad and then `state()`, `is_btn_pressed(Button)` or
+/// `axis_val(Axis)` to examine gamepad's state. See [`Gamepad`](struct.Gamepad.html) for more
+/// info.
 #[derive(Debug)]
 pub struct Gilrs {
     inner: platform::Gilrs,
 }
 
 impl Gilrs {
+    /// Creates new `Gilrs`.
     pub fn new() -> Self {
         Gilrs { inner: platform::Gilrs::new() }
     }
 
+    /// Creates iterator over available events. Iterator item's is `(usize, Event)` where usize is
+    /// id of gamepad that generated event. See struct level documentation for example.
     pub fn pool_events(&mut self) -> EventIterator {
         EventIterator { inner: self.inner.pool_events() }
     }
 
+    /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
+    /// it was disconnected or never observed. If gamepad's status is not equal to
+    /// `Status::Connected` all actions preformed on it are no-op and all values in cached gamepad
+    /// state are 0 (false for buttons and 0.0 for axes).
     pub fn gamepad(&self, id: usize) -> &Gamepad {
         self.inner.gamepad(id)
     }
 
+    /// See `gamepad()`
     pub fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
         self.inner.gamepad_mut(id)
     }
 
+    /// Returns reference to connected gamepad or `None`.
     pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
         let gp = self.inner.gamepad(id);
         if gp.is_connected() {
@@ -36,6 +74,7 @@ impl Gilrs {
         }
     }
 
+    /// Returns reference to connected gamepad or `None`.
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
         if gp.is_connected() {
@@ -46,6 +85,10 @@ impl Gilrs {
     }
 }
 
+/// Represents game controller.
+///
+/// Using this struct you can access cached gamepad state, informations about gamepad such as name
+/// or UUID and manage force feedback effects.
 #[derive(Debug)]
 pub struct Gamepad {
     inner: platform::Gamepad,
@@ -65,26 +108,54 @@ impl Gamepad {
         }
     }
 
+    /// Returns gamepad's name.
     pub fn name(&self) -> &String {
         self.inner.name()
     }
 
+    /// Returns gamepad's UUID.
     pub fn uuid(&self) -> Uuid {
         self.inner.uuid()
     }
 
+    /// Returns cached gamepad state.
+    ///
+    /// Every time you use `Gilrs::pool_events()` gamepad state is updated. You can use it to know
+    /// if some button is pressed or to get axis's value.
+    ///
+    /// ```
+    /// use gilrs::{Button, Axis};
+    ///
+    /// let mut gilrs = Gilrs::new();
+    ///
+    /// loop {
+    ///     for _ in gilrs.pool_events() {}
+    ///
+    ///     println!("Start: {}, Left Stick X: {}",
+    ///              gilrs.gamepad(0).is_btn_pressed(Button::Start),
+    ///              gilrs.gamepad(0).axis_val(Axis::LeftStickX));
+    ///     # break;
+    /// }
+    /// ```
     pub fn state(&self) -> &GamepadState {
         &self.state
     }
 
+    /// Returns current gamepad's status, which can be `Connected`, `Disconnected` or `NotObserved`.
+    /// Only connected gamepads generate events. Disconnected gamepads retain their name and UUID.
+    /// Cached state of disconnected and not observed gamepads is 0 (false for buttons and 0.0 for
+    /// axis) and all acions preformed on such gamepad are no-op.
     pub fn status(&self) -> Status {
         self.status
     }
 
+    /// Returns true if gamepad is connected.
     pub fn is_connected(&self) -> bool {
         self.status == Status::Connected
     }
 
+    /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
+    /// represented by axis returns true if value is not equal to 0.0.
     pub fn is_btn_pressed(&self, btn: Button) -> bool {
         let state = &self.state;
         match btn {
@@ -116,6 +187,8 @@ impl Gamepad {
         }
     }
 
+    /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
+    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed.
     pub fn axis_val(&self, axis: Axis) -> f32 {
         let state = &self.state;
         match axis {
@@ -132,6 +205,26 @@ impl Gamepad {
         }
     }
 
+    /// Creates and uploads new force feedback effect using `data`. This function will fail if device
+    /// doesn't have space for new effect or doesn't support requested effect. Returns effect's
+    /// index.
+    ///
+    /// ```rust,no_run
+    /// use gilrs::ff::EffectData;
+    ///
+    /// let mut gilrs = Gilrs::new();
+    ///
+    /// let mut effect = EffectData::default();
+    /// effect.period = 1000;
+    /// effect.magnitude = 20000;
+    /// effect.replay.length = 5000;
+    /// effect.envelope.attack_length = 1000;
+    /// effect.envelope.fade_length = 1000;
+    ///
+    /// let effect_idx = gilrs.gamepad_mut(0).add_ff_effect(effect).unwrap();
+    /// gil.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
+    /// ```
+    // FIXME: Change return to Result and create appropriate error
     pub fn add_ff_effect(&mut self, data: EffectData) -> Option<usize> {
         self.ff_effects.iter().position(|effect| effect.is_none()).and_then(|pos| {
             Effect::new(self, data).map(|effect| {
@@ -143,22 +236,27 @@ impl Gamepad {
         })
     }
 
+    /// Drop effect stopping it. Use this function to make space for new effects.
     pub fn drop_ff_effect(&mut self, idx: usize) {
         self.ff_effects.get_mut(idx).map(|effect| effect.take());
     }
 
+    /// Borrows mutable `Effect`.
     pub fn ff_effect(&mut self, idx: usize) -> Option<&mut Effect> {
         self.ff_effects.get_mut(idx).and_then(|effect| effect.as_mut())
     }
 
+    /// Returns how many force feedback effects device can have.
     pub fn max_ff_effects(&self) -> usize {
         self.inner.max_ff_effects()
     }
 
+    /// Returns true if force feedback is supported by device.
     pub fn is_ff_supported(&self) -> bool {
         self.inner.is_ff_supported()
     }
 
+    /// Sets master gain for device.
     pub fn set_ff_gain(&mut self, gain: u16) {
         self.inner.set_ff_gain(gain)
     }
