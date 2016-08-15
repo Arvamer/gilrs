@@ -14,7 +14,7 @@ use AsInner;
 /// your event loop and then iterate over all available events.
 ///
 /// ```
-/// use gilrs::{Event, Button};
+/// use gilrs::{Gilrs, Event, Button};
 ///
 /// let mut gilrs = Gilrs::new();
 ///
@@ -24,6 +24,7 @@ use AsInner;
 ///         match event {
 ///             (id, Event::ButtonPressed(Button::South)) => println!("Player {}: jump!", id + 1),
 ///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
+///             _ => (),
 ///         };
 ///     }
 ///     # break;
@@ -124,7 +125,7 @@ impl Gamepad {
     /// if some button is pressed or to get axis's value.
     ///
     /// ```
-    /// use gilrs::{Button, Axis};
+    /// use gilrs::{Gilrs, Button, Axis};
     ///
     /// let mut gilrs = Gilrs::new();
     ///
@@ -211,6 +212,7 @@ impl Gamepad {
     ///
     /// ```rust,no_run
     /// use gilrs::ff::EffectData;
+    /// use gilrs::Gilrs;
     ///
     /// let mut gilrs = Gilrs::new();
     ///
@@ -222,7 +224,7 @@ impl Gamepad {
     /// effect.envelope.fade_length = 1000;
     ///
     /// let effect_idx = gilrs.gamepad_mut(0).add_ff_effect(effect).unwrap();
-    /// gil.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
+    /// gilrs.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
     /// ```
     // FIXME: Change return to Result and create appropriate error
     pub fn add_ff_effect(&mut self, data: EffectData) -> Option<usize> {
