@@ -2,7 +2,9 @@ image: "scorpil/rust:stable"
 
 before_script:
 - apt-get update -yqq
-- apt-get install -yqq pkg-config libudev-dev
+- apt-get install -yqq pkg-config libudev-dev git
+- git submodule init
+- git submodule update
 
 test:cargo:
   script:
