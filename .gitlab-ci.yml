@@ -14,7 +14,8 @@ test:cargo:
 pages:
   script:
   - cargo doc
-  - mv target/doc public/
+  - mkdir public/doc
+  - mv target/doc public/doc
   artifacts:
     paths:
       - public
