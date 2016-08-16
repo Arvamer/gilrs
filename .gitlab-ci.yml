@@ -15,7 +15,9 @@ pages:
   script:
   - cargo doc
   - mkdir public
+  - mkdir public/img
   - mv target/doc public
+  - mv controller.svg target/img/
   artifacts:
     paths:
       - public
