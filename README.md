@@ -40,12 +40,6 @@ Supported features
 | OS X             |   ❌  |      ❌     |     ❌   |        ❌      |
 | Android          |   ❌  |      ❌     |     ❌   |        ❌      |
 
-Controller layout
------------------
-
-![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
-[original image by nicefrog](http://opengameart.org/content/generic-gamepad-template)
-
 Platform specific notes
 ======================
 
