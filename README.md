@@ -25,7 +25,6 @@ loop {
     if gilrs.gamepad(0).is_btn_pressed(Button::South) {
         println!("Name of gamepad 0: {}", gilrs.gamepad(0).name());
     }
-    # break;
 }
 ```
 

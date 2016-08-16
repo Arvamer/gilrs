@@ -34,7 +34,7 @@ use std::f32::consts::PI;
 
 pub use gamepad::Effect;
 
-/// Describes wave-shaped force feedback event that repeat itself over time.
+/// Describes wave-shaped force feedback effect that repeat itself over time.
 ///
 /// *Borrowed* from [SDL Documentation](https://wiki.libsdl.org/SDL_HapticPeriodic):
 ///
