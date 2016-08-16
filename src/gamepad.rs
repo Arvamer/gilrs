@@ -294,6 +294,7 @@ impl GamepadImplExt for Gamepad {
     }
 }
 
+/// Represents effect uploaded to device
 #[derive(Debug)]
 pub struct Effect {
     inner: platform::Effect,
@@ -304,19 +305,24 @@ impl Effect {
         platform::Effect::new(&gamepad.inner, data).map(|effect| Effect { inner: effect })
     }
 
+    /// Upload new data to effect. Depending on platform and device, this function may stop effect
+    /// and start playing it from beginning.
     pub fn upload(&mut self, data: EffectData) -> Option<()> {
         self.inner.upload(data)
     }
 
+    /// Play effect.
     pub fn play(&mut self, n: u16) {
         self.inner.play(n)
     }
 
+    /// Stop playing effect.
     pub fn stop(&mut self) {
         self.inner.stop()
     }
 }
 
+/// Cached state of gamepad's buttons and axes.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct GamepadState {
     // sticks
@@ -406,6 +412,7 @@ pub enum Status {
     NotObserved,
 }
 
+/// Iterator over gamepads events
 pub struct EventIterator<'a> {
     inner: platform::EventIterator<'a>,
 }

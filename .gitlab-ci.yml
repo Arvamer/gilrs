@@ -17,7 +17,7 @@ pages:
   - mkdir public
   - mkdir public/img
   - mv target/doc public
-  - mv controller.svg target/img/
+  - mv controller.svg public/img/
   artifacts:
     paths:
       - public
