@@ -2,6 +2,7 @@
 name = "gilrs"
 version = "0.1.0"
 authors = ["Arvamer <arvamer@gmail.com>"]
+license = "Apache 2.0 OR MIT"
 
 [dependencies]
 vec_map = "0.6"
