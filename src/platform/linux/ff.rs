@@ -4,7 +4,7 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use ff::{EffectData, Waveform, Trigger};
+use ff::{EffectData, Waveform, Trigger, Error};
 use super::gamepad::Gamepad;
 use ioctl::{ff_effect, input_event};
 use ioctl;
@@ -19,27 +19,27 @@ pub struct Effect {
 }
 
 impl Effect {
-    pub fn new(gamepad: &Gamepad, data: EffectData) -> Option<Self> {
+    pub fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, Error> {
         let mut data: ff_effect = data.into();
         let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data as *mut _) };
         if res == -1 {
-            None
+            Err(Error::EffectNotSupported)
         } else {
-            Some(Effect {
+            Ok(Effect {
                 id: data.id,
                 fd: gamepad.fd(),
             })
         }
     }
 
-    pub fn upload(&mut self, data: EffectData) -> Option<()> {
+    pub fn upload(&mut self, data: EffectData) -> Result<(), Error> {
         let mut data: ff_effect = data.into();
         data.id = self.id;
         let res = unsafe { ioctl::eviocsff(self.fd, &mut data as *mut _) };
         if res == -1 {
-            None
+            Err(Error::EffectNotSupported)
         } else {
-            Some(())
+            Ok(())
         }
     }
 

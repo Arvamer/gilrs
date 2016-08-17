@@ -1,7 +1,7 @@
 use platform;
 use std::mem;
 use constants::*;
-use ff::EffectData;
+use ff::{EffectData, self};
 use uuid::Uuid;
 use AsInner;
 
@@ -226,16 +226,21 @@ impl Gamepad {
     /// let effect_idx = gilrs.gamepad_mut(0).add_ff_effect(effect).unwrap();
     /// gilrs.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
     /// ```
-    // FIXME: Change return to Result and create appropriate error
-    pub fn add_ff_effect(&mut self, data: EffectData) -> Option<usize> {
-        self.ff_effects.iter().position(|effect| effect.is_none()).and_then(|pos| {
-            Effect::new(self, data).map(|effect| {
-                unsafe {
-                    *self.ff_effects.get_unchecked_mut(pos) = Some(effect);
-                }
-                pos
-            })
-        })
+    pub fn add_ff_effect(&mut self, data: EffectData) -> Result<usize, ff::Error> {
+        if let Some(pos) = self.ff_effects.iter().position(|effect| effect.is_none()) {
+            if self.is_ff_supported() {
+                Effect::new(self, data).map(|effect| {
+                    unsafe {
+                        *self.ff_effects.get_unchecked_mut(pos) = Some(effect);
+                    }
+                    pos
+                })
+            } else {
+                Err(ff::Error::FfNotSupported)
+            }
+        } else {
+            Err(ff::Error::NotEnoughSpace)
+        }
     }
 
     /// Drop effect stopping it. Use this function to make space for new effects.
@@ -301,13 +306,13 @@ pub struct Effect {
 }
 
 impl Effect {
-    fn new(gamepad: &Gamepad, data: EffectData) -> Option<Self> {
+    fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, ff::Error> {
         platform::Effect::new(&gamepad.inner, data).map(|effect| Effect { inner: effect })
     }
 
     /// Upload new data to effect. Depending on platform and device, this function may stop effect
     /// and start playing it from beginning.
-    pub fn upload(&mut self, data: EffectData) -> Option<()> {
+    pub fn upload(&mut self, data: EffectData) -> Result<(), ff::Error> {
         self.inner.upload(data)
     }
 

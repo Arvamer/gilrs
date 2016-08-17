@@ -7,18 +7,18 @@
 #![allow(unused_variables)]
 
 use super::gamepad::Gamepad;
-use ff::EffectData;
+use ff::{EffectData, Error};
 
 #[derive(Debug)]
 pub struct Effect {}
 
 impl Effect {
-    pub fn new(gamepad: &Gamepad, data: EffectData) -> Option<Self> {
-        None
+    pub fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, Error> {
+        Err(Error::FfNotSupported)
     }
 
-    pub fn upload(&mut self, data: EffectData) -> Option<()> {
-        None
+    pub fn upload(&mut self, data: EffectData) -> Result<(),Error> {
+        Err(Error::FfNotSupported)
     }
 
     pub fn play(&mut self, n: u16) {}

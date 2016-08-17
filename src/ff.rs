@@ -27,10 +27,11 @@
 //! gilrs.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
 //! ```
 
-
 use gamepad::Button;
 use std::u16::MAX as U16_MAX;
 use std::f32::consts::PI;
+use std::error::Error as StdError;
+use std::fmt;
 
 pub use gamepad::Effect;
 
@@ -151,4 +152,36 @@ pub struct Replay {
 pub struct Trigger {
     pub button: Button,
     pub interval: u16,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Error {
+    /// There is not enough space in device for new effect
+    NotEnoughSpace,
+    /// Force feedback is not supported by device
+    FfNotSupported,
+    /// Requested effect is not supported by device
+    EffectNotSupported,
+}
+
+impl Error {
+    pub fn to_str(self) -> &'static str {
+        match self {
+            Error::NotEnoughSpace => "not enough space for new effect",
+            Error::FfNotSupported => "force feedback is not supported",
+            Error::EffectNotSupported => "effect is not supported by device"
+        }
+    }
+}
+
+impl StdError for Error {
+    fn description(&self) -> &str {
+        self.to_str()
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str(self.to_str())
+    }
 }
