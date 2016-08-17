@@ -48,6 +48,16 @@
 //! ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
 //! [original image by nicefrog](http://opengameart.org/content/generic-gamepad-template)
 //!
+//! Mappings
+//! --------
+//!
+//! GilRs use SDL-compatible controller mappings to fix on Linux legacy drivers that doesn't follow
+//! [Linux Gamepad API](https://www.kernel.org/doc/Documentation/input/gamepad.txt) and to provide
+//! unifed button layout for platforms that doesn't make any guarantees about it. The main source
+//! is [SDL_GameControllerDB](https://github.com/gabomdq/SDL_GameControllerDB), but library also
+//! support loading mappings from environment variable `SDL_GAMECONTROLLERCONFIG` (which Steam
+//! use).
+//!
 //! Platform specific notes
 //! ======================
 //!
@@ -57,6 +67,9 @@
 //! On Linux, GilRs read (and write, in case of force feedback) directly from appropriate
 //! `/dev/input/event*` file. This mean that user have to have read and write access to this file.
 //! On most distros it shouldn't be a problem, but if it is, you will have to create udev rule.
+//!
+//! To build GilRs, you will need pkg-config and libudev .pc file. On some
+//! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
 
 #[cfg(target_os = "linux")]
 extern crate libudev_sys;
