@@ -10,7 +10,7 @@ use AsInner;
 /// # Event loop
 ///
 /// All interesting actions like button was pressed or new controller was connected are represented
-/// by tuple `(usize, `[`Event`](enum.Event.html)`)`. You should call `pool_events()` method once in
+/// by tuple `(usize, `[`Event`](enum.Event.html)`)`. You should call `poll_events()` method once in
 /// your event loop and then iterate over all available events.
 ///
 /// ```
@@ -20,7 +20,7 @@ use AsInner;
 ///
 /// // Event loop
 /// loop {
-///     for event in gilrs.pool_events() {
+///     for event in gilrs.poll_events() {
 ///         match event {
 ///             (id, Event::ButtonPressed(Button::South)) => println!("Player {}: jump!", id + 1),
 ///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
@@ -31,7 +31,7 @@ use AsInner;
 /// }
 /// ```
 ///
-/// Additionally, every time you use `pool_events()`, cached gamepad state is updated. Use
+/// Additionally, every time you use `poll_events()`, cached gamepad state is updated. Use
 /// `gamepad(usize)` method to borrow gamepad and then `state()`, `is_btn_pressed(Button)` or
 /// `axis_val(Axis)` to examine gamepad's state. See [`Gamepad`](struct.Gamepad.html) for more
 /// info.
@@ -48,8 +48,8 @@ impl Gilrs {
 
     /// Creates iterator over available events. Iterator item's is `(usize, Event)` where usize is
     /// id of gamepad that generated event. See struct level documentation for example.
-    pub fn pool_events(&mut self) -> EventIterator {
-        EventIterator { inner: self.inner.pool_events() }
+    pub fn poll_events(&mut self) -> EventIterator {
+        EventIterator { inner: self.inner.poll_events() }
     }
 
     /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
@@ -121,7 +121,7 @@ impl Gamepad {
 
     /// Returns cached gamepad state.
     ///
-    /// Every time you use `Gilrs::pool_events()` gamepad state is updated. You can use it to know
+    /// Every time you use `Gilrs::poll_events()` gamepad state is updated. You can use it to know
     /// if some button is pressed or to get axis's value.
     ///
     /// ```
@@ -130,7 +130,7 @@ impl Gamepad {
     /// let mut gilrs = Gilrs::new();
     ///
     /// loop {
-    ///     for _ in gilrs.pool_events() {}
+    ///     for _ in gilrs.poll_events() {}
     ///
     ///     println!("Start: {}, Left Stick X: {}",
     ///              gilrs.gamepad(0).is_btn_pressed(Button::Start),

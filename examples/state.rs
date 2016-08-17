@@ -8,7 +8,7 @@ fn main() {
     let mut gilrs = Gilrs::new();
 
     loop {
-        for _ in gilrs.pool_events() {}
+        for _ in gilrs.poll_events() {}
         // Clear
         print!("{}[2J", 0o33 as char);
         println!("{:#?}", gilrs.gamepad(0).state());

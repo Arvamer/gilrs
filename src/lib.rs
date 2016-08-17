@@ -20,7 +20,7 @@
 //!
 //! // Event loop
 //! loop {
-//!     for (id, event) in gilrs.pool_events() {
+//!     for (id, event) in gilrs.poll_events() {
 //!         println!("New event from {}: {:?}", id, event);
 //!     }
 //!

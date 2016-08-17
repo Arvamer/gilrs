@@ -16,7 +16,7 @@ fn main() {
     let effect_idx = gil.gamepad_mut(0).add_ff_effect(effect).unwrap();
     gil.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
     loop {
-        for e in gil.pool_events() {
+        for e in gil.poll_events() {
             println!("{:?}", e);
         }
     }

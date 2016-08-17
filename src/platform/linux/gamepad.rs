@@ -50,7 +50,7 @@ impl Gilrs {
         }
     }
 
-    pub fn pool_events(&mut self) -> EventIterator {
+    pub fn poll_events(&mut self) -> EventIterator {
         EventIterator(self, 0)
     }
 

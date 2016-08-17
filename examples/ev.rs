@@ -6,7 +6,7 @@ fn main() {
     env_logger::init().unwrap();
     let mut gil = Gilrs::new();
     loop {
-        for e in gil.pool_events() {
+        for e in gil.poll_events() {
             println!("{:?}", e);
         }
     }
