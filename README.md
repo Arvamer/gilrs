@@ -48,3 +48,9 @@ Linux
 On Linux, GilRs read (and write, in case of force feedback) directly from appropriate
 `/dev/input/event*` file. This mean that user have to have read and write access to this file.
 On most distros it shouldn't be a problem, but if it is, you will have to create udev rule.
+
+License
+=======
+
+This project is licensed under the terms of both the Apache License (Version 2.0) and the MIT
+license. See LICENSE-APACHE and LICENSE-MIT for details.
