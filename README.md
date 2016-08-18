@@ -2,14 +2,27 @@ GilRs - Game Input Library for Rust
 ===================================
 
 [![build status](https://gitlab.com/Arvamer/gilrs/badges/master/build.svg)](https://gitlab.com/Arvamer/gilrs/commits/master)
+[[![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
+[![Crates.io](https://img.shields.io/crates/l/gilrs.svg)
 
 [**Documentation**](https://arvamer.gitlab.io/gilrs/doc/gilrs/)
 
 GilRs abstract platform specific APIs to provide unified interfaces for working with gamepads.
 Additionally, library is trying to unify different devices, providing single controller layout.
 
+The main repository for project [is on GitLab](https://gitlab.com/Arvamer/gilrs)
+but there is also [GitHub mirror](https://github.com/Arvamer/gilrs). If you want
+to contribute or have a question please use GitLab's issue tracker and pull
+requests *not GitHub's*.
+
+
 Example
 -------
+
+```toml
+[dependencies]
+gilrs = "0.2.0"
+```
 
 ```rust
 use gilrs::{Gilrs, Button};
