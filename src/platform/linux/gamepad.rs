@@ -94,10 +94,15 @@ impl Gilrs {
                 if let Some(devnode) = dev.devnode() {
                     if let Some(id) = self.gamepads
                         .iter()
-                        .position(|gp| is_eq_cstr(devnode, gp.as_inner().devpath.as_bytes())) {
+                        .position(|gp| {
+                            is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
+                        }) {
                         *self.gamepads[id].status_mut() = Status::Disconnected;
                         self.gamepads[id].as_inner_mut().disconnect();
                         return Some((id, Status::Disconnected));
+                    } else {
+                        // TODO: warn only when event file (not js)
+                        warn!("Could not find disconnect gamepad {:?}", devnode);
                     }
                 }
             }
@@ -108,6 +113,26 @@ impl Gilrs {
 
 fn is_eq_cstr(l: &CStr, r: &[u8]) -> bool {
     unsafe { c::strcmp(l.as_ptr(), r.as_ptr() as *const i8) == 0 }
+}
+
+fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
+    unsafe {
+        let mut l_ptr = l.as_ptr();
+        let mut r_ptr = r.as_ptr();
+        let end = r_ptr.offset(r.len() as isize);
+        while *l_ptr != 0 && r_ptr != end {
+            if *l_ptr != *r_ptr as i8 {
+                return false;
+            }
+            l_ptr = l_ptr.offset(1);
+            r_ptr = r_ptr.offset(1);
+        }
+        if *l_ptr == 0 && r_ptr == end {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Debug)]
