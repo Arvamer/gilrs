@@ -98,6 +98,10 @@ impl Gilrs {
                             is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
                         }) {
                         *self.gamepads[id].status_mut() = Status::Disconnected;
+                        // Drop all ff effects
+                        for opt in self.gamepads[id].effects_mut() {
+                            opt.take();
+                        }
                         self.gamepads[id].as_inner_mut().disconnect();
                         return Some((id, Status::Disconnected));
                     } else {

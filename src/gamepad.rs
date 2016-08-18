@@ -283,6 +283,7 @@ pub trait GamepadImplExt {
     fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self;
     fn state_mut(&mut self) -> &mut GamepadState;
     fn status_mut(&mut self) -> &mut Status;
+    fn effects_mut(&mut self) -> &mut Vec<Option<Effect>>;
 }
 
 impl GamepadImplExt for Gamepad {
@@ -296,6 +297,10 @@ impl GamepadImplExt for Gamepad {
 
     fn status_mut(&mut self) -> &mut Status {
         &mut self.status
+    }
+
+    fn effects_mut(&mut self) -> &mut Vec<Option<Effect>> {
+        &mut self.ff_effects
     }
 }
 
