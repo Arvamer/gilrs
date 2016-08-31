@@ -105,6 +105,7 @@ impl Gamepad {
             inner: gamepad,
             state: GamepadState::new(),
             status: status,
+            // Effect doesn't implement Clone so we can't use vec! macro.
             ff_effects: (0..max_effects).map(|_| None).collect(),
         }
     }

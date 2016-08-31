@@ -62,7 +62,7 @@ impl Gilrs {
         self.gamepads.get_mut(id).unwrap_or(&mut self.not_observed)
     }
 
-    fn handle_hotplug(&mut self) -> Option<(usize, Status)> {
+    fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
         while self.monitor.hotplug_available() {
             let dev = self.monitor.device();
 
@@ -83,11 +83,11 @@ impl Gilrs {
                     }) {
                         self.gamepads[id] = MainGamepad::from_inner_status(gamepad,
                                                                            Status::Connected);
-                        return Some((id, Status::Connected));
+                        return Some((id, Event::Connected));
                     } else {
                         self.gamepads
                             .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
-                        return Some((self.gamepads.len() - 1, Status::Connected));
+                        return Some((self.gamepads.len() - 1, Event::Connected));
                     }
                 }
             } else if is_eq_cstr(action, b"remove\0") {
@@ -103,10 +103,9 @@ impl Gilrs {
                             opt.take();
                         }
                         self.gamepads[id].as_inner_mut().disconnect();
-                        return Some((id, Status::Disconnected));
+                        return Some((id, Event::Disconnected));
                     } else {
-                        // TODO: warn only when event file (not js)
-                        warn!("Could not find disconnect gamepad {:?}", devnode);
+                        info!("Could not find disconnect gamepad {:?}", devnode);
                     }
                 }
             }
@@ -538,16 +537,14 @@ impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
-        loop {
-            if let Some((id, status)) = self.0.handle_hotplug() {
-                let ev = match status {
-                    Status::Connected => Event::Connected,
-                    Status::Disconnected => Event::Disconnected,
-                    Status::NotObserved => unreachable!(),
-                };
-                return Some((id, ev));
-            }
+        // If there is hotplug event return it, otherwise loop over all gamepdas checking if there is
+        // some event.
 
+        if let Some((id, ev)) = self.0.handle_hotplug() {
+            return Some((id, ev));
+        }
+
+        loop {
             let mut gamepad = match self.0.gamepads.get_mut(self.1) {
                 Some(gp) => gp,
                 None => return None,
