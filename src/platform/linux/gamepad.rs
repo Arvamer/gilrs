@@ -631,94 +631,57 @@ const EV_ABS: u16 = 0x03;
 const ABS_MAX: u16 = 0x3f;
 const EV_FF: u16 = 0x15;
 
-#[allow(dead_code)]
-const BTN_MISC: u16 = 0x100;
-#[allow(dead_code)]
 const BTN_GAMEPAD: u16 = 0x130;
-#[allow(dead_code)]
 const BTN_SOUTH: u16 = 0x130;
-#[allow(dead_code)]
 const BTN_EAST: u16 = 0x131;
 #[allow(dead_code)]
 const BTN_C: u16 = 0x132;
-#[allow(dead_code)]
 const BTN_NORTH: u16 = 0x133;
-#[allow(dead_code)]
 const BTN_WEST: u16 = 0x134;
 #[allow(dead_code)]
 const BTN_Z: u16 = 0x135;
-#[allow(dead_code)]
 const BTN_TL: u16 = 0x136;
-#[allow(dead_code)]
 const BTN_TR: u16 = 0x137;
-#[allow(dead_code)]
 const BTN_TL2: u16 = 0x138;
-#[allow(dead_code)]
 const BTN_TR2: u16 = 0x139;
-#[allow(dead_code)]
 const BTN_SELECT: u16 = 0x13a;
-#[allow(dead_code)]
 const BTN_START: u16 = 0x13b;
-#[allow(dead_code)]
 const BTN_MODE: u16 = 0x13c;
-#[allow(dead_code)]
 const BTN_THUMBL: u16 = 0x13d;
-#[allow(dead_code)]
 const BTN_THUMBR: u16 = 0x13e;
 
-#[allow(dead_code)]
 const BTN_DPAD_UP: u16 = 0x220;
-#[allow(dead_code)]
 const BTN_DPAD_DOWN: u16 = 0x221;
-#[allow(dead_code)]
 const BTN_DPAD_LEFT: u16 = 0x222;
-#[allow(dead_code)]
 const BTN_DPAD_RIGHT: u16 = 0x223;
 
-#[allow(dead_code)]
 const ABS_X: u16 = 0x00;
-#[allow(dead_code)]
 const ABS_Y: u16 = 0x01;
-#[allow(dead_code)]
 const ABS_Z: u16 = 0x02;
-#[allow(dead_code)]
 const ABS_RX: u16 = 0x03;
-#[allow(dead_code)]
 const ABS_RY: u16 = 0x04;
-#[allow(dead_code)]
 const ABS_RZ: u16 = 0x05;
-#[allow(dead_code)]
 const ABS_HAT0X: u16 = 0x10;
-#[allow(dead_code)]
 const ABS_HAT0Y: u16 = 0x11;
-#[allow(dead_code)]
 const ABS_HAT1X: u16 = 0x12;
-#[allow(dead_code)]
 const ABS_HAT1Y: u16 = 0x13;
-#[allow(dead_code)]
 const ABS_HAT2X: u16 = 0x14;
-#[allow(dead_code)]
 const ABS_HAT2Y: u16 = 0x15;
 
-#[allow(dead_code)]
 const FF_MAX: u16 = FF_GAIN;
-#[allow(dead_code)]
 const FF_SQUARE: u16 = 0x58;
-#[allow(dead_code)]
 const FF_TRIANGLE: u16 = 0x59;
-#[allow(dead_code)]
 const FF_SINE: u16 = 0x5a;
-#[allow(dead_code)]
-#[allow(dead_code)]
 const FF_GAIN: u16 = 0x60;
 
 pub mod native_ev_codes {
-    #![allow(dead_code)]
     pub const BTN_SOUTH: u16 = super::BTN_SOUTH;
     pub const BTN_EAST: u16 = super::BTN_EAST;
+    #[allow(dead_code)]
     pub const BTN_C: u16 = super::BTN_C;
     pub const BTN_NORTH: u16 = super::BTN_NORTH;
     pub const BTN_WEST: u16 = super::BTN_WEST;
+    #[allow(dead_code)]
     pub const BTN_Z: u16 = super::BTN_Z;
     pub const BTN_LT: u16 = super::BTN_TL;
     pub const BTN_RT: u16 = super::BTN_TR;
@@ -737,9 +700,11 @@ pub mod native_ev_codes {
 
     pub const AXIS_LSTICKX: u16 = super::ABS_X;
     pub const AXIS_LSTICKY: u16 = super::ABS_Y;
+    #[allow(dead_code)]
     pub const AXIS_LEFTZ: u16 = super::ABS_Z;
     pub const AXIS_RSTICKX: u16 = super::ABS_RX;
     pub const AXIS_RSTICKY: u16 = super::ABS_RY;
+    #[allow(dead_code)]
     pub const AXIS_RIGHTZ: u16 = super::ABS_RZ;
     pub const AXIS_DPADX: u16 = super::ABS_HAT0X;
     pub const AXIS_DPADY: u16 = super::ABS_HAT0Y;
