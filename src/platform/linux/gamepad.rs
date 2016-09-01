@@ -130,11 +130,7 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
             l_ptr = l_ptr.offset(1);
             r_ptr = r_ptr.offset(1);
         }
-        if *l_ptr == 0 && r_ptr == end {
-            true
-        } else {
-            false
-        }
+        if *l_ptr == 0 && r_ptr == end { true } else { false }
     }
 }
 
@@ -537,8 +533,8 @@ impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
-        // If there is hotplug event return it, otherwise loop over all gamepdas checking if there is
-        // some event.
+        // If there is hotplug event return it, otherwise loop over all gamepdas checking if there
+        // is some event.
 
         if let Some((id, ev)) = self.0.handle_hotplug() {
             return Some((id, ev));

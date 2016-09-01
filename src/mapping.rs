@@ -406,9 +406,9 @@ impl MappingDb {
     fn insert_to(s: &str, map: &mut HashMap<Uuid, String>) {
         for mapping in s.lines() {
             mapping.split(',')
-                   .next()
-                   .and_then(|s| Uuid::parse_str(s).ok())
-                   .and_then(|uuid| map.insert(uuid, mapping.to_owned()));
+                .next()
+                .and_then(|s| Uuid::parse_str(s).ok())
+                .and_then(|uuid| map.insert(uuid, mapping.to_owned()));
         }
     }
 

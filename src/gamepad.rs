@@ -1,7 +1,7 @@
 use platform;
 use std::mem;
 use constants::*;
-use ff::{EffectData, self};
+use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
 
@@ -68,21 +68,13 @@ impl Gilrs {
     /// Returns reference to connected gamepad or `None`.
     pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
         let gp = self.inner.gamepad(id);
-        if gp.is_connected() {
-            Some(gp)
-        } else {
-            None
-        }
+        if gp.is_connected() { Some(gp) } else { None }
     }
 
     /// Returns reference to connected gamepad or `None`.
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
-        if gp.is_connected() {
-            Some(gp)
-        } else {
-            None
-        }
+        if gp.is_connected() { Some(gp) } else { None }
     }
 }
 
@@ -207,9 +199,9 @@ impl Gamepad {
         }
     }
 
-    /// Creates and uploads new force feedback effect using `data`. This function will fail if device
-    /// doesn't have space for new effect or doesn't support requested effect. Returns effect's
-    /// index.
+    /// Creates and uploads new force feedback effect using `data`. This function will fail if
+    /// device doesn't have space for new effect or doesn't support requested effect. Returns
+    /// effect's index.
     ///
     /// ```rust,no_run
     /// use gilrs::ff::EffectData;
@@ -481,7 +473,7 @@ impl Button {
         use Button::*;
         match self {
             South | East | North | West | C | Z => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -489,7 +481,7 @@ impl Button {
         use Button::*;
         match self {
             LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -497,7 +489,7 @@ impl Button {
         use Button::*;
         match self {
             Select | Start | Mode => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -505,7 +497,7 @@ impl Button {
         use Button::*;
         match self {
             LeftThumb | RightThumb => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -513,14 +505,15 @@ impl Button {
         use Button::*;
         match self {
             DPadUp | DPadDown | DPadLeft | DPadRight => true,
-            _ => false
+            _ => false,
         }
     }
-
 }
 
 impl Default for Button {
-    fn default() -> Self { Button::Unknow }
+    fn default() -> Self {
+        Button::Unknow
+    }
 }
 
 #[repr(u16)]
@@ -543,7 +536,7 @@ impl Axis {
         use Axis::*;
         match self {
             LeftStickX | LeftStickY | RightStickX | RightStickY => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -551,7 +544,7 @@ impl Axis {
         use Axis::*;
         match self {
             LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 | LeftZ | RightZ => true,
-            _ => false
+            _ => false,
         }
     }
 }

@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{Event, Status, GamepadImplExt, self};
+use gamepad::{self, Event, Status, GamepadImplExt};
 use uuid::Uuid;
 
 #[derive(Debug)]

@@ -36,11 +36,7 @@ impl Effect {
         let mut data: ff_effect = data.into();
         data.id = self.id;
         let res = unsafe { ioctl::eviocsff(self.fd, &mut data as *mut _) };
-        if res == -1 {
-            Err(Error::EffectNotSupported)
-        } else {
-            Ok(())
-        }
+        if res == -1 { Err(Error::EffectNotSupported) } else { Ok(()) }
     }
 
     pub fn play(&mut self, n: u16) {

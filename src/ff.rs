@@ -4,6 +4,7 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
 //! Force feedback module
 //!
 //! To use force feedback create `EffectData` struct, upload it to device using
@@ -85,7 +86,9 @@ pub enum Waveform {
 }
 
 impl Default for Waveform {
-    fn default() -> Self { Waveform::Sine }
+    fn default() -> Self {
+        Waveform::Sine
+    }
 }
 
 /// Direction of force feedback effect.
@@ -169,7 +172,7 @@ impl Error {
         match self {
             Error::NotEnoughSpace => "not enough space for new effect",
             Error::FfNotSupported => "force feedback is not supported",
-            Error::EffectNotSupported => "effect is not supported by device"
+            Error::EffectNotSupported => "effect is not supported by device",
         }
     }
 }

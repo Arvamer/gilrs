@@ -17,7 +17,7 @@ impl Effect {
         Err(Error::FfNotSupported)
     }
 
-    pub fn upload(&mut self, data: EffectData) -> Result<(),Error> {
+    pub fn upload(&mut self, data: EffectData) -> Result<(), Error> {
         Err(Error::FfNotSupported)
     }
 
