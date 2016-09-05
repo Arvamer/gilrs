@@ -37,24 +37,22 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    pub name: String,
-    pub uuid: Uuid,
+    _priv: (),
 }
 
 impl Gamepad {
     fn none() -> Self {
         Gamepad {
-            name: String::new(),
-            uuid: Uuid::nil(),
+            _priv: (),
         }
     }
 
-    pub fn name(&self) -> &String {
-        &self.name
+    pub fn name(&self) -> &str {
+        ""
     }
 
     pub fn uuid(&self) -> Uuid {
-        self.uuid
+        Uuid::nil()
     }
 
     pub fn max_ff_effects(&self) -> usize {
