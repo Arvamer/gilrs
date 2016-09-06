@@ -4,10 +4,11 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
 use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, GamepadImplExt};
-use std::ffi::{CString, CStr};
+use std::ffi::CStr;
 use std::mem;
 use uuid::Uuid;
 use libc as c;
@@ -32,8 +33,7 @@ impl Gilrs {
 
         let udev = Udev::new().unwrap();
         let en = udev.enumerate().unwrap();
-        en.add_match_property(&CString::new("ID_INPUT_JOYSTICK").unwrap(),
-                              &CString::new("1").unwrap());
+        unsafe { en.add_match_property(cstr_new(b"ID_INPUT_JOYSTICK\0"), cstr_new(b"1\0")) }
         en.scan_devices();
 
         for dev in en.iter() {
@@ -66,56 +66,54 @@ impl Gilrs {
         while self.monitor.hotplug_available() {
             let dev = self.monitor.device();
 
-            if let Some(val) = dev.property_value(&CString::new("ID_INPUT_JOYSTICK").unwrap()) {
-                if !is_eq_cstr(val, b"1\0") {
+            unsafe {
+                if let Some(val) = dev.property_value(cstr_new(b"ID_INPUT_JOYSTICK\0")) {
+                    if val != cstr_new(b"1\0") {
+                        continue;
+                    }
+                } else {
                     continue;
                 }
-            } else {
-                continue;
-            }
 
-            let action = dev.action().unwrap();
+                let action = dev.action().unwrap();
 
-            if is_eq_cstr(action, b"add\0") {
-                if let Some(gamepad) = Gamepad::open(&dev, &self.mapping_db) {
-                    if let Some(id) = self.gamepads.iter().position(|gp| {
-                        gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
-                    }) {
-                        self.gamepads[id] = MainGamepad::from_inner_status(gamepad,
-                                                                           Status::Connected);
-                        return Some((id, Event::Connected));
-                    } else {
-                        self.gamepads
-                            .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
-                        return Some((self.gamepads.len() - 1, Event::Connected));
-                    }
-                }
-            } else if is_eq_cstr(action, b"remove\0") {
-                if let Some(devnode) = dev.devnode() {
-                    if let Some(id) = self.gamepads
-                        .iter()
-                        .position(|gp| {
-                            is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
+                if action == cstr_new(b"add\0") {
+                    if let Some(gamepad) = Gamepad::open(&dev, &self.mapping_db) {
+                        if let Some(id) = self.gamepads.iter().position(|gp| {
+                            gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
                         }) {
-                        *self.gamepads[id].status_mut() = Status::Disconnected;
-                        // Drop all ff effects
-                        for opt in self.gamepads[id].effects_mut() {
-                            opt.take();
+                            self.gamepads[id] = MainGamepad::from_inner_status(gamepad,
+                                                                               Status::Connected);
+                            return Some((id, Event::Connected));
+                        } else {
+                            self.gamepads
+                                .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
+                            return Some((self.gamepads.len() - 1, Event::Connected));
                         }
-                        self.gamepads[id].as_inner_mut().disconnect();
-                        return Some((id, Event::Disconnected));
-                    } else {
-                        info!("Could not find disconnect gamepad {:?}", devnode);
+                    }
+                } else if action == cstr_new(b"remove\0") {
+                    if let Some(devnode) = dev.devnode() {
+                        if let Some(id) = self.gamepads
+                            .iter()
+                            .position(|gp| {
+                                is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
+                            }) {
+                            *self.gamepads[id].status_mut() = Status::Disconnected;
+                            // Drop all ff effects
+                            for opt in self.gamepads[id].effects_mut() {
+                                opt.take();
+                            }
+                            self.gamepads[id].as_inner_mut().disconnect();
+                            return Some((id, Event::Disconnected));
+                        } else {
+                            info!("Could not find disconnect gamepad {:?}", devnode);
+                        }
                     }
                 }
             }
         }
         None
     }
-}
-
-fn is_eq_cstr(l: &CStr, r: &[u8]) -> bool {
-    unsafe { c::strcmp(l.as_ptr(), r.as_ptr() as *const i8) == 0 }
 }
 
 fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
@@ -622,6 +620,10 @@ impl Axis {
 
 fn test_bit(n: u16, array: &[u8]) -> bool {
     (array[(n / 8) as usize] >> (n % 8)) & 1 != 0
+}
+
+unsafe fn cstr_new(bytes: &[u8]) -> &CStr {
+    CStr::from_bytes_with_nul_unchecked(bytes)
 }
 
 const KEY_MAX: u16 = 0x2ff;

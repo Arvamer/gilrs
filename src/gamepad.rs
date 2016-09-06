@@ -1,5 +1,4 @@
 use platform;
-use std::mem;
 use constants::*;
 use ff::{self, EffectData};
 use uuid::Uuid;
