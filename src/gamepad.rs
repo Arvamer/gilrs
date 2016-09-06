@@ -326,7 +326,7 @@ impl Effect {
 }
 
 /// Cached state of gamepad's buttons and axes.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct GamepadState {
     // sticks
     pub right_stick: (f32, f32),
@@ -359,7 +359,7 @@ pub struct GamepadState {
 
 impl GamepadState {
     pub fn new() -> Self {
-        unsafe { mem::zeroed() }
+        Default::default()
     }
 
     pub fn set_btn(&mut self, btn: Button, val: bool) {
