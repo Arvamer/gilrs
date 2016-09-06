@@ -177,7 +177,7 @@ impl Gamepad {
             Button::DPadRight => state.btn_dpad_right,
             Button::DPadLeft => state.btn_dpad_left,
 
-            Button::Unknow => false,
+            Button::Unknown => false,
         }
     }
 
@@ -388,7 +388,7 @@ impl GamepadState {
             Button::DPadRight => self.btn_dpad_right = val,
             Button::DPadLeft => self.btn_dpad_left = val,
 
-            Button::Unknow => (),
+            Button::Unknown => (),
         };
     }
 
@@ -465,7 +465,7 @@ pub enum Button {
     DPadLeft = BTN_DPAD_LEFT,
     DPadRight = BTN_DPAD_RIGHT,
 
-    Unknow,
+    Unknown,
 }
 
 impl Button {
@@ -512,7 +512,7 @@ impl Button {
 
 impl Default for Button {
     fn default() -> Self {
-        Button::Unknow
+        Button::Unknown
     }
 }
 
