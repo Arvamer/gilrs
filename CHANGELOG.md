@@ -8,6 +8,10 @@ v0.3.0 - unreleased
 - Rename `Button::Unknow` to `Button::Unknown`
 - `Gamepad::name(&self)` now returns `&str` instead of `&String`
 
+### Fixed
+
+- Linux: infinite loop after gamepad disconnects
+
 v0.2.0 - 2016-08-18
 ------
 
@@ -17,5 +21,5 @@ v0.2.0 - 2016-08-18
 
 ### Fixed
 
-- linux: Disconnected events are now emitted properly
-- linux: All force feedback effects are now dropped when gamepad disconnects
+- Linux: Disconnected events are now emitted properly
+- Linux: All force feedback effects are now dropped when gamepad disconnects

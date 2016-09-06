@@ -533,7 +533,6 @@ impl<'a> Iterator for EventIterator<'a> {
     fn next(&mut self) -> Option<(usize, Event)> {
         // If there is hotplug event return it, otherwise loop over all gamepdas checking if there
         // is some event.
-
         if let Some((id, ev)) = self.0.handle_hotplug() {
             return Some((id, ev));
         }
@@ -545,6 +544,7 @@ impl<'a> Iterator for EventIterator<'a> {
             };
 
             if gamepad.status() != Status::Connected {
+                self.1 += 1;
                 continue;
             }
 
