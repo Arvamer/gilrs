@@ -103,7 +103,7 @@ impl Gamepad {
     }
 
     /// Returns gamepad's name.
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &str {
         self.inner.name()
     }
 
