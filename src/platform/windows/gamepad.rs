@@ -21,7 +21,8 @@ use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAME
                      XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB,
                      XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER,
                      XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
-                     XINPUT_GAMEPAD as XGamepad};
+                     XINPUT_GAMEPAD as XGamepad, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
+                     self as xi};
 
 use xinput;
 
@@ -247,9 +248,34 @@ impl Gamepad {
         self.uuid
     }
 
-    //TODO
     pub fn power_info(&self) -> PowerInfo {
-        PowerInfo::Unknown
+        unsafe {
+            let mut binfo = mem::uninitialized::<XBatteryInfo>();
+            if xinput::XInputGetBatteryInformation(self.id,
+                                                   xi::BATTERY_DEVTYPE_GAMEPAD,
+                                                   &mut binfo as *mut _) == ERROR_SUCCESS {
+                match binfo.BatteryType {
+                    xi::BATTERY_TYPE_WIRED => PowerInfo::Wired,
+                    xi::BATTERY_TYPE_ALKALINE | xi::BATTERY_TYPE_NIMH => {
+                        let lvl = match binfo.BatteryLevel {
+                            xi::BATTERY_LEVEL_EMPTY => 0,
+                            xi::BATTERY_LEVEL_LOW => 33,
+                            xi::BATTERY_LEVEL_MEDIUM => 67,
+                            xi::BATTERY_LEVEL_FULL => 100,
+                            _ => unreachable!()
+                        };
+                        if lvl == 100 {
+                            PowerInfo::Charged
+                        } else {
+                            PowerInfo::Discharging(lvl)
+                        }
+                    }
+                    _ => PowerInfo::Unknown
+                }
+            } else {
+                PowerInfo::Unknown
+            }
+        }
     }
 
     pub fn max_ff_effects(&self) -> usize {
