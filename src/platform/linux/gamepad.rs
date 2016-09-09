@@ -7,7 +7,7 @@
 
 use super::udev::*;
 use AsInner;
-use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, GamepadImplExt};
+use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt};
 use std::ffi::CStr;
 use std::mem;
 use uuid::Uuid;
@@ -469,6 +469,11 @@ impl Gamepad {
         }
         self.fd = -2;
         self.devpath.clear();
+    }
+
+    //TODO
+    pub fn power_info(&self) -> PowerInfo {
+        PowerInfo::Unknown
     }
 
     pub fn max_ff_effects(&self) -> usize {

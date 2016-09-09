@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{self, Event, Status, GamepadImplExt};
+use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -53,6 +53,10 @@ impl Gamepad {
 
     pub fn uuid(&self) -> Uuid {
         Uuid::nil()
+    }
+
+    pub fn power_info(&self) -> PowerInfo {
+        PowerInfo::Unknown
     }
 
     pub fn max_ff_effects(&self) -> usize {

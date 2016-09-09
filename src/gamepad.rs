@@ -198,6 +198,11 @@ impl Gamepad {
         }
     }
 
+    /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.
+    pub fn power_info(&self) -> PowerInfo {
+        self.inner.power_info()
+    }
+
     /// Creates and uploads new force feedback effect using `data`. This function will fail if
     /// device doesn't have space for new effect or doesn't support requested effect. Returns
     /// effect's index.
@@ -546,4 +551,34 @@ impl Axis {
             _ => false,
         }
     }
+}
+
+
+/// State of device's power supply.
+///
+/// Battery level is reported as integer between 0 and 100.
+///
+/// ## Example
+///
+/// ```
+/// use gilrs::PowerInfo;
+/// # let gilrs = gilrs::Gilrs::new();
+///
+/// match gilrs.gamepad(0).power_info() {
+///     PowerInfo::Discharging(lvl) if lvl <= 10 => println!("Low battery level, you should \
+///                                                           plug your gamepad"),
+///     _ => (),
+/// };
+/// ```
+pub enum PowerInfo {
+    /// Failed to determine power status.
+    Unknown,
+    /// Device doesn't have battery.
+    Wired,
+    /// Device is running on the battery.
+    Discharging(u8),
+    /// Battery is charging.
+    Charging(u8),
+    /// Battery is charged.
+    Charged,
 }
