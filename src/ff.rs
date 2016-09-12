@@ -93,32 +93,32 @@ impl Default for Waveform {
 
 /// Direction of force feedback effect.
 ///
-/// Angle is represented by value from 0 to u16::MAX, which map to [0, 2π]. You also can
-/// create `Direction` from f32 ([0.0, 1.0]) and direction vector.
+/// Angle is represented by value from 0 to u16::MAX, which map to [0, 2π].
 ///
 /// ```
 /// use std::u16::MAX;
+/// use std::f32::consts::PI;
 /// # use gilrs::ff::Direction;
 ///
 /// let direction = Direction { angle: MAX / 2 };
-/// assert_eq!(direction, 0.5f32.into());
-/// assert_eq!(direction, [-1.0, 0.0].into());
+/// assert_eq!(direction, Direction::from_radians(PI));
+/// assert_eq!(direction, Direction::from_vector([-1.0, 0.0]));
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct Direction {
     pub angle: u16,
 }
 
-impl From<f32> for Direction {
-    fn from(f: f32) -> Self {
-        let f = if f < 0.0 {
-            0.0
-        } else if f > 1.0 {
-            1.0
-        } else {
-            f
-        };
-        Direction { angle: (U16_MAX as f32 * f) as u16 }
+impl Direction {
+    pub fn from_radians(ang: f32) -> Self {
+        let mut ang = ang % (2.0 * PI);
+        if ang < 0.0 { ang = 2.0 * PI - ang };
+        ang /= 2.0 * PI;
+        Direction { angle: (U16_MAX as f32 * ang) as u16 }
+    }
+
+    pub fn from_vector(vec: [f32; 2]) -> Self {
+        vec.into()
     }
 }
 
@@ -128,7 +128,7 @@ impl From<[f32; 2]> for Direction {
         if val.is_sign_negative() {
             val += 2.0 * PI;
         }
-        (val / (2.0 * PI)).into()
+        Self::from_radians(val)
     }
 }
 
