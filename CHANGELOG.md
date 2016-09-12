@@ -3,6 +3,10 @@ Change Log
 
 v0.3.0 - unreleased
 
+### Added
+
+- `Gamepad::power_info(&self)`
+
 ### Changed
 
 - Rename `Button::Unknow` to `Button::Unknown`
