@@ -796,16 +796,64 @@ pub mod native_ev_codes {
 mod tests {
     use uuid::Uuid;
     use ioctl;
+    use super::create_uuid;
+    use gamepad::{Button, Axis};
 
     #[test]
     fn sdl_uuid() {
         let x = Uuid::parse_str("030000005e0400008e02000020200000").unwrap();
-        let y = super::create_uuid(ioctl::input_id {
+        let y = create_uuid(ioctl::input_id {
             bustype: 0x3,
             vendor: 0x045e,
             product: 0x028e,
             version: 0x2020,
         });
         assert_eq!(x, y);
+    }
+
+    #[test]
+    fn btn_from_u16() {
+        assert_eq!(Some(Button::South), Button::from_u16(super::BTN_SOUTH));
+        assert_eq!(Some(Button::East), Button::from_u16(super::BTN_EAST));
+        assert_eq!(Some(Button::North), Button::from_u16(super::BTN_NORTH));
+        assert_eq!(Some(Button::West), Button::from_u16(super::BTN_WEST));
+        assert_eq!(Some(Button::C), Button::from_u16(super::BTN_C));
+        assert_eq!(Some(Button::Z), Button::from_u16(super::BTN_Z));
+        assert_eq!(Some(Button::LeftTrigger), Button::from_u16(super::BTN_TL));
+        assert_eq!(Some(Button::LeftTrigger2), Button::from_u16(super::BTN_TL2));
+        assert_eq!(Some(Button::RightTrigger), Button::from_u16(super::BTN_TR));
+        assert_eq!(Some(Button::RightTrigger2), Button::from_u16(super::BTN_TR2));
+        assert_eq!(Some(Button::Select), Button::from_u16(super::BTN_SELECT));
+        assert_eq!(Some(Button::Start), Button::from_u16(super::BTN_START));
+        assert_eq!(Some(Button::Mode), Button::from_u16(super::BTN_MODE));
+        assert_eq!(Some(Button::LeftThumb), Button::from_u16(super::BTN_THUMBL));
+        assert_eq!(Some(Button::RightThumb), Button::from_u16(super::BTN_THUMBR));
+        assert_eq!(Some(Button::DPadUp), Button::from_u16(super::BTN_DPAD_UP));
+        assert_eq!(Some(Button::DPadDown), Button::from_u16(super::BTN_DPAD_DOWN));
+        assert_eq!(Some(Button::DPadLeft), Button::from_u16(super::BTN_DPAD_LEFT));
+        assert_eq!(Some(Button::DPadRight), Button::from_u16(super::BTN_DPAD_RIGHT));
+
+        assert_eq!(None, Button::from_u16(super::BTN_SOUTH - 1));
+        assert_eq!(None, Button::from_u16(super::BTN_THUMBR + 1));
+        assert_eq!(None, Button::from_u16(super::BTN_DPAD_UP - 1));
+        assert_eq!(None, Button::from_u16(super::BTN_DPAD_RIGHT + 1));
+    }
+
+    #[test]
+    fn axis_from_u16() {
+        assert_eq!(Some(Axis::LeftStickX), Axis::from_u16(super::ABS_X));
+        assert_eq!(Some(Axis::LeftStickY), Axis::from_u16(super::ABS_Y));
+        assert_eq!(Some(Axis::LeftZ), Axis::from_u16(super::ABS_Z));
+        assert_eq!(Some(Axis::RightStickX), Axis::from_u16(super::ABS_RX));
+        assert_eq!(Some(Axis::RightStickY), Axis::from_u16(super::ABS_RY));
+        assert_eq!(Some(Axis::RightZ), Axis::from_u16(super::ABS_RZ));
+        assert_eq!(Some(Axis::LeftTrigger), Axis::from_u16(super::ABS_HAT1Y));
+        assert_eq!(Some(Axis::LeftTrigger2), Axis::from_u16(super::ABS_HAT2Y));
+        assert_eq!(Some(Axis::RightTrigger), Axis::from_u16(super::ABS_HAT1X));
+        assert_eq!(Some(Axis::RightTrigger2), Axis::from_u16(super::ABS_HAT2X));
+
+        assert_eq!(None, Axis::from_u16(super::ABS_RZ + 1));
+        assert_eq!(None, Axis::from_u16(super::ABS_HAT1X - 1));
+        assert_eq!(None, Axis::from_u16(super::ABS_HAT2Y + 1));
     }
 }
