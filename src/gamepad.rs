@@ -570,6 +570,7 @@ impl Axis {
 ///     _ => (),
 /// };
 /// ```
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PowerInfo {
     /// Failed to determine power status.
     Unknown,

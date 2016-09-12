@@ -10,6 +10,7 @@ use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt};
 use std::ffi::CStr;
 use std::mem;
+use std::str;
 use uuid::Uuid;
 use libc as c;
 use ioctl;
@@ -142,6 +143,8 @@ pub struct Gamepad {
     devpath: String,
     name: String,
     uuid: Uuid,
+    bt_capacity_fd: i32,
+    bt_status_fd: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -172,6 +175,8 @@ impl Gamepad {
             devpath: String::new(),
             name: String::new(),
             uuid: Uuid::nil(),
+            bt_status_fd: -1,
+            bt_capacity_fd: -1,
         }
     }
 
@@ -316,6 +321,8 @@ impl Gamepad {
                              mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
                              &mut axesi.left_tr2 as *mut _);
 
+            let (cap, status) = Self::battery_fd(&dev);
+
             let gamepad = Gamepad {
                 fd: fd,
                 axes_info: axesi,
@@ -325,12 +332,37 @@ impl Gamepad {
                 devpath: path.to_string_lossy().into_owned(),
                 name: name,
                 uuid: uuid,
+                bt_capacity_fd: cap,
+                bt_status_fd: status,
             };
 
             info!("Found {:#?}", gamepad);
 
             Some(gamepad)
         }
+    }
+
+    fn battery_fd(dev: &Device) -> (i32, i32) {
+        use std::fs::{self, File};
+        use std::path::Path;
+        use std::os::unix::io::IntoRawFd;
+        use std::os::unix::ffi::OsStrExt;
+        use std::ffi::OsStr;
+
+        let syspath = Path::new(OsStr::from_bytes(dev.syspath().to_bytes()));
+        // Returned syspath points to <device path>/input/inputXX/eventXX. First "device" is
+        // symlink to inputXX, second to actual device root.
+        let syspath = syspath.join("device/device/power_supply");
+        if let Ok(mut read_dir) = fs::read_dir(syspath) {
+            if let Some(Ok(bat_entry)) = read_dir.next() {
+                if let Ok(cap) = File::open(bat_entry.path().join("capacity")) {
+                    if let Ok(status) = File::open(bat_entry.path().join("status")) {
+                        return (cap.into_raw_fd(), status.into_raw_fd());
+                    }
+                }
+            }
+        }
+        (-1, -1)
     }
 
     pub fn event(&mut self) -> Option<Event> {
@@ -471,9 +503,48 @@ impl Gamepad {
         self.devpath.clear();
     }
 
-    //TODO
     pub fn power_info(&self) -> PowerInfo {
-        PowerInfo::Unknown
+        if self.bt_capacity_fd > -1 && self.bt_status_fd > -1 {
+            unsafe {
+                let mut buff = [0u8; 15];
+                c::lseek(self.bt_capacity_fd, 0, c::SEEK_SET);
+                c::lseek(self.bt_status_fd, 0, c::SEEK_SET);
+
+                let len = c::read(self.bt_capacity_fd,
+                                  mem::transmute(buff.as_mut_ptr()),
+                                  buff.len()) as usize;
+
+                if len > 0 {
+                    let cap = match str::from_utf8_unchecked(&buff[..(len - 1)]).parse() {
+                        Ok(cap) => cap,
+                        Err(_) => {
+                            error!("Failed to parse battery capacity: {}",
+                                   str::from_utf8_unchecked(&buff[..(len - 1)]));
+                            return PowerInfo::Unknown;
+                        }
+                    };
+
+                    let len = c::read(self.bt_status_fd,
+                                      mem::transmute(buff.as_mut_ptr()),
+                                      buff.len()) as usize;
+
+                    if len > 0 {
+                        return match str::from_utf8_unchecked(&buff[..(len - 1)]) {
+                            "Charging" => PowerInfo::Charging(cap),
+                            "Discharging" => PowerInfo::Discharging(cap),
+                            "Full" | "Not charging" => PowerInfo::Charged,
+                            s => {
+                                error!("Unknown battery status value: {}", s);
+                                PowerInfo::Unknown
+                            }
+                        };
+                    }
+                }
+            }
+            PowerInfo::Unknown
+        } else {
+            if self.fd > -1 { PowerInfo::Wired } else { PowerInfo::Unknown }
+        }
     }
 
     pub fn max_ff_effects(&self) -> usize {

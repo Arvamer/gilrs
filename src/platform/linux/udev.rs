@@ -101,6 +101,11 @@ impl Device {
         if dev.is_null() { None } else { Some(Device(dev)) }
     }
 
+    pub fn syspath(&self) -> &CStr {
+        // Always returns cstring
+        unsafe { CStr::from_ptr(ud::udev_device_get_syspath(self.0)) }
+    }
+
     pub fn devnode(&self) -> Option<&CStr> {
         unsafe {
             let s = ud::udev_device_get_devnode(self.0);
