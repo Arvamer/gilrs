@@ -590,6 +590,12 @@ impl Drop for Gamepad {
             if self.fd >= 0 {
                 c::close(self.fd);
             }
+            if self.bt_capacity_fd >= 0 {
+                c::close(self.bt_capacity_fd);
+            }
+            if self.bt_status_fd >= 0 {
+                c::close(self.bt_status_fd);
+            }
         }
     }
 }
