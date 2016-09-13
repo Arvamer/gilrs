@@ -175,7 +175,7 @@ impl Gamepad {
     /// Returns current gamepad's status, which can be `Connected`, `Disconnected` or `NotObserved`.
     /// Only connected gamepads generate events. Disconnected gamepads retain their name and UUID.
     /// Cached state of disconnected and not observed gamepads is 0 (false for buttons and 0.0 for
-    /// axis) and all acions preformed on such gamepad are no-op.
+    /// axis) and all actions preformed on such gamepad are no-op.
     pub fn status(&self) -> Status {
         self.status
     }
@@ -361,10 +361,12 @@ pub struct GamepadState {
 }
 
 impl GamepadState {
+    /// Creates new `GamepadState` with all values zeroed.
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Sets new value for given button.
     pub fn set_btn(&mut self, btn: Button, val: bool) {
         match btn {
             Button::South => self.btn_south = val,
@@ -395,6 +397,7 @@ impl GamepadState {
         };
     }
 
+    /// Sets new value for given axis.
     pub fn set_axis(&mut self, axis: Axis, val: f32) {
         match axis {
             Axis::LeftStickX => self.left_stick.0 = val,
@@ -461,6 +464,11 @@ impl GamepadState {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+/// Status of gamepad's connection.
+///
+/// Only connected gamepads generate events. Disconnected gamepads retain their name and UUID.
+/// Cached state of disconnected and not observed gamepads is 0 (false for buttons and 0.0 for
+/// axis) and all actions preformed on such gamepad are no-op.
 pub enum Status {
     Connected,
     Disconnected,
@@ -491,6 +499,9 @@ pub enum Event {
 
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Gamepad's elements which state can be represented by `bool`.
+///
+/// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
 pub enum Button {
     // Action Pad
     South = BTN_SOUTH,
@@ -570,6 +581,9 @@ impl Default for Button {
 
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Gamepad's elements which state can be represented by `f32`.
+///
+/// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
 pub enum Axis {
     LeftStickX = AXIS_LSTICKX,
     LeftStickY = AXIS_LSTICKY,
