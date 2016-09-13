@@ -112,7 +112,9 @@ pub struct Direction {
 impl Direction {
     pub fn from_radians(ang: f32) -> Self {
         let mut ang = ang % (2.0 * PI);
-        if ang < 0.0 { ang = 2.0 * PI - ang };
+        if ang < 0.0 {
+            ang = 2.0 * PI - ang
+        };
         ang /= 2.0 * PI;
         Direction { angle: (U16_MAX as f32 * ang) as u16 }
     }

@@ -7,6 +7,7 @@ v0.3.0 - unreleased
 
 - `Gamepad::power_info(&self)`
 - `ff::Direction::from_radians(f32)` and `ff::Direction::from_vector([f32; 2])`
+- `Gilrs::gamepads(&self)` which returns iterator over all connected gamepads
 
 ### Changed
 

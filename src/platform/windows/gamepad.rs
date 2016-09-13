@@ -65,6 +65,10 @@ impl Gilrs {
         self.gamepads.get_mut(id).unwrap_or(&mut self.not_observed)
     }
 
+    pub fn last_gamepad_hint(&self) -> usize {
+        self.gamepads.len()
+    }
+
     fn spawn_thread(tx: Sender<(usize, Event)>, connected: [bool; 4]) {
         thread::spawn(move || {
             unsafe {
@@ -253,24 +257,22 @@ impl Gamepad {
             let mut binfo = mem::uninitialized::<XBatteryInfo>();
             if xinput::XInputGetBatteryInformation(self.id,
                                                    xi::BATTERY_DEVTYPE_GAMEPAD,
-                                                   &mut binfo as *mut _) == ERROR_SUCCESS {
+                                                   &mut binfo as *mut _) ==
+               ERROR_SUCCESS {
                 match binfo.BatteryType {
                     xi::BATTERY_TYPE_WIRED => PowerInfo::Wired,
-                    xi::BATTERY_TYPE_ALKALINE | xi::BATTERY_TYPE_NIMH => {
+                    xi::BATTERY_TYPE_ALKALINE |
+                    xi::BATTERY_TYPE_NIMH => {
                         let lvl = match binfo.BatteryLevel {
                             xi::BATTERY_LEVEL_EMPTY => 0,
                             xi::BATTERY_LEVEL_LOW => 33,
                             xi::BATTERY_LEVEL_MEDIUM => 67,
                             xi::BATTERY_LEVEL_FULL => 100,
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         };
-                        if lvl == 100 {
-                            PowerInfo::Charged
-                        } else {
-                            PowerInfo::Discharging(lvl)
-                        }
+                        if lvl == 100 { PowerInfo::Charged } else { PowerInfo::Discharging(lvl) }
                     }
-                    _ => PowerInfo::Unknown
+                    _ => PowerInfo::Unknown,
                 }
             } else {
                 PowerInfo::Unknown

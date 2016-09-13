@@ -64,6 +64,20 @@ impl Gilrs {
         self.inner.gamepad_mut(id)
     }
 
+    /// Returns iterator over all connected gamepads and their ids.
+    ///
+    /// ```
+    /// # let gilrs = gilrs::Gilrs::new();
+    /// for (id, gamepad) in gilrs.gamepads() {
+    ///     assert!(gamepad.is_connected());
+    ///     println!("Gamepad with id {} and name {} is connected",
+    ///              id, gamepad.name());
+    /// }
+    /// ```
+    pub fn gamepads(&self) -> ConnectedGamepadsIterator {
+        ConnectedGamepadsIterator(self, 0)
+    }
+
     /// Returns reference to connected gamepad or `None`.
     pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
         let gp = self.inner.gamepad(id);
@@ -74,6 +88,30 @@ impl Gilrs {
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
         if gp.is_connected() { Some(gp) } else { None }
+    }
+}
+
+/// Iterator over all connected gamepads.
+pub struct ConnectedGamepadsIterator<'a>(&'a Gilrs, usize);
+
+impl<'a> Iterator for ConnectedGamepadsIterator<'a> {
+    type Item = (usize, &'a Gamepad);
+
+    fn next(&mut self) -> Option<(usize, &'a Gamepad)> {
+        loop {
+            if self.1 == self.0.inner.last_gamepad_hint() {
+                return None;
+            }
+
+            if let Some(gp) = self.0.connected_gamepad(self.1) {
+                let idx = self.1;
+                self.1 += 1;
+                return Some((idx, gp));
+            } else {
+                self.1 += 1;
+                continue;
+            }
+        }
     }
 }
 

@@ -63,6 +63,10 @@ impl Gilrs {
         self.gamepads.get_mut(id).unwrap_or(&mut self.not_observed)
     }
 
+    pub fn last_gamepad_hint(&self) -> usize {
+        self.gamepads.len()
+    }
+
     fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
         while self.monitor.hotplug_available() {
             let dev = self.monitor.device();
@@ -828,16 +832,21 @@ mod tests {
         assert_eq!(Some(Button::LeftTrigger), Button::from_u16(super::BTN_TL));
         assert_eq!(Some(Button::LeftTrigger2), Button::from_u16(super::BTN_TL2));
         assert_eq!(Some(Button::RightTrigger), Button::from_u16(super::BTN_TR));
-        assert_eq!(Some(Button::RightTrigger2), Button::from_u16(super::BTN_TR2));
+        assert_eq!(Some(Button::RightTrigger2),
+                   Button::from_u16(super::BTN_TR2));
         assert_eq!(Some(Button::Select), Button::from_u16(super::BTN_SELECT));
         assert_eq!(Some(Button::Start), Button::from_u16(super::BTN_START));
         assert_eq!(Some(Button::Mode), Button::from_u16(super::BTN_MODE));
         assert_eq!(Some(Button::LeftThumb), Button::from_u16(super::BTN_THUMBL));
-        assert_eq!(Some(Button::RightThumb), Button::from_u16(super::BTN_THUMBR));
+        assert_eq!(Some(Button::RightThumb),
+                   Button::from_u16(super::BTN_THUMBR));
         assert_eq!(Some(Button::DPadUp), Button::from_u16(super::BTN_DPAD_UP));
-        assert_eq!(Some(Button::DPadDown), Button::from_u16(super::BTN_DPAD_DOWN));
-        assert_eq!(Some(Button::DPadLeft), Button::from_u16(super::BTN_DPAD_LEFT));
-        assert_eq!(Some(Button::DPadRight), Button::from_u16(super::BTN_DPAD_RIGHT));
+        assert_eq!(Some(Button::DPadDown),
+                   Button::from_u16(super::BTN_DPAD_DOWN));
+        assert_eq!(Some(Button::DPadLeft),
+                   Button::from_u16(super::BTN_DPAD_LEFT));
+        assert_eq!(Some(Button::DPadRight),
+                   Button::from_u16(super::BTN_DPAD_RIGHT));
 
         assert_eq!(None, Button::from_u16(super::BTN_SOUTH - 1));
         assert_eq!(None, Button::from_u16(super::BTN_THUMBR + 1));

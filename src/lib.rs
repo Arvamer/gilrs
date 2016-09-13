@@ -96,7 +96,8 @@ mod mapping;
 
 pub mod ff;
 
-pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis, Event, PowerInfo};
+pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis, Event,
+                  PowerInfo, ConnectedGamepadsIterator};
 
 trait AsInner<T> {
     fn as_inner(&self) -> &T;

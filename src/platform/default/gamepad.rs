@@ -33,6 +33,11 @@ impl Gilrs {
     pub fn gamepad_mut(&mut self, id: usize) -> &mut gamepad::Gamepad {
         &mut self.not_observed
     }
+
+    /// Returns index greater than index of last connected gamepad.
+    pub fn last_gamepad_hint(&self) -> usize {
+        0
+    }
 }
 
 #[derive(Debug)]
@@ -42,9 +47,7 @@ pub struct Gamepad {
 
 impl Gamepad {
     fn none() -> Self {
-        Gamepad {
-            _priv: (),
-        }
+        Gamepad { _priv: () }
     }
 
     pub fn name(&self) -> &str {

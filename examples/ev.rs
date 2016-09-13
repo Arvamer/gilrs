@@ -13,12 +13,17 @@ fn main() {
     let mut counter = 0;
 
     loop {
-        for e in gil.poll_events() {
-            println!("{:?}", e);
+        for event in gil.poll_events() {
+            println!("{:?}", event);
         }
 
-        if counter % 100 == 0 {
-            println!("Power info: {:?}",  gil.gamepad(0).power_info());
+        if counter % 250 == 0 {
+            for (id, gamepad) in gil.gamepads() {
+                println!("Power info of gamepad {}({}): {:?}",
+                         id,
+                         gamepad.name(),
+                         gamepad.power_info());
+            }
         }
 
         counter += 1;
