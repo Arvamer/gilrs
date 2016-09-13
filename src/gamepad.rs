@@ -188,52 +188,13 @@ impl Gamepad {
     /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
     /// represented by axis returns true if value is not equal to 0.0.
     pub fn is_btn_pressed(&self, btn: Button) -> bool {
-        let state = &self.state;
-        match btn {
-            Button::South => state.btn_south,
-            Button::East => state.btn_east,
-            Button::North => state.btn_north,
-            Button::West => state.btn_west,
-            Button::C => state.btn_c,
-            Button::Z => state.btn_z,
-
-            Button::LeftTrigger => state.left_trigger != 0.0,
-            Button::LeftTrigger2 => state.left_trigger2 != 0.0,
-            Button::RightTrigger => state.right_trigger != 0.0,
-            Button::RightTrigger2 => state.right_trigger2 != 0.0,
-
-            Button::Select => state.btn_select,
-            Button::Start => state.btn_start,
-            Button::Mode => state.btn_mode,
-
-            Button::LeftThumb => state.btn_left_thumb,
-            Button::RightThumb => state.btn_right_thumb,
-
-            Button::DPadUp => state.btn_dpad_up,
-            Button::DPadDown => state.btn_dpad_down,
-            Button::DPadRight => state.btn_dpad_right,
-            Button::DPadLeft => state.btn_dpad_left,
-
-            Button::Unknown => false,
-        }
+        self.state.is_btn_pressed(btn)
     }
 
     /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
     /// device it value is 0.0 if button is not pressed or 1.0 if is pressed.
     pub fn axis_val(&self, axis: Axis) -> f32 {
-        let state = &self.state;
-        match axis {
-            Axis::LeftStickX => state.left_stick.0,
-            Axis::LeftStickY => state.left_stick.1,
-            Axis::LeftZ => state.z.0,
-            Axis::RightStickX => state.right_stick.0,
-            Axis::RightStickY => state.right_stick.1,
-            Axis::RightZ => state.z.1,
-            Axis::LeftTrigger => state.left_trigger,
-            Axis::LeftTrigger2 => state.left_trigger2,
-            Axis::RightTrigger => state.right_trigger,
-            Axis::RightTrigger2 => state.right_trigger2,
-        }
+        self.state.axis_val(axis)
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.
@@ -447,6 +408,55 @@ impl GamepadState {
             Axis::RightTrigger => self.right_trigger = val,
             Axis::RightTrigger2 => self.right_trigger2 = val,
         };
+    }
+
+    /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
+    /// represented by axis returns true if value is not equal to 0.0.
+    pub fn is_btn_pressed(&self, btn: Button) -> bool {
+        match btn {
+            Button::South => self.btn_south,
+            Button::East => self.btn_east,
+            Button::North => self.btn_north,
+            Button::West => self.btn_west,
+            Button::C => self.btn_c,
+            Button::Z => self.btn_z,
+
+            Button::LeftTrigger => self.left_trigger != 0.0,
+            Button::LeftTrigger2 => self.left_trigger2 != 0.0,
+            Button::RightTrigger => self.right_trigger != 0.0,
+            Button::RightTrigger2 => self.right_trigger2 != 0.0,
+
+            Button::Select => self.btn_select,
+            Button::Start => self.btn_start,
+            Button::Mode => self.btn_mode,
+
+            Button::LeftThumb => self.btn_left_thumb,
+            Button::RightThumb => self.btn_right_thumb,
+
+            Button::DPadUp => self.btn_dpad_up,
+            Button::DPadDown => self.btn_dpad_down,
+            Button::DPadRight => self.btn_dpad_right,
+            Button::DPadLeft => self.btn_dpad_left,
+
+            Button::Unknown => false,
+        }
+    }
+
+    /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
+    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed.
+    pub fn axis_val(&self, axis: Axis) -> f32 {
+        match axis {
+            Axis::LeftStickX => self.left_stick.0,
+            Axis::LeftStickY => self.left_stick.1,
+            Axis::LeftZ => self.z.0,
+            Axis::RightStickX => self.right_stick.0,
+            Axis::RightStickY => self.right_stick.1,
+            Axis::RightZ => self.z.1,
+            Axis::LeftTrigger => self.left_trigger,
+            Axis::LeftTrigger2 => self.left_trigger2,
+            Axis::RightTrigger => self.right_trigger,
+            Axis::RightTrigger2 => self.right_trigger2,
+        }
     }
 }
 
