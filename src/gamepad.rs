@@ -277,26 +277,11 @@ impl AsInner<platform::Gamepad> for Gamepad {
 
 pub trait GamepadImplExt {
     fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self;
-    fn state_mut(&mut self) -> &mut GamepadState;
-    fn status_mut(&mut self) -> &mut Status;
-    fn effects_mut(&mut self) -> &mut Vec<Option<Effect>>;
 }
 
 impl GamepadImplExt for Gamepad {
     fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self {
         Self::new(inner, status)
-    }
-
-    fn state_mut(&mut self) -> &mut GamepadState {
-        &mut self.state
-    }
-
-    fn status_mut(&mut self) -> &mut Status {
-        &mut self.status
-    }
-
-    fn effects_mut(&mut self) -> &mut Vec<Option<Effect>> {
-        &mut self.ff_effects
     }
 }
 
@@ -484,10 +469,33 @@ impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
-        self.gilrs.next_event()
+        match self.gilrs.next_event() {
+            Some((id, ev)) => {
+                let gamepad = self.gilrs.gamepad_mut(id);
+                match ev {
+                    Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
+                    Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
+                    Event::AxisChanged(axis, val) => {
+                        if gamepad.axis_val(axis) != val {
+                            gamepad.state.set_axis(axis, val)
+                        } else {
+                            return None;
+                        }
+                    }
+                    Event::Connected => gamepad.status = Status::Connected,
+                    Event::Disconnected => {
+                        gamepad.status = Status::Disconnected;
+                        for effect in &mut gamepad.ff_effects {
+                            effect.take();
+                        }
+                    }
+                };
+                Some((id, ev))
+            }
+            None => None,
+        }
     }
 }
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Event {
     ButtonPressed(Button),

@@ -54,17 +54,7 @@ impl Gilrs {
     }
 
     pub fn next_event(&mut self) -> Option<(usize, Event)> {
-        self.rx.try_recv().ok().map(|(id, event)| {
-            let gamepads = &mut self.gamepads;
-            match event {
-                Event::ButtonPressed(btn) => gamepads[id].state_mut().set_btn(btn, true),
-                Event::ButtonReleased(btn) => gamepads[id].state_mut().set_btn(btn, false),
-                Event::AxisChanged(axis, val) => gamepads[id].state_mut().set_axis(axis, val),
-                Event::Connected => *gamepads[id].status_mut() = Status::Connected,
-                Event::Disconnected => *gamepads[id].status_mut() = Status::Disconnected,
-            };
-            (id, event)
-        })
+        self.rx.try_recv().ok()
     }
 
     pub fn gamepad(&self, id: usize) -> &gamepad::Gamepad {

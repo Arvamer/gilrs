@@ -65,8 +65,8 @@ impl Gilrs {
                 Some(gp) => gp,
                 None => {
                     self.event_counter = 0;
-                    return None
-                },
+                    return None;
+                }
             };
 
             if gamepad.status() != Status::Connected {
@@ -75,28 +75,12 @@ impl Gilrs {
             }
 
             match gamepad.as_inner_mut().event() {
+                Some(ev) => return Some((self.event_counter, ev)),
                 None => {
                     self.event_counter += 1;
                     continue;
                 }
-                Some(ev) => {
-                    match ev {
-                        Event::ButtonPressed(btn) => gamepad.state_mut().set_btn(btn, true),
-                        Event::ButtonReleased(btn) => gamepad.state_mut().set_btn(btn, false),
-                        Event::AxisChanged(axis, val) => {
-                            // Because we report values in flat range as 0 we have to filter axis
-                            // events to not report multiple same events.
-                            if gamepad.axis_val(axis) != val {
-                                gamepad.state_mut().set_axis(axis, val)
-                            } else {
-                                continue;
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
-                    return Some((self.event_counter, ev));
-                }
-            }
+            };
         }
     }
 
@@ -148,11 +132,6 @@ impl Gilrs {
                             .position(|gp| {
                                 is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
                             }) {
-                            *self.gamepads[id].status_mut() = Status::Disconnected;
-                            // Drop all ff effects
-                            for opt in self.gamepads[id].effects_mut() {
-                                opt.take();
-                            }
                             self.gamepads[id].as_inner_mut().disconnect();
                             return Some((id, Event::Disconnected));
                         } else {
