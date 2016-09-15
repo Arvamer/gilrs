@@ -48,7 +48,7 @@ impl Gilrs {
     /// Creates iterator over available events. Iterator item's is `(usize, Event)` where usize is
     /// id of gamepad that generated event. See struct level documentation for example.
     pub fn poll_events(&mut self) -> EventIterator {
-        EventIterator { inner: self.inner.poll_events() }
+        EventIterator { gilrs: &mut self.inner }
     }
 
     /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
@@ -477,14 +477,14 @@ pub enum Status {
 
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
-    inner: platform::EventIterator<'a>,
+    gilrs: &'a mut platform::Gilrs,
 }
 
 impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
-        self.inner.next()
+        self.gilrs.next_event()
     }
 }
 

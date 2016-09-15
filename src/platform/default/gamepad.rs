@@ -22,8 +22,8 @@ impl Gilrs {
         }
     }
 
-    pub fn poll_events(&mut self) -> EventIterator {
-        EventIterator(self)
+    pub fn next_event(&mut self) -> Option<(usize, Event)> {
+        None
     }
 
     pub fn gamepad(&self, id: usize) -> &gamepad::Gamepad {

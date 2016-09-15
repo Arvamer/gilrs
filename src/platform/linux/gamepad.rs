@@ -25,6 +25,7 @@ pub struct Gilrs {
     mapping_db: MappingDb,
     monitor: Monitor,
     not_observed: MainGamepad,
+    event_counter: usize,
 }
 
 impl Gilrs {
@@ -48,11 +49,55 @@ impl Gilrs {
             mapping_db: mapping_db,
             monitor: Monitor::new(&udev).unwrap(),
             not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
+            event_counter: 0,
         }
     }
 
-    pub fn poll_events(&mut self) -> EventIterator {
-        EventIterator(self, 0)
+    pub fn next_event(&mut self) -> Option<(usize, Event)> {
+        // If there is hotplug event return it, otherwise loop over all gamepdas checking if there
+        // is some event.
+        if let Some((id, ev)) = self.handle_hotplug() {
+            return Some((id, ev));
+        }
+
+        loop {
+            let mut gamepad = match self.gamepads.get_mut(self.event_counter) {
+                Some(gp) => gp,
+                None => {
+                    self.event_counter = 0;
+                    return None
+                },
+            };
+
+            if gamepad.status() != Status::Connected {
+                self.event_counter += 1;
+                continue;
+            }
+
+            match gamepad.as_inner_mut().event() {
+                None => {
+                    self.event_counter += 1;
+                    continue;
+                }
+                Some(ev) => {
+                    match ev {
+                        Event::ButtonPressed(btn) => gamepad.state_mut().set_btn(btn, true),
+                        Event::ButtonReleased(btn) => gamepad.state_mut().set_btn(btn, false),
+                        Event::AxisChanged(axis, val) => {
+                            // Because we report values in flat range as 0 we have to filter axis
+                            // events to not report multiple same events.
+                            if gamepad.axis_val(axis) != val {
+                                gamepad.state_mut().set_axis(axis, val)
+                            } else {
+                                continue;
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                    return Some((self.event_counter, ev));
+                }
+            }
+        }
     }
 
     pub fn gamepad(&self, id: usize) -> &MainGamepad {
@@ -607,57 +652,6 @@ impl Drop for Gamepad {
 impl PartialEq for Gamepad {
     fn eq(&self, other: &Self) -> bool {
         self.uuid == other.uuid
-    }
-}
-
-
-pub struct EventIterator<'a>(&'a mut Gilrs, usize);
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = (usize, Event);
-
-    fn next(&mut self) -> Option<(usize, Event)> {
-        // If there is hotplug event return it, otherwise loop over all gamepdas checking if there
-        // is some event.
-        if let Some((id, ev)) = self.0.handle_hotplug() {
-            return Some((id, ev));
-        }
-
-        loop {
-            let mut gamepad = match self.0.gamepads.get_mut(self.1) {
-                Some(gp) => gp,
-                None => return None,
-            };
-
-            if gamepad.status() != Status::Connected {
-                self.1 += 1;
-                continue;
-            }
-
-            match gamepad.as_inner_mut().event() {
-                None => {
-                    self.1 += 1;
-                    continue;
-                }
-                Some(ev) => {
-                    match ev {
-                        Event::ButtonPressed(btn) => gamepad.state_mut().set_btn(btn, true),
-                        Event::ButtonReleased(btn) => gamepad.state_mut().set_btn(btn, false),
-                        Event::AxisChanged(axis, val) => {
-                            // Because we report values in flat range as 0 we have to filter axis
-                            // events to not report multiple same events.
-                            if gamepad.axis_val(axis) != val {
-                                gamepad.state_mut().set_axis(axis, val)
-                            } else {
-                                continue;
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
-                    return Some((self.1, ev));
-                }
-            }
-        }
     }
 }
 

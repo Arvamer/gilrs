@@ -53,8 +53,18 @@ impl Gilrs {
         }
     }
 
-    pub fn poll_events(&mut self) -> EventIterator {
-        EventIterator(self)
+    pub fn next_event(&mut self) -> Option<(usize, Event)> {
+        self.rx.try_recv().ok().map(|(id, event)| {
+            let gamepads = &mut self.gamepads;
+            match event {
+                Event::ButtonPressed(btn) => gamepads[id].state_mut().set_btn(btn, true),
+                Event::ButtonReleased(btn) => gamepads[id].state_mut().set_btn(btn, false),
+                Event::AxisChanged(axis, val) => gamepads[id].state_mut().set_axis(axis, val),
+                Event::Connected => *gamepads[id].status_mut() = Status::Connected,
+                Event::Disconnected => *gamepads[id].status_mut() = Status::Disconnected,
+            };
+            (id, event)
+        })
     }
 
     pub fn gamepad(&self, id: usize) -> &gamepad::Gamepad {
@@ -289,26 +299,6 @@ impl Gamepad {
     }
 
     pub fn set_ff_gain(&mut self, gain: u16) {}
-}
-
-pub struct EventIterator<'a>(&'a mut Gilrs);
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = (usize, Event);
-
-    fn next(&mut self) -> Option<(usize, Event)> {
-        self.0.rx.try_recv().ok().map(|(id, event)| {
-            let gamepads = &mut self.0.gamepads;
-            match event {
-                Event::ButtonPressed(btn) => gamepads[id].state_mut().set_btn(btn, true),
-                Event::ButtonReleased(btn) => gamepads[id].state_mut().set_btn(btn, false),
-                Event::AxisChanged(axis, val) => gamepads[id].state_mut().set_axis(axis, val),
-                Event::Connected => *gamepads[id].status_mut() = Status::Connected,
-                Event::Disconnected => *gamepads[id].status_mut() = Status::Disconnected,
-            };
-            (id, event)
-        })
-    }
 }
 
 #[inline(always)]
