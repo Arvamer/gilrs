@@ -14,6 +14,7 @@ v0.3.0 - unreleased
 
 - Rename `Button::Unknow` to `Button::Unknown`
 - `Gamepad::name(&self)` now returns `&str` instead of `&String`
+- Improved dead zone detection
 
 ### Removed
 

@@ -7,7 +7,8 @@
 
 use super::udev::*;
 use AsInner;
-use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt};
+use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
+              Deadzones};
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -41,14 +42,17 @@ impl Gilrs {
         for dev in en.iter() {
             let dev = Device::from_syspath(&udev, &dev).unwrap();
             if let Some(gamepad) = Gamepad::open(&dev, &mapping_db) {
-                gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected));
+                let ainfo = gamepad.axes_info;
+                gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected, ainfo.into()));
             }
         }
         Gilrs {
             gamepads: gamepads,
             mapping_db: mapping_db,
             monitor: Monitor::new(&udev).unwrap(),
-            not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
+            not_observed: MainGamepad::from_inner_status(Gamepad::none(),
+                                                         Status::NotObserved,
+                                                         Default::default()),
             event_counter: 0,
         }
     }
@@ -116,12 +120,17 @@ impl Gilrs {
                         if let Some(id) = self.gamepads.iter().position(|gp| {
                             gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
                         }) {
+                            let ainfo = gamepad.axes_info;
                             self.gamepads[id] = MainGamepad::from_inner_status(gamepad,
-                                                                               Status::Connected);
+                                                                               Status::Connected,
+                                                                               ainfo.into());
                             return Some((id, Event::Connected));
                         } else {
+                            let ainfo = gamepad.axes_info;
                             self.gamepads
-                                .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
+                                .push(MainGamepad::from_inner_status(gamepad,
+                                                                     Status::Connected,
+                                                                     ainfo.into()));
                             return Some((self.gamepads.len() - 1, Event::Connected));
                         }
                     }
@@ -191,7 +200,41 @@ struct AxesInfo {
     right_tr2: AbsInfo,
 }
 
+impl AxesInfo {
+    fn normalize(mut self) {
+        // Some devices report sticks value in range [0, Max], and some in range [-Max, Max]
+        self.x = Self::normalize_abs(self.x);
+        self.y = Self::normalize_abs(self.y);
+        self.rx = Self::normalize_abs(self.rx);
+        self.ry = Self::normalize_abs(self.ry);
+    }
 
+    fn normalize_abs(abs: AbsInfo) -> AbsInfo {
+        if abs.minimum == 0 {
+            let maxh = abs.maximum / 2;
+            // Don't change minimum value, it allow to see if reported axis value should also be
+            // modified
+            AbsInfo { maximum: maxh, ..abs }
+        } else {
+            abs
+        }
+    }
+}
+
+impl From<AxesInfo> for Deadzones {
+    fn from(f: AxesInfo) -> Self {
+        Deadzones {
+            right_stick: f.x.flat as f32 / f.x.maximum as f32,
+            left_stick: f.rx.flat as f32 / f.rx.maximum as f32,
+            left_z: f.z.flat as f32 / f.z.maximum as f32,
+            right_z: f.rz.flat as f32 / f.rx.maximum as f32,
+            right_trigger: f.right_tr.flat as f32 / f.right_tr.maximum as f32,
+            right_trigger2: f.right_tr2.flat as f32 / f.right_tr2.maximum as f32,
+            left_trigger: f.left_tr.flat as f32 / f.left_tr.maximum as f32,
+            left_trigger2: f.left_tr2.flat as f32 / f.left_tr2.maximum as f32,
+        }
+    }
+}
 impl Gamepad {
     fn none() -> Self {
         Gamepad {
@@ -349,6 +392,7 @@ impl Gamepad {
                              mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
                              &mut axesi.left_tr2 as *mut _);
 
+            axesi.normalize();
             let (cap, status) = Self::battery_fd(&dev);
 
             let gamepad = Gamepad {
@@ -495,30 +539,12 @@ impl Gamepad {
     }
 
     fn axis_value(axes_info: AbsInfo, val: i32, kind: Axis) -> f32 {
-        let (val, axes_info) = if kind.is_stick() && axes_info.minimum == 0 {
-            let maxh = axes_info.maximum / 2;
-            let maximum = axes_info.maximum - maxh;
-            (val - maxh, AbsInfo { maximum: maximum, ..axes_info })
-        } else {
-            (val, axes_info)
-        };
+        let val =
+            if kind.is_stick() && axes_info.minimum == 0 { val - axes_info.maximum } else { val };
 
-        let val = if val.abs() < axes_info.flat {
-            0
-        } else if val > 0 {
-            val - axes_info.flat
-        } else {
-            val + axes_info.flat
-        };
+        let val = val as f32 / axes_info.maximum as f32;
 
-        let val = val as f32 / (axes_info.maximum - axes_info.flat) as f32;
-
-        val *
-        if (kind == Axis::LeftStickY || kind == Axis::RightStickY) && val != 0.0 {
-            -1.0
-        } else {
-            1.0
-        }
+        val * if kind == Axis::LeftStickY || kind == Axis::RightStickY { -1.0 } else { 1.0 }
     }
 
     fn disconnect(&mut self) {

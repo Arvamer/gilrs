@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt};
+use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones};
 use uuid::Uuid;
 use std::thread;
 use std::mem;
@@ -49,7 +49,7 @@ impl Gilrs {
         Gilrs {
             gamepads: gamepads,
             rx: rx,
-            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
+            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved, deadzones()),
         }
     }
 
@@ -312,7 +312,16 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
         }
     };
 
-    gamepad::Gamepad::from_inner_status(gamepad, status)
+    gamepad::Gamepad::from_inner_status(gamepad, status, deadzones())
+}
+
+fn deadzones() -> Deadzones {
+    Deadzones {
+        right_stick: xi::XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as f32 / 65534.0,
+        left_stick: xi::XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as f32 / 65534.0,
+        left_trigger2: xi::XINPUT_GAMEPAD_TRIGGER_THRESHOLD as f32 / 255.0,
+        ..Default::default()
+   }
 }
 
 pub mod native_ev_codes {

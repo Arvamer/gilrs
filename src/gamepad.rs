@@ -3,6 +3,7 @@ use constants::*;
 use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
+use utils::apply_deadzone;
 
 /// Main object responsible of managing gamepads.
 ///
@@ -125,10 +126,11 @@ pub struct Gamepad {
     state: GamepadState,
     status: Status,
     ff_effects: Vec<Option<Effect>>,
+    threshold: Deadzones,
 }
 
 impl Gamepad {
-    fn new(gamepad: platform::Gamepad, status: Status) -> Self {
+    fn new(gamepad: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
         let max_effects = gamepad.max_ff_effects();
         Gamepad {
             inner: gamepad,
@@ -136,6 +138,7 @@ impl Gamepad {
             status: status,
             // Effect doesn't implement Clone so we can't use vec! macro.
             ff_effects: (0..max_effects).map(|_| None).collect(),
+            threshold: threshold,
         }
     }
 
@@ -276,12 +279,12 @@ impl AsInner<platform::Gamepad> for Gamepad {
 }
 
 pub trait GamepadImplExt {
-    fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self;
+    fn from_inner_status(inner: platform::Gamepad, status: Status, threshold: Deadzones) -> Self;
 }
 
 impl GamepadImplExt for Gamepad {
-    fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self {
-        Self::new(inner, status)
+    fn from_inner_status(inner: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
+        Self::new(inner, status, threshold)
     }
 }
 
@@ -460,6 +463,52 @@ pub enum Status {
     NotObserved,
 }
 
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct Deadzones {
+    pub right_stick: f32,
+    pub left_stick: f32,
+    pub left_z: f32,
+    pub right_z: f32,
+    pub right_trigger: f32,
+    pub right_trigger2: f32,
+    pub left_trigger: f32,
+    pub left_trigger2: f32,
+}
+
+impl Deadzones {
+    #[allow(dead_code)]
+    pub fn set(&mut self, axis: Axis, val: f32) {
+        match axis {
+            Axis::LeftStickX => self.left_stick = val,
+            Axis::LeftStickY => self.left_stick = val,
+            Axis::LeftZ => self.left_z = val,
+            Axis::RightStickX => self.right_stick = val,
+            Axis::RightStickY => self.right_stick = val,
+            Axis::RightZ => self.right_z = val,
+            Axis::LeftTrigger => self.left_trigger = val,
+            Axis::LeftTrigger2 => self.left_trigger2 = val,
+            Axis::RightTrigger => self.right_trigger = val,
+            Axis::RightTrigger2 => self.right_trigger2 = val,
+        };
+    }
+
+    pub fn get(&self, axis: Axis) -> f32 {
+        match axis {
+            Axis::LeftStickX => self.left_stick,
+            Axis::LeftStickY => self.left_stick,
+            Axis::LeftZ => self.left_z,
+            Axis::RightStickX => self.right_stick,
+            Axis::RightStickY => self.right_stick,
+            Axis::RightZ => self.right_z,
+            Axis::LeftTrigger => self.left_trigger,
+            Axis::LeftTrigger2 => self.left_trigger2,
+            Axis::RightTrigger => self.right_trigger,
+            Axis::RightTrigger2 => self.right_trigger2,
+        }
+    }
+}
+
+
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
     gilrs: &'a mut platform::Gilrs,
@@ -476,6 +525,33 @@ impl<'a> Iterator for EventIterator<'a> {
                     Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
                     Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
                     Event::AxisChanged(axis, val) => {
+                        let val = match axis {
+                            Axis::LeftStickX => {
+                                apply_deadzone(val,
+                                               gamepad.axis_val(Axis::LeftStickY),
+                                               gamepad.threshold.left_stick)
+                                    .0
+                            }
+                            Axis::LeftStickY => {
+                                apply_deadzone(val,
+                                               gamepad.axis_val(Axis::LeftStickX),
+                                               gamepad.threshold.left_stick)
+                                    .0
+                            }
+                            Axis::RightStickX => {
+                                apply_deadzone(val,
+                                               gamepad.axis_val(Axis::RightStickY),
+                                               gamepad.threshold.right_stick)
+                                    .0
+                            }
+                            Axis::RightStickY => {
+                                apply_deadzone(val,
+                                               gamepad.axis_val(Axis::RightStickX),
+                                               gamepad.threshold.right_stick)
+                                    .0
+                            }
+                            axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
+                        };
                         if gamepad.axis_val(axis) != val {
                             gamepad.state.set_axis(axis, val)
                         } else {

@@ -93,6 +93,7 @@ mod gamepad;
 mod platform;
 mod constants;
 mod mapping;
+mod utils;
 
 pub mod ff;
 
