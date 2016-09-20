@@ -4,6 +4,7 @@ use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
 use utils::apply_deadzone;
+use std::ops::{Index, IndexMut};
 
 /// Main object responsible of managing gamepads.
 ///
@@ -32,9 +33,9 @@ use utils::apply_deadzone;
 /// ```
 ///
 /// Additionally, every time you use `poll_events()`, cached gamepad state is updated. Use
-/// `gamepad(usize)` method to borrow gamepad and then `state()`, `is_btn_pressed(Button)` or
-/// `axis_val(Axis)` to examine gamepad's state. See [`Gamepad`](struct.Gamepad.html) for more
-/// info.
+/// `gamepad(usize)` method or index operator to borrow gamepad and then `state()`,
+/// `is_btn_pressed(Button)` or `axis_val(Axis)` to examine gamepad's state. See
+/// [`Gamepad`](struct.Gamepad.html) for more info.
 #[derive(Debug)]
 pub struct Gilrs {
     inner: platform::Gilrs,
@@ -89,6 +90,20 @@ impl Gilrs {
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
         if gp.is_connected() { Some(gp) } else { None }
+    }
+}
+
+impl Index<usize> for Gilrs {
+    type Output = Gamepad;
+
+    fn index(&self, idx: usize) -> &Gamepad {
+        self.gamepad(idx)
+    }
+}
+
+impl IndexMut<usize> for Gilrs {
+    fn index_mut(&mut self, idx: usize) -> &mut Gamepad {
+        self.gamepad_mut(idx)
     }
 }
 
@@ -166,8 +181,8 @@ impl Gamepad {
     ///     for _ in gilrs.poll_events() {}
     ///
     ///     println!("Start: {}, Left Stick X: {}",
-    ///              gilrs.gamepad(0).is_btn_pressed(Button::Start),
-    ///              gilrs.gamepad(0).axis_val(Axis::LeftStickX));
+    ///              gilrs[0].is_btn_pressed(Button::Start),
+    ///              gilrs[0].axis_val(Axis::LeftStickX));
     ///     # break;
     /// }
     /// ```
