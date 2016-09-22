@@ -587,7 +587,9 @@ impl<'a> Iterator for EventIterator<'a> {
         }
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Gamepad event.
 pub enum Event {
     ButtonPressed(Button),
     ButtonReleased(Button),

@@ -136,6 +136,7 @@ impl From<[f32; 2]> for Direction {
 
 // TODO: Image with "envelope"
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
+/// Envelope shaped gain(time) function.
 pub struct Envelope {
     pub attack_length: u16,
     pub attack_level: u16,
