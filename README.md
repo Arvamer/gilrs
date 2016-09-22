@@ -19,8 +19,8 @@ Main features:
 - Force feedback (rumble)
 - Power information (is gamepad wired, current battery status)
 
-The main repository for project [is on GitLab](https://gitlab.com/Arvamer/gilrs)
-although there is also [GitHub mirror](https://github.com/Arvamer/gilrs).
+The main project's repository [is on GitLab](https://gitlab.com/Arvamer/gilrs)
+although there is also a [GitHub mirror](https://github.com/Arvamer/gilrs).
 Please use GitLab's issue tracker and merge requests.
 
 This repository contains submodule - after you clone it, don't forget to run
