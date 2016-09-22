@@ -23,6 +23,7 @@ v0.3.0 - unreleased
 
 ### Fixed
 
+- Buttons west and east are no longer swapped when using SDL2 mappings
 - Linux: infinite loop after gamepad disconnects
 
 v0.2.0 - 2016-08-18

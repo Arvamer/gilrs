@@ -80,13 +80,13 @@ impl Mapping {
                     }
                 }
                 "x" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_EAST));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_WEST));
                 }
                 "a" => {
                     try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_SOUTH));
                 }
                 "b" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_WEST));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_EAST));
                 }
                 "y" => {
                     try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_NORTH));
