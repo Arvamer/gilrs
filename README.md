@@ -40,14 +40,20 @@ use gilrs::{Gilrs, Button};
 
 let mut gilrs = Gilrs::new();
 
-// Event loop
+// Iterate over all connected gamepads
+for (_id, gamepad) in gilrs.gamepads() {
+    println!("{} is {:?}", gamepad.name(), gamepad.power_info());
+}
+
 loop {
+    // Examine new events
     for (id, event) in gilrs.poll_events() {
         println!("New event from {}: {:?}", id, event);
     }
 
-    if gilrs.gamepad(0).is_btn_pressed(Button::South) {
-        println!("Name of gamepad 0: {}", gilrs.gamepad(0).name());
+    // You can also use cached gamepad state
+    if gilrs[0].is_btn_pressed(Button::South) {
+        println!("Button South is pressed (XBox - A, PS - X)");
     }
 }
 ```
