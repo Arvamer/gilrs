@@ -39,18 +39,23 @@ impl Effect {
         if res == -1 { Err(Error::EffectNotSupported) } else { Ok(()) }
     }
 
-    pub fn play(&mut self, n: u16) {
+    pub fn play(&mut self, n: u16) -> Result<(), Error> {
         let ev = input_event {
             _type: EV_FF,
             code: self.id as u16,
             value: n as i32,
             time: unsafe { mem::uninitialized() },
         };
-        unsafe { c::write(self.fd, mem::transmute(&ev), 24) };
+
+        if unsafe { c::write(self.fd, mem::transmute(&ev), 24) } == -1 {
+            Err(Error::FailedToPlay)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn stop(&mut self) {
-        self.play(0)
+        let _ = self.play(0);
     }
 }
 

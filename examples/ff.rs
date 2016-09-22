@@ -3,6 +3,8 @@ extern crate env_logger;
 
 use gilrs::Gilrs;
 use gilrs::ff::EffectData;
+use std::time::Duration;
+use std::thread;
 
 fn main() {
     env_logger::init().unwrap();
@@ -13,11 +15,9 @@ fn main() {
     effect.replay.length = 5000;
     effect.envelope.attack_length = 1000;
     effect.envelope.fade_length = 1000;
-    let effect_idx = gil.gamepad_mut(0).add_ff_effect(effect).unwrap();
-    gil.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
-    loop {
-        for e in gil.poll_events() {
-            println!("{:?}", e);
-        }
-    }
+
+    let effect_idx = gil[0].add_ff_effect(effect).unwrap();
+    let _ = gil[0].ff_effect(effect_idx).unwrap().play(1);
+
+    thread::sleep(Duration::from_secs(5));
 }

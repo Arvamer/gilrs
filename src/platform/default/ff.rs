@@ -21,7 +21,9 @@ impl Effect {
         Err(Error::FfNotSupported)
     }
 
-    pub fn play(&mut self, n: u16) {}
+    pub fn play(&mut self, n: u16) -> Result<(), Error> {
+        Err(Error::FfNotSupported)
+    }
 
     pub fn stop(&mut self) {}
 }

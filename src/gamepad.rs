@@ -321,7 +321,7 @@ impl Effect {
     }
 
     /// Play effect.
-    pub fn play(&mut self, n: u16) {
+    pub fn play(&mut self, n: u16) -> Result<(), ff::Error> {
         self.inner.play(n)
     }
 
