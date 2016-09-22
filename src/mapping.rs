@@ -19,6 +19,10 @@ use uuid::{Uuid, ParseError as UuidError};
 pub struct Mapping {
     axes: VecMap<u16>,
     btns: VecMap<u16>,
+    /// Offset applied to button indexes (reduce memory consumed by VecMap). **WARNING** when
+    /// creating this struct from sdl mappings, you have to manually apply correct offset to all
+    /// buttons in array which is passed to `parse_sdl_mapping().
+    btn_offset: u16,
     name: String,
 }
 
@@ -27,12 +31,17 @@ impl Mapping {
         Mapping {
             axes: VecMap::new(),
             btns: VecMap::new(),
+            btn_offset: 0,
             name: String::new(),
         }
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn set_btn_offset(&mut self, offset: u16) {
+        self.btn_offset = offset;
     }
 
     pub fn parse_sdl_mapping(line: &str,
@@ -308,7 +317,7 @@ impl Mapping {
 
     pub fn map(&self, code: u16, kind: Kind) -> u16 {
         match kind {
-            Kind::Button => *self.btns.get(code as usize).unwrap_or(&code),
+            Kind::Button => *self.btns.get((code - self.btn_offset) as usize).unwrap_or(&code),
             Kind::Axis => *self.axes.get(code as usize).unwrap_or(&code),
         }
     }
@@ -320,7 +329,7 @@ impl Mapping {
                     .iter()
                     .find(|x| *x.1 == code)
                     .unwrap_or((code as usize, &0))
-                    .0 as u16
+                    .0 as u16 + self.btn_offset
             }
             Kind::Axis => {
                 self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
