@@ -5,16 +5,27 @@ GilRs - Game Input Library for Rust
 [![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
 ![Crates.io](https://img.shields.io/crates/l/gilrs.svg)
 
-[**Documentation**](https://arvamer.gitlab.io/gilrs/doc/gilrs/)
+[**Documentation (master)**](https://arvamer.gitlab.io/gilrs/doc/gilrs/)
 
 GilRs abstract platform specific APIs to provide unified interfaces for working with gamepads.
-Additionally, library is trying to unify different devices, providing single controller layout.
+
+Main features:
+
+- Unified gamepad layout - buttons and axes are represented by familiar names
+- Support for SDL2 mappings including `SDL_GAMECONTROLLERCONFIG` environment
+  variable which Steam uses
+- Hotplugging - GilRs will try to assign new ID for new gamepads and reuse same
+  ID for gamepads which reconnected
+- Force feedback (rumble)
+- Power information (is gamepad wired, current battery status)
 
 The main repository for project [is on GitLab](https://gitlab.com/Arvamer/gilrs)
-but there is also [GitHub mirror](https://github.com/Arvamer/gilrs). If you want
-to contribute or have a question please use GitLab's issue tracker and pull
-requests *not GitHub's*.
+although there is also [GitHub mirror](https://github.com/Arvamer/gilrs).
+Please use GitLab's issue tracker and merge requests.
 
+This repository contains submodule - after you clone it, don't forget to run
+`git submodule init; git submodule update` (or clone with `--recursive` flag)
+or you will get compile errors.
 
 Example
 -------

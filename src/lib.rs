@@ -9,7 +9,16 @@
 //! ===================================
 //!
 //! GilRs abstract platform specific APIs to provide unified interfaces for working with gamepads.
-//! Additionally, library is trying to unify different devices, providing single controller layout.
+//!
+//! Main features:
+//!
+//! - Unified gamepad layout - buttons and axes are represented by familiar names
+//! - Support for SDL2 mappings including `SDL_GAMECONTROLLERCONFIG` environment
+//!   variable which Steam uses
+//! - Hotplugging - GilRs will try to assign new IDs for new gamepads and reuse same
+//!   ID for gamepads which reconnected
+//! - Force feedback (rumble)
+//! - Power information (is gamepad wired, current battery status)
 //!
 //! Example
 //! -------
@@ -19,14 +28,20 @@
 //!
 //! let mut gilrs = Gilrs::new();
 //!
-//! // Event loop
+//! // Iterate over all connected gamepads
+//! for (_id, gamepad) in gilrs.gamepads() {
+//!     println!("{} is {:?}", gamepad.name(), gamepad.power_info());
+//! }
+//!
 //! loop {
+//!     // Examine new events
 //!     for (id, event) in gilrs.poll_events() {
 //!         println!("New event from {}: {:?}", id, event);
 //!     }
 //!
-//!     if gilrs.gamepad(0).is_btn_pressed(Button::South) {
-//!         println!("Name of gamepad 0: {}", gilrs.gamepad(0).name());
+//!     // You can also use cached gamepad state
+//!     if gilrs[0].is_btn_pressed(Button::South) {
+//!         println!("Button South is pressed (XBox - A, PS - X)");
 //!     }
 //!     # break;
 //! }
@@ -54,7 +69,7 @@
 //!
 //! GilRs use SDL-compatible controller mappings to fix on Linux legacy drivers that doesn't follow
 //! [Linux Gamepad API](https://www.kernel.org/doc/Documentation/input/gamepad.txt) and to provide
-//! unifed button layout for platforms that doesn't make any guarantees about it. The main source
+//! unified button layout for platforms that doesn't make any guarantees about it. The main source
 //! is [SDL_GameControllerDB](https://github.com/gabomdq/SDL_GameControllerDB), but library also
 //! support loading mappings from environment variable `SDL_GAMECONTROLLERCONFIG` (which Steam
 //! use).
