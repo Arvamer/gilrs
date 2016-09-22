@@ -25,6 +25,8 @@ v0.3.0 - unreleased
 
 - Buttons west and east are no longer swapped when using SDL2 mappings
 - Linux: infinite loop after gamepad disconnects
+- Linux: SDL2 mappings for gamepads that can also report mouse and keyboard
+  events now should works
 
 v0.2.0 - 2016-08-18
 ------

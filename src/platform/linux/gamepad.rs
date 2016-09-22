@@ -291,9 +291,14 @@ impl Gamepad {
             let mut buttons = Vec::with_capacity(16);
             let mut axes = Vec::with_capacity(8);
 
-            for bit in 0..(key_bits.len() * 8) {
-                if test_bit(bit as u16, &key_bits) {
-                    buttons.push(bit as u16);
+            for bit in (BTN_MISC)..(BTN_MOUSE) {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+            for bit in (BTN_JOYSTICK)..(key_bits.len() as u16 * 8) {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
                 }
             }
             for bit in 0..(abs_bits.len() * 8) {
@@ -301,6 +306,8 @@ impl Gamepad {
                     axes.push(bit as u16);
                 }
             }
+
+            debug!("{:?}", buttons);
 
             let mut namebuff = mem::uninitialized::<[u8; 128]>();
             let mut input_id = mem::uninitialized::<ioctl::input_id>();
@@ -718,6 +725,9 @@ const EV_ABS: u16 = 0x03;
 const ABS_MAX: u16 = 0x3f;
 const EV_FF: u16 = 0x15;
 
+const BTN_MISC: u16 = 0x100;
+const BTN_MOUSE: u16 = 0x110;
+const BTN_JOYSTICK: u16 = 0x120;
 const BTN_GAMEPAD: u16 = 0x130;
 const BTN_SOUTH: u16 = 0x130;
 const BTN_EAST: u16 = 0x131;
