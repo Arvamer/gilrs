@@ -18,6 +18,7 @@ use ioctl;
 use constants;
 use mapping::{Mapping, Kind, MappingDb};
 use ioctl::input_absinfo as AbsInfo;
+use super::ioctl_def;
 
 
 #[derive(Debug)]
@@ -317,7 +318,7 @@ impl Gamepad {
                 return None;
             }
 
-            if ioctl::eviocgid(fd, &mut input_id as *mut _) < 0 {
+            if ioctl_def::eviocgid(fd, &mut input_id as *mut _) < 0 {
                 error!("Failed to get id of device {:?}", path);
                 return None;
             }
@@ -614,7 +615,7 @@ impl Gamepad {
         if self.ff_supported {
             let mut max_effects = 0;
             unsafe {
-                ioctl::eviocgeffects(self.fd, &mut max_effects as *mut _);
+                ioctl_def::eviocgeffects(self.fd, &mut max_effects as *mut _);
             }
             max_effects as usize
         } else {

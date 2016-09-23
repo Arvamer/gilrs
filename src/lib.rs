@@ -92,6 +92,7 @@ extern crate libudev_sys;
 #[cfg(target_os = "linux")]
 extern crate libc;
 #[cfg(target_os = "linux")]
+#[macro_use]
 extern crate ioctl;
 
 #[cfg(target_os = "windows")]

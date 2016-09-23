@@ -11,6 +11,7 @@ use ioctl;
 use libc as c;
 use std::mem;
 use constants;
+use super::ioctl_def;
 
 #[derive(Debug)]
 pub struct Effect {
@@ -63,7 +64,7 @@ impl Drop for Effect {
     fn drop(&mut self) {
         unsafe {
             // bug in ioctl crate, second argument is i32 not pointer to i32
-            ioctl::eviocrmff(self.fd, mem::transmute(self.id as isize));
+            ioctl_def::eviocrmff(self.fd, mem::transmute(self.id as isize));
         }
     }
 }

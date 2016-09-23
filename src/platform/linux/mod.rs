@@ -13,6 +13,7 @@
 mod gamepad;
 mod udev;
 mod ff;
+mod ioctl_def;
 
 pub use self::gamepad::{Gilrs, Gamepad, native_ev_codes};
 pub use self::ff::Effect;
