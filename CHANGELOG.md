@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+v0.3.1 - 2016-09-23
+
+### Fixed
+
+- Fixed compilation error on non-x86_64 Linux
+
 v0.3.0 - 2016-09-22
 
 ### Added
