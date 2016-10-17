@@ -25,7 +25,7 @@ use super::ioctl_def;
 pub struct Gilrs {
     gamepads: Vec<MainGamepad>,
     mapping_db: MappingDb,
-    monitor: Monitor,
+    monitor: Option<Monitor>,
     not_observed: MainGamepad,
     event_counter: usize,
 }
@@ -35,22 +35,56 @@ impl Gilrs {
         let mut gamepads = Vec::new();
         let mapping_db = MappingDb::new();
 
-        let udev = Udev::new().unwrap();
-        let en = udev.enumerate().unwrap();
+        let udev = match Udev::new() {
+            Some(udev) => udev,
+            None => {
+                error!("Failed to create udev context");
+                return Self::none();
+            }
+        };
+        let en = match udev.enumerate() {
+            Some(en) => en,
+            None => {
+                error!("Failed to create udev enumerate object");
+                return Self::none();
+            }
+        };
+
         unsafe { en.add_match_property(cstr_new(b"ID_INPUT_JOYSTICK\0"), cstr_new(b"1\0")) }
         en.scan_devices();
 
         for dev in en.iter() {
-            let dev = Device::from_syspath(&udev, &dev).unwrap();
-            if let Some(gamepad) = Gamepad::open(&dev, &mapping_db) {
-                let ainfo = gamepad.axes_info;
-                gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected, ainfo.into()));
+            if let Some(dev) = Device::from_syspath(&udev, &dev) {
+                if let Some(gamepad) = Gamepad::open(&dev, &mapping_db) {
+                    let ainfo = gamepad.axes_info;
+                    gamepads.push(MainGamepad::from_inner_status(gamepad,
+                                                                 Status::Connected,
+                                                                 ainfo.into()));
+                }
             }
         }
+
+        let monitor = Monitor::new(&udev);
+        if monitor.is_none() {
+            error!("Failed to create udev monitor. Hotplugging will not be supported");
+        }
+
         Gilrs {
             gamepads: gamepads,
             mapping_db: mapping_db,
-            monitor: Monitor::new(&udev).unwrap(),
+            monitor: monitor,
+            not_observed: MainGamepad::from_inner_status(Gamepad::none(),
+                                                         Status::NotObserved,
+                                                         Default::default()),
+            event_counter: 0,
+        }
+    }
+
+    fn none() -> Self {
+        Gilrs {
+            gamepads: Vec::new(),
+            mapping_db: MappingDb::new(),
+            monitor: None,
             not_observed: MainGamepad::from_inner_status(Gamepad::none(),
                                                          Status::NotObserved,
                                                          Default::default()),
@@ -102,8 +136,13 @@ impl Gilrs {
     }
 
     fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
-        while self.monitor.hotplug_available() {
-            let dev = self.monitor.device();
+        let monitor = match self.monitor {
+            Some(ref m) => m,
+            None => return None,
+        };
+
+        while monitor.hotplug_available() {
+            let dev = monitor.device();
 
             unsafe {
                 if let Some(val) = dev.property_value(cstr_new(b"ID_INPUT_JOYSTICK\0")) {
@@ -114,7 +153,10 @@ impl Gilrs {
                     continue;
                 }
 
-                let action = dev.action().unwrap();
+                let action = match dev.action() {
+                    Some(a) => a,
+                    None => continue,
+                };
 
                 if action == cstr_new(b"add\0") {
                     if let Some(gamepad) = Gamepad::open(&dev, &self.mapping_db) {

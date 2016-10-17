@@ -441,6 +441,6 @@ mod tests {
 
     #[test]
     fn mapping() {
-        let _ = Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
+        Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
     }
 }
