@@ -11,18 +11,22 @@ cache:
     - target
 
 build:x86_64-unknown-linux-gnu:
+  stage: build
   script:
     - cargo build --verbose
 
 test:x86_64-unknown-linux-gnu:
+  stage: test
   script:
     - cargo test --verbose
 
 build:x86_64-pc-windows-gnu:
+  stage: build
   script:
     - cargo build --verbose --target=x86_64-pc-windows-gnu
 
 pages:
+  stage: deploy
   script:
   - cargo doc
   - mkdir public
