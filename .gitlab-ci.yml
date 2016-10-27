@@ -1,17 +1,32 @@
-image: "scorpil/rust:stable"
+image: "registry.gitlab.com/arvamer/gilrs"
 
 before_script:
-- apt-get update -yqq
-- apt-get install -yqq pkg-config libudev-dev git
 - git submodule init
 - git submodule update
+- rustc --version && cargo --version
 
-test:cargo:
+cache:
+  paths:
+    - $HOME/.cargo
+    - target
+
+build:x86_64-unknown-linux-gnu:
+  stage: build
   script:
-  - rustc --version && cargo --version
-  - cargo test --verbose --jobs 1 --release
+    - cargo build --verbose
+
+test:x86_64-unknown-linux-gnu:
+  stage: test
+  script:
+    - cargo test --verbose
+
+build:x86_64-pc-windows-gnu:
+  stage: build
+  script:
+    - cargo build --verbose --target=x86_64-pc-windows-gnu
 
 pages:
+  stage: deploy
   script:
   - cargo doc
   - mkdir public
@@ -19,6 +34,7 @@ pages:
   - mv target/doc public
   - mv controller.svg public/img/
   artifacts:
+    expire_in: 1 week
     paths:
       - public
   only:
