@@ -10,6 +10,7 @@ repository = "https://gitlab.com/Arvamer/gilrs"
 homepage = "https://gitlab.com/Arvamer/gilrs"
 readme = "README.md"
 keywords = ["gamepad", "joystick", "input"]
+exlude = ["ci_docker"]
 
 
 [dependencies]
