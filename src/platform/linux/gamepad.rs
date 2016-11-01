@@ -244,22 +244,19 @@ struct AxesInfo {
 }
 
 impl AxesInfo {
-    fn normalize(mut self) {
+    fn normalize(&mut self) {
         // Some devices report sticks value in range [0, Max], and some in range [-Max, Max]
-        self.x = Self::normalize_abs(self.x);
-        self.y = Self::normalize_abs(self.y);
-        self.rx = Self::normalize_abs(self.rx);
-        self.ry = Self::normalize_abs(self.ry);
+        Self::normalize_abs(&mut self.x);
+        Self::normalize_abs(&mut self.y);
+        Self::normalize_abs(&mut self.rx);
+        Self::normalize_abs(&mut self.ry);
     }
 
-    fn normalize_abs(abs: AbsInfo) -> AbsInfo {
+    fn normalize_abs(abs: &mut AbsInfo) {
         if abs.minimum == 0 {
-            let maxh = abs.maximum / 2;
+            abs.maximum /= 2;
             // Don't change minimum value, it allow to see if reported axis value should also be
             // modified
-            AbsInfo { maximum: maxh, ..abs }
-        } else {
-            abs
         }
     }
 }
