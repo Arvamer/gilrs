@@ -504,8 +504,8 @@ impl Gamepad {
                     let code = self.mapping.map(event.code, Kind::Button);
                     Button::from_u16(code).and_then(|btn| {
                         match event.value {
-                            0 => Some(Event::ButtonReleased(btn)),
-                            1 => Some(Event::ButtonPressed(btn)),
+                            0 => Some(Event::ButtonReleased(btn, event.code)),
+                            1 => Some(Event::ButtonPressed(btn, event.code)),
                             _ => None,
                         }
                     })
@@ -518,16 +518,16 @@ impl Gamepad {
                                 0 => {
                                     match self.abs_dpad_prev_val.1 {
                                         val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadDown))
+                                            Some(Event::ButtonReleased(Button::DPadDown, event.code))
                                         }
                                         val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadUp))
+                                            Some(Event::ButtonReleased(Button::DPadUp, event.code))
                                         }
                                         _ => None,
                                     }
                                 }
-                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadDown)),
-                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadUp)),
+                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadDown, event.code)),
+                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadUp, event.code)),
                                 _ => unreachable!(),
                             };
                             self.abs_dpad_prev_val.1 = event.value as i16;
@@ -538,16 +538,16 @@ impl Gamepad {
                                 0 => {
                                     match self.abs_dpad_prev_val.0 {
                                         val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadRight))
+                                            Some(Event::ButtonReleased(Button::DPadRight, event.code))
                                         }
                                         val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadLeft))
+                                            Some(Event::ButtonReleased(Button::DPadLeft, event.code))
                                         }
                                         _ => None,
                                     }
                                 }
-                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadRight)),
-                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadLeft)),
+                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadRight, event.code)),
+                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadLeft, event.code)),
                                 _ => unreachable!(),
                             };
                             self.abs_dpad_prev_val.0 = event.value as i16;
@@ -571,7 +571,7 @@ impl Gamepad {
                                         Self::axis_value(ai.right_tr2, val, a)
                                     }
                                 };
-                                Event::AxisChanged(axis, val)
+                                Event::AxisChanged(axis, val, event.code)
                             })
                         }
                     }

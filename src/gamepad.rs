@@ -523,6 +523,7 @@ impl Deadzones {
     }
 }
 
+pub type NativeEvCode = u16;
 
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
@@ -537,9 +538,9 @@ impl<'a> Iterator for EventIterator<'a> {
             Some((id, ev)) => {
                 let gamepad = self.gilrs.gamepad_mut(id);
                 match ev {
-                    Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
-                    Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
-                    Event::AxisChanged(axis, val) => {
+                    Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
+                    Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
+                    Event::AxisChanged(axis, val, _) => {
                         let val = match axis {
                             Axis::LeftStickX => {
                                 apply_deadzone(val,
@@ -591,9 +592,9 @@ impl<'a> Iterator for EventIterator<'a> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Gamepad event.
 pub enum Event {
-    ButtonPressed(Button),
-    ButtonReleased(Button),
-    AxisChanged(Axis, f32),
+    ButtonPressed(Button, NativeEvCode),
+    ButtonReleased(Button, NativeEvCode),
+    AxisChanged(Axis, f32, NativeEvCode),
     Connected,
     Disconnected,
 }
