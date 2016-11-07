@@ -24,7 +24,7 @@ use std::f32::NAN;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, Event::ButtonPressed(Button::South)) => println!("Player {}: jump!", id + 1),
+///             (id, Event::ButtonPressed(Button::South, _)) => println!("Player {}: jump!", id + 1),
 ///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
 ///             _ => (),
 ///         };
