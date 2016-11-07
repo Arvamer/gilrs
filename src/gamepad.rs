@@ -5,6 +5,7 @@ use uuid::Uuid;
 use AsInner;
 use utils::apply_deadzone;
 use std::ops::{Index, IndexMut};
+use std::f32::NAN;
 
 /// Main object responsible of managing gamepads.
 ///
@@ -413,6 +414,7 @@ impl GamepadState {
             Axis::LeftTrigger2 => self.left_trigger2 = val,
             Axis::RightTrigger => self.right_trigger = val,
             Axis::RightTrigger2 => self.right_trigger2 = val,
+            Axis::Unknown => (),
         };
     }
 
@@ -462,6 +464,7 @@ impl GamepadState {
             Axis::LeftTrigger2 => self.left_trigger2,
             Axis::RightTrigger => self.right_trigger,
             Axis::RightTrigger2 => self.right_trigger2,
+            Axis::Unknown => NAN, // or return 0.0?
         }
     }
 }
@@ -504,6 +507,7 @@ impl Deadzones {
             Axis::LeftTrigger2 => self.left_trigger2 = val,
             Axis::RightTrigger => self.right_trigger = val,
             Axis::RightTrigger2 => self.right_trigger2 = val,
+            Axis::Unknown => (),
         };
     }
 
@@ -519,6 +523,7 @@ impl Deadzones {
             Axis::LeftTrigger2 => self.left_trigger2,
             Axis::RightTrigger => self.right_trigger,
             Axis::RightTrigger2 => self.right_trigger2,
+            Axis::Unknown => NAN,
         }
     }
 }
@@ -697,6 +702,8 @@ pub enum Axis {
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,
     RightTrigger2 = AXIS_RT2,
+    Unknown = ::std::u16::MAX, // some "random" value because rustc want to assign 11u16 which
+                               // already exists
 }
 
 impl Axis {

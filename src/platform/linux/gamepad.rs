@@ -8,7 +8,7 @@
 use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
-              Deadzones};
+    Deadzones};
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -275,6 +275,7 @@ impl From<AxesInfo> for Deadzones {
         }
     }
 }
+
 impl Gamepad {
     fn none() -> Self {
         Gamepad {
@@ -313,14 +314,14 @@ impl Gamepad {
             let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
 
             if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
-               ioctl::eviocgbit(fd,
-                                EV_KEY as u32,
-                                key_bits.len() as i32,
-                                key_bits.as_mut_ptr()) < 0 ||
-               ioctl::eviocgbit(fd,
-                                EV_ABS as u32,
-                                abs_bits.len() as i32,
-                                abs_bits.as_mut_ptr()) < 0 {
+                ioctl::eviocgbit(fd,
+                                 EV_KEY as u32,
+                                 key_bits.len() as i32,
+                                 key_bits.as_mut_ptr()) < 0 ||
+                ioctl::eviocgbit(fd,
+                                 EV_ABS as u32,
+                                 abs_bits.len() as i32,
+                                 abs_bits.as_mut_ptr()) < 0 {
                 c::close(fd);
                 info!("Unable to get essential information about device {:?}, probably js \
                        interface, skipping…",
@@ -368,7 +369,7 @@ impl Gamepad {
 
             if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
                 if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
-                   test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
+                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
                     ff_supported = true;
                 }
             }
@@ -502,13 +503,12 @@ impl Gamepad {
             let ev = match event._type {
                 EV_KEY => {
                     let code = self.mapping.map(event.code, Kind::Button);
-                    Button::from_u16(code).and_then(|btn| {
-                        match event.value {
-                            0 => Some(Event::ButtonReleased(btn, event.code)),
-                            1 => Some(Event::ButtonPressed(btn, event.code)),
-                            _ => None,
-                        }
-                    })
+                    let btn = Button::from_u16(code);
+                    match event.value {
+                        0 => Some(Event::ButtonReleased(btn, event.code)),
+                        1 => Some(Event::ButtonPressed(btn, event.code)),
+                        _ => None,
+                    }
                 }
                 EV_ABS => {
                     let code = self.mapping.map(event.code, Kind::Axis);
@@ -554,25 +554,23 @@ impl Gamepad {
                             ev
                         }
                         code => {
-                            Axis::from_u16(code).map(|axis| {
-                                let ai = &self.axes_info;
-                                let val = event.value;
-                                let val = match axis {
-                                    a @ Axis::LeftStickX => Self::axis_value(ai.x, val, a),
-                                    a @ Axis::LeftStickY => Self::axis_value(ai.y, val, a),
-                                    a @ Axis::LeftZ => Self::axis_value(ai.z, val, a),
-                                    a @ Axis::RightStickX => Self::axis_value(ai.rx, val, a),
-                                    a @ Axis::RightStickY => Self::axis_value(ai.ry, val, a),
-                                    a @ Axis::RightZ => Self::axis_value(ai.rz, val, a),
-                                    a @ Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, a),
-                                    a @ Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, a),
-                                    a @ Axis::RightTrigger => Self::axis_value(ai.right_tr, val, a),
-                                    a @ Axis::RightTrigger2 => {
-                                        Self::axis_value(ai.right_tr2, val, a)
-                                    }
-                                };
-                                Event::AxisChanged(axis, val, event.code)
-                            })
+                            let axis = Axis::from_u16(code);
+                            let ai = &self.axes_info;
+                            let val = event.value;
+                            let val = match axis {
+                                a @ Axis::LeftStickX => Self::axis_value(ai.x, val, a),
+                                a @ Axis::LeftStickY => Self::axis_value(ai.y, val, a),
+                                a @ Axis::LeftZ => Self::axis_value(ai.z, val, a),
+                                a @ Axis::RightStickX => Self::axis_value(ai.rx, val, a),
+                                a @ Axis::RightStickY => Self::axis_value(ai.ry, val, a),
+                                a @ Axis::RightZ => Self::axis_value(ai.rz, val, a),
+                                a @ Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, a),
+                                a @ Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, a),
+                                a @ Axis::RightTrigger => Self::axis_value(ai.right_tr, val, a),
+                                a @ Axis::RightTrigger2 => Self::axis_value(ai.right_tr2, val, a),
+                                Axis::Unknown => val as f32,
+                            };
+                            Some(Event::AxisChanged(axis, val, event.code))
                         }
                     }
                 }
@@ -727,25 +725,25 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
 }
 
 impl Button {
-    fn from_u16(btn: u16) -> Option<Self> {
+    fn from_u16(btn: u16) -> Self {
         if btn >= BTN_SOUTH && btn <= BTN_THUMBR {
-            Some(unsafe { mem::transmute(btn - (BTN_SOUTH - constants::BTN_SOUTH)) })
+            unsafe { mem::transmute(btn - (BTN_SOUTH - constants::BTN_SOUTH)) }
         } else if btn >= BTN_DPAD_UP && btn <= BTN_DPAD_RIGHT {
-            Some(unsafe { mem::transmute(btn - (BTN_DPAD_UP - constants::BTN_DPAD_UP)) })
+            unsafe { mem::transmute(btn - (BTN_DPAD_UP - constants::BTN_DPAD_UP)) }
         } else {
-            None
+            Button::Unknown
         }
     }
 }
 
 impl Axis {
-    fn from_u16(axis: u16) -> Option<Self> {
+    fn from_u16(axis: u16) -> Self {
         if axis >= ABS_X && axis <= ABS_RZ {
-            Some(unsafe { mem::transmute(axis) })
+            unsafe { mem::transmute(axis) }
         } else if axis >= ABS_HAT1X && axis <= ABS_HAT2Y {
-            Some(unsafe { mem::transmute(axis - 10) })
+            unsafe { mem::transmute(axis - 10) }
         } else {
-            None
+            Axis::Unknown
         }
     }
 }
