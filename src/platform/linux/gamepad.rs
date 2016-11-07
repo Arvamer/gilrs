@@ -333,12 +333,12 @@ impl Gamepad {
 
             for bit in (BTN_MISC)..(BTN_MOUSE) {
                 if test_bit(bit, &key_bits) {
-                    buttons.push(bit - BTN_MISC);
+                    buttons.push(bit);
                 }
             }
             for bit in (BTN_JOYSTICK)..(key_bits.len() as u16 * 8) {
                 if test_bit(bit, &key_bits) {
-                    buttons.push(bit - BTN_MISC);
+                    buttons.push(bit);
                 }
             }
             for bit in 0..(abs_bits.len() * 8) {
@@ -375,11 +375,9 @@ impl Gamepad {
 
             let mut axesi = mem::zeroed::<AxesInfo>();
             let uuid = create_uuid(input_id);
-            let mut mapping = mapping_db.get(uuid)
+            let mapping = mapping_db.get(uuid)
                 .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
                 .unwrap_or(Mapping::new());
-
-            mapping.set_btn_offset(BTN_MISC);
 
             let name = if mapping.name().is_empty() {
                 CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned()
