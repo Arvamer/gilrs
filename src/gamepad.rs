@@ -48,8 +48,7 @@ impl Gilrs {
         Gilrs { inner: platform::Gilrs::new() }
     }
 
-    /// Creates iterator over available events. Iterator item's is `(usize, Event)` where usize is
-    /// id of gamepad that generated event. See struct level documentation for example.
+    /// Creates iterator over available events. See [`Event`](enum.Event.html) for more information.
     pub fn poll_events(&mut self) -> EventIterator {
         EventIterator { gilrs: &mut self.inner }
     }
@@ -528,6 +527,15 @@ impl Deadzones {
     }
 }
 
+/// Platform specific event code.
+///
+/// Meaning of specific codes can vary not only between platforms but also between different devices.
+/// Context is also important - axis with code 2 is something totally different than button with
+/// code 2.
+///
+/// **DPad is often represented as 2 axis, not 4 buttons.** So if you get event `(0,
+/// Button::DPadDown, 4)`, you can not be sure if 4 is button or axis. On Linux you can assume that
+/// if event code is smaller than 0x100 it's either keyboard key or axis.
 pub type NativeEvCode = u16;
 
 /// Iterator over gamepads events
@@ -597,10 +605,17 @@ impl<'a> Iterator for EventIterator<'a> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Gamepad event.
 pub enum Event {
+    /// Some button on gamepad has been pressed.
     ButtonPressed(Button, NativeEvCode),
+    /// Previously pressed button has been released.
     ButtonReleased(Button, NativeEvCode),
+    /// Value of axis has changed. Value can be in range [-1.0, 1.0] for sticks, [0.0, 1.0] for
+    /// triggers and if axis is `Unknown` range is undefined.
     AxisChanged(Axis, f32, NativeEvCode),
+    /// Gamepad has been connected. If gamepad's UUID doesn't match one of disconnected gamepads,
+    /// newly connected gamepad will get new ID.
     Connected,
+    /// Gamepad has been disconnected. Disconnected gamepad will not generate any new events.
     Disconnected,
 }
 
