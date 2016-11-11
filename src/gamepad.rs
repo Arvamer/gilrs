@@ -5,6 +5,7 @@ use uuid::Uuid;
 use AsInner;
 use utils::apply_deadzone;
 use std::ops::{Index, IndexMut};
+use std::f32::NAN;
 
 /// Main object responsible of managing gamepads.
 ///
@@ -23,7 +24,7 @@ use std::ops::{Index, IndexMut};
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, Event::ButtonPressed(Button::South)) => println!("Player {}: jump!", id + 1),
+///             (id, Event::ButtonPressed(Button::South, _)) => println!("Player {}: jump!", id + 1),
 ///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
 ///             _ => (),
 ///         };
@@ -47,8 +48,7 @@ impl Gilrs {
         Gilrs { inner: platform::Gilrs::new() }
     }
 
-    /// Creates iterator over available events. Iterator item's is `(usize, Event)` where usize is
-    /// id of gamepad that generated event. See struct level documentation for example.
+    /// Creates iterator over available events. See [`Event`](enum.Event.html) for more information.
     pub fn poll_events(&mut self) -> EventIterator {
         EventIterator { gilrs: &mut self.inner }
     }
@@ -413,6 +413,7 @@ impl GamepadState {
             Axis::LeftTrigger2 => self.left_trigger2 = val,
             Axis::RightTrigger => self.right_trigger = val,
             Axis::RightTrigger2 => self.right_trigger2 = val,
+            Axis::Unknown => (),
         };
     }
 
@@ -462,6 +463,7 @@ impl GamepadState {
             Axis::LeftTrigger2 => self.left_trigger2,
             Axis::RightTrigger => self.right_trigger,
             Axis::RightTrigger2 => self.right_trigger2,
+            Axis::Unknown => NAN, // or return 0.0?
         }
     }
 }
@@ -504,6 +506,7 @@ impl Deadzones {
             Axis::LeftTrigger2 => self.left_trigger2 = val,
             Axis::RightTrigger => self.right_trigger = val,
             Axis::RightTrigger2 => self.right_trigger2 = val,
+            Axis::Unknown => (),
         };
     }
 
@@ -519,10 +522,21 @@ impl Deadzones {
             Axis::LeftTrigger2 => self.left_trigger2,
             Axis::RightTrigger => self.right_trigger,
             Axis::RightTrigger2 => self.right_trigger2,
+            Axis::Unknown => NAN,
         }
     }
 }
 
+/// Platform specific event code.
+///
+/// Meaning of specific codes can vary not only between platforms but also between different devices.
+/// Context is also important - axis with code 2 is something totally different than button with
+/// code 2.
+///
+/// **DPad is often represented as 2 axis, not 4 buttons.** So if you get event `(0,
+/// Button::DPadDown, 4)`, you can not be sure if 4 is button or axis. On Linux you can assume that
+/// if event code is smaller than 0x100 it's either keyboard key or axis.
+pub type NativeEvCode = u16;
 
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
@@ -537,9 +551,9 @@ impl<'a> Iterator for EventIterator<'a> {
             Some((id, ev)) => {
                 let gamepad = self.gilrs.gamepad_mut(id);
                 match ev {
-                    Event::ButtonPressed(btn) => gamepad.state.set_btn(btn, true),
-                    Event::ButtonReleased(btn) => gamepad.state.set_btn(btn, false),
-                    Event::AxisChanged(axis, val) => {
+                    Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
+                    Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
+                    Event::AxisChanged(axis, val, _) => {
                         let val = match axis {
                             Axis::LeftStickX => {
                                 apply_deadzone(val,
@@ -591,10 +605,17 @@ impl<'a> Iterator for EventIterator<'a> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Gamepad event.
 pub enum Event {
-    ButtonPressed(Button),
-    ButtonReleased(Button),
-    AxisChanged(Axis, f32),
+    /// Some button on gamepad has been pressed.
+    ButtonPressed(Button, NativeEvCode),
+    /// Previously pressed button has been released.
+    ButtonReleased(Button, NativeEvCode),
+    /// Value of axis has changed. Value can be in range [-1.0, 1.0] for sticks, [0.0, 1.0] for
+    /// triggers and if axis is `Unknown` range is undefined.
+    AxisChanged(Axis, f32, NativeEvCode),
+    /// Gamepad has been connected. If gamepad's UUID doesn't match one of disconnected gamepads,
+    /// newly connected gamepad will get new ID.
     Connected,
+    /// Gamepad has been disconnected. Disconnected gamepad will not generate any new events.
     Disconnected,
 }
 
@@ -696,6 +717,8 @@ pub enum Axis {
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,
     RightTrigger2 = AXIS_RT2,
+    Unknown = ::std::u16::MAX, // some "random" value because rustc want to assign 11u16 which
+                               // already exists
 }
 
 impl Axis {

@@ -8,7 +8,7 @@
 use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
-              Deadzones};
+    Deadzones};
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -244,153 +244,9 @@ struct AxesInfo {
 }
 
 impl AxesInfo {
-    fn normalize(&mut self) {
-        // Some devices report sticks value in range [0, Max], and some in range [-Max, Max]
-        Self::normalize_abs(&mut self.x);
-        Self::normalize_abs(&mut self.y);
-        Self::normalize_abs(&mut self.rx);
-        Self::normalize_abs(&mut self.ry);
-    }
-
-    fn normalize_abs(abs: &mut AbsInfo) {
-        if abs.minimum == 0 {
-            abs.maximum /= 2;
-            // Don't change minimum value, it allow to see if reported axis value should also be
-            // modified
-        }
-    }
-}
-
-impl From<AxesInfo> for Deadzones {
-    fn from(f: AxesInfo) -> Self {
-        Deadzones {
-            right_stick: f.x.flat as f32 / f.x.maximum as f32,
-            left_stick: f.rx.flat as f32 / f.rx.maximum as f32,
-            left_z: f.z.flat as f32 / f.z.maximum as f32,
-            right_z: f.rz.flat as f32 / f.rx.maximum as f32,
-            right_trigger: f.right_tr.flat as f32 / f.right_tr.maximum as f32,
-            right_trigger2: f.right_tr2.flat as f32 / f.right_tr2.maximum as f32,
-            left_trigger: f.left_tr.flat as f32 / f.left_tr.maximum as f32,
-            left_trigger2: f.left_tr2.flat as f32 / f.left_tr2.maximum as f32,
-        }
-    }
-}
-impl Gamepad {
-    fn none() -> Self {
-        Gamepad {
-            fd: -3,
-            axes_info: unsafe { mem::zeroed() },
-            abs_dpad_prev_val: (0, 0),
-            mapping: Mapping::new(),
-            ff_supported: false,
-            devpath: String::new(),
-            name: String::new(),
-            uuid: Uuid::nil(),
-            bt_status_fd: -1,
-            bt_capacity_fd: -1,
-        }
-    }
-
-    pub fn fd(&self) -> i32 {
-        self.fd
-    }
-
-    fn open(dev: &Device, mapping_db: &MappingDb) -> Option<Gamepad> {
-        let path = match dev.devnode() {
-            Some(path) => path,
-            None => return None,
-        };
-
+    fn new(fd: i32, mapping: &Mapping) -> Self {
         unsafe {
-            let fd = c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK);
-            if fd < 0 {
-                error!("Failed to open {:?}", path);
-                return None;
-            }
-
-            let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
-            let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
-            let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
-
-            if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
-               ioctl::eviocgbit(fd,
-                                EV_KEY as u32,
-                                key_bits.len() as i32,
-                                key_bits.as_mut_ptr()) < 0 ||
-               ioctl::eviocgbit(fd,
-                                EV_ABS as u32,
-                                abs_bits.len() as i32,
-                                abs_bits.as_mut_ptr()) < 0 {
-                c::close(fd);
-                info!("Unable to get essential information about device {:?}, probably js \
-                       interface, skipping…",
-                      path);
-                return None;
-            }
-
-            let mut buttons = Vec::with_capacity(16);
-            let mut axes = Vec::with_capacity(8);
-
-            for bit in (BTN_MISC)..(BTN_MOUSE) {
-                if test_bit(bit, &key_bits) {
-                    buttons.push(bit);
-                }
-            }
-            for bit in (BTN_JOYSTICK)..(key_bits.len() as u16 * 8) {
-                if test_bit(bit, &key_bits) {
-                    buttons.push(bit);
-                }
-            }
-            for bit in 0..(abs_bits.len() * 8) {
-                if test_bit(bit as u16, &abs_bits) {
-                    axes.push(bit as u16);
-                }
-            }
-
-            debug!("{:?}", buttons);
-
-            let mut namebuff = mem::uninitialized::<[u8; 128]>();
-            let mut input_id = mem::uninitialized::<ioctl::input_id>();
-
-            if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
-                error!("Failed to get name of device {:?}", path);
-                return None;
-            }
-
-            if ioctl_def::eviocgid(fd, &mut input_id as *mut _) < 0 {
-                error!("Failed to get id of device {:?}", path);
-                return None;
-            }
-
-
-            let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
-            let mut ff_supported = false;
-
-            if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
-                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
-                   test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
-                    ff_supported = true;
-                }
-            }
-
-            let mut axesi = mem::zeroed::<AxesInfo>();
-            let uuid = create_uuid(input_id);
-            let mapping = mapping_db.get(uuid)
-                .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
-                .unwrap_or(Mapping::new());
-
-            let name = if mapping.name().is_empty() {
-                CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned()
-            } else {
-                mapping.name().to_owned()
-            };
-
-            if !test_bit(mapping.map_rev(BTN_GAMEPAD, Kind::Button), &key_bits) {
-                warn!("{:?}({}) doesn't have BTN_GAMEPAD, ignoring.", path, name);
-                c::close(fd);
-                return None;
-            }
-
+            let mut axesi = mem::zeroed::<Self>();
             ioctl::eviocgabs(fd,
                              mapping.map_rev(ABS_X, Kind::Axis) as u32,
                              &mut axesi.x as *mut _);
@@ -440,25 +296,221 @@ impl Gamepad {
                              &mut axesi.left_tr2 as *mut _);
 
             axesi.normalize();
-            let (cap, status) = Self::battery_fd(&dev);
-
-            let gamepad = Gamepad {
-                fd: fd,
-                axes_info: axesi,
-                abs_dpad_prev_val: (0, 0),
-                mapping: mapping,
-                ff_supported: ff_supported,
-                devpath: path.to_string_lossy().into_owned(),
-                name: name,
-                uuid: uuid,
-                bt_capacity_fd: cap,
-                bt_status_fd: status,
-            };
-
-            info!("Found {:#?}", gamepad);
-
-            Some(gamepad)
+            axesi
         }
+    }
+
+    fn normalize(&mut self) {
+        // Some devices report sticks value in range [0, Max], and some in range [-Max, Max]
+        Self::normalize_abs(&mut self.x);
+        Self::normalize_abs(&mut self.y);
+        Self::normalize_abs(&mut self.rx);
+        Self::normalize_abs(&mut self.ry);
+    }
+
+    fn normalize_abs(abs: &mut AbsInfo) {
+        if abs.minimum == 0 {
+            abs.maximum /= 2;
+            // Don't change minimum value, it allow to see if reported axis value should also be
+            // modified
+        }
+    }
+}
+
+impl From<AxesInfo> for Deadzones {
+    fn from(f: AxesInfo) -> Self {
+        Deadzones {
+            right_stick: f.x.flat as f32 / f.x.maximum as f32,
+            left_stick: f.rx.flat as f32 / f.rx.maximum as f32,
+            left_z: f.z.flat as f32 / f.z.maximum as f32,
+            right_z: f.rz.flat as f32 / f.rx.maximum as f32,
+            right_trigger: f.right_tr.flat as f32 / f.right_tr.maximum as f32,
+            right_trigger2: f.right_tr2.flat as f32 / f.right_tr2.maximum as f32,
+            left_trigger: f.left_tr.flat as f32 / f.left_tr.maximum as f32,
+            left_trigger2: f.left_tr2.flat as f32 / f.left_tr2.maximum as f32,
+        }
+    }
+}
+
+impl Gamepad {
+    fn none() -> Self {
+        Gamepad {
+            fd: -3,
+            axes_info: unsafe { mem::zeroed() },
+            abs_dpad_prev_val: (0, 0),
+            mapping: Mapping::new(),
+            ff_supported: false,
+            devpath: String::new(),
+            name: String::new(),
+            uuid: Uuid::nil(),
+            bt_status_fd: -1,
+            bt_capacity_fd: -1,
+        }
+    }
+
+    pub fn fd(&self) -> i32 {
+        self.fd
+    }
+
+    fn open(dev: &Device, mapping_db: &MappingDb) -> Option<Gamepad> {
+        let path = match dev.devnode() {
+            Some(path) => path,
+            None => return None,
+        };
+
+        let fd = unsafe { c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK) };
+        if fd < 0 {
+            error!("Failed to open {:?}", path);
+            return None;
+        }
+
+        let uuid = match Self::create_uuid(fd) {
+            Some(uuid) => uuid,
+            None => {
+                error!("Failed to get id of device {:?}", path);
+                unsafe { c::close(fd); }
+                return None;
+            },
+        };
+
+        let mapping = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
+            Some(m) => m,
+            None => {
+                unsafe { c::close(fd); }
+                return None;
+            },
+        };
+
+        let name = Self::get_name(fd, &mapping).unwrap_or_else(|| {
+            error!("Failed to get name od device {:?}", path);
+            "Unknown".into()
+        });
+
+        let axesi = AxesInfo::new(fd, &mapping);
+        let ff_supported = Self::test_ff(fd);
+        let (cap, status) = Self::battery_fd(&dev);
+
+        let gamepad = Gamepad {
+            fd: fd,
+            axes_info: axesi,
+            abs_dpad_prev_val: (0, 0),
+            mapping: mapping,
+            ff_supported: ff_supported,
+            devpath: path.to_string_lossy().into_owned(),
+            name: name,
+            uuid: uuid,
+            bt_capacity_fd: cap,
+            bt_status_fd: status,
+        };
+
+        info!("Found {:#?}", gamepad);
+
+        Some(gamepad)
+    }
+
+    fn get_name(fd: i32, mapping: &Mapping) -> Option<String> {
+        if mapping.name().is_empty() {
+            unsafe {
+                let mut namebuff = mem::uninitialized::<[u8; 128]>();
+                if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
+                    None
+                } else {
+                    Some(CStr::from_ptr(namebuff.as_ptr() as *const i8)
+                        .to_string_lossy().into_owned())
+                }
+            }
+        } else {
+            Some(mapping.name().to_owned())
+        }
+    }
+
+    fn test_ff(fd: i32) -> bool {
+        unsafe {
+            let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
+            if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
+                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
+                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+    }
+
+    fn create_mappings_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr) -> Option<Mapping> {
+        unsafe {
+            let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
+            let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
+            let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
+
+            if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
+                ioctl::eviocgbit(fd,
+                                 EV_KEY as u32,
+                                 key_bits.len() as i32,
+                                 key_bits.as_mut_ptr()) < 0 ||
+                ioctl::eviocgbit(fd,
+                                 EV_ABS as u32,
+                                 abs_bits.len() as i32,
+                                 abs_bits.as_mut_ptr()) < 0 {
+                info!("Unable to get essential information about device {:?}, probably js \
+                       interface, skipping…",
+                      path);
+                return None;
+            }
+
+            let mut buttons = Vec::with_capacity(16);
+            let mut axes = Vec::with_capacity(8);
+
+            for bit in (BTN_MISC)..(BTN_MOUSE) {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+            for bit in (BTN_JOYSTICK)..(key_bits.len() as u16 * 8) {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+            for bit in 0..(abs_bits.len() * 8) {
+                if test_bit(bit as u16, &abs_bits) {
+                    axes.push(bit as u16);
+                }
+            }
+
+            let mapping = db.get(uuid)
+                .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
+                .unwrap_or(Mapping::new());
+
+            if Self::is_gamepad(&buttons, &axes) {
+                Some(mapping)
+            } else {
+                warn!("{:?} doesn't have at least 1 button and 2 axes, ignoring.", path);
+                None
+            }
+
+        }
+    }
+
+    fn is_gamepad(keys: &[u16], axes: &[u16]) -> bool {
+        if keys.len() >= 1 && axes.len() >= 2 {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn create_uuid(fd: i32) -> Option<Uuid> {
+        let mut iid;
+        unsafe {
+            iid = mem::uninitialized::<ioctl::input_id>();
+            if ioctl_def::eviocgid(fd, &mut iid as *mut _) < 0 {
+                return None;
+            }
+        }
+        Some(create_uuid(iid))
     }
 
     fn battery_fd(dev: &Device) -> (i32, i32) {
@@ -502,13 +554,12 @@ impl Gamepad {
             let ev = match event._type {
                 EV_KEY => {
                     let code = self.mapping.map(event.code, Kind::Button);
-                    Button::from_u16(code).and_then(|btn| {
-                        match event.value {
-                            0 => Some(Event::ButtonReleased(btn)),
-                            1 => Some(Event::ButtonPressed(btn)),
-                            _ => None,
-                        }
-                    })
+                    let btn = Button::from_u16(code);
+                    match event.value {
+                        0 => Some(Event::ButtonReleased(btn, event.code)),
+                        1 => Some(Event::ButtonPressed(btn, event.code)),
+                        _ => None,
+                    }
                 }
                 EV_ABS => {
                     let code = self.mapping.map(event.code, Kind::Axis);
@@ -518,16 +569,16 @@ impl Gamepad {
                                 0 => {
                                     match self.abs_dpad_prev_val.1 {
                                         val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadDown))
+                                            Some(Event::ButtonReleased(Button::DPadDown, event.code))
                                         }
                                         val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadUp))
+                                            Some(Event::ButtonReleased(Button::DPadUp, event.code))
                                         }
                                         _ => None,
                                     }
                                 }
-                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadDown)),
-                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadUp)),
+                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadDown, event.code)),
+                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadUp, event.code)),
                                 _ => unreachable!(),
                             };
                             self.abs_dpad_prev_val.1 = event.value as i16;
@@ -538,41 +589,39 @@ impl Gamepad {
                                 0 => {
                                     match self.abs_dpad_prev_val.0 {
                                         val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadRight))
+                                            Some(Event::ButtonReleased(Button::DPadRight, event.code))
                                         }
                                         val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadLeft))
+                                            Some(Event::ButtonReleased(Button::DPadLeft, event.code))
                                         }
                                         _ => None,
                                     }
                                 }
-                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadRight)),
-                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadLeft)),
+                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadRight, event.code)),
+                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadLeft, event.code)),
                                 _ => unreachable!(),
                             };
                             self.abs_dpad_prev_val.0 = event.value as i16;
                             ev
                         }
                         code => {
-                            Axis::from_u16(code).map(|axis| {
-                                let ai = &self.axes_info;
-                                let val = event.value;
-                                let val = match axis {
-                                    a @ Axis::LeftStickX => Self::axis_value(ai.x, val, a),
-                                    a @ Axis::LeftStickY => Self::axis_value(ai.y, val, a),
-                                    a @ Axis::LeftZ => Self::axis_value(ai.z, val, a),
-                                    a @ Axis::RightStickX => Self::axis_value(ai.rx, val, a),
-                                    a @ Axis::RightStickY => Self::axis_value(ai.ry, val, a),
-                                    a @ Axis::RightZ => Self::axis_value(ai.rz, val, a),
-                                    a @ Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, a),
-                                    a @ Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, a),
-                                    a @ Axis::RightTrigger => Self::axis_value(ai.right_tr, val, a),
-                                    a @ Axis::RightTrigger2 => {
-                                        Self::axis_value(ai.right_tr2, val, a)
-                                    }
-                                };
-                                Event::AxisChanged(axis, val)
-                            })
+                            let axis = Axis::from_u16(code);
+                            let ai = &self.axes_info;
+                            let val = event.value;
+                            let val = match axis {
+                                a @ Axis::LeftStickX => Self::axis_value(ai.x, val, a),
+                                a @ Axis::LeftStickY => Self::axis_value(ai.y, val, a),
+                                a @ Axis::LeftZ => Self::axis_value(ai.z, val, a),
+                                a @ Axis::RightStickX => Self::axis_value(ai.rx, val, a),
+                                a @ Axis::RightStickY => Self::axis_value(ai.ry, val, a),
+                                a @ Axis::RightZ => Self::axis_value(ai.rz, val, a),
+                                a @ Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, a),
+                                a @ Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, a),
+                                a @ Axis::RightTrigger => Self::axis_value(ai.right_tr, val, a),
+                                a @ Axis::RightTrigger2 => Self::axis_value(ai.right_tr2, val, a),
+                                Axis::Unknown => val as f32,
+                            };
+                            Some(Event::AxisChanged(axis, val, event.code))
                         }
                     }
                 }
@@ -727,25 +776,25 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
 }
 
 impl Button {
-    fn from_u16(btn: u16) -> Option<Self> {
+    fn from_u16(btn: u16) -> Self {
         if btn >= BTN_SOUTH && btn <= BTN_THUMBR {
-            Some(unsafe { mem::transmute(btn - (BTN_SOUTH - constants::BTN_SOUTH)) })
+            unsafe { mem::transmute(btn - (BTN_SOUTH - constants::BTN_SOUTH)) }
         } else if btn >= BTN_DPAD_UP && btn <= BTN_DPAD_RIGHT {
-            Some(unsafe { mem::transmute(btn - (BTN_DPAD_UP - constants::BTN_DPAD_UP)) })
+            unsafe { mem::transmute(btn - (BTN_DPAD_UP - constants::BTN_DPAD_UP)) }
         } else {
-            None
+            Button::Unknown
         }
     }
 }
 
 impl Axis {
-    fn from_u16(axis: u16) -> Option<Self> {
+    fn from_u16(axis: u16) -> Self {
         if axis >= ABS_X && axis <= ABS_RZ {
-            Some(unsafe { mem::transmute(axis) })
+            unsafe { mem::transmute(axis) }
         } else if axis >= ABS_HAT1X && axis <= ABS_HAT2Y {
-            Some(unsafe { mem::transmute(axis - 10) })
+            unsafe { mem::transmute(axis - 10) }
         } else {
-            None
+            Axis::Unknown
         }
     }
 }
@@ -768,7 +817,6 @@ const EV_FF: u16 = 0x15;
 const BTN_MISC: u16 = 0x100;
 const BTN_MOUSE: u16 = 0x110;
 const BTN_JOYSTICK: u16 = 0x120;
-const BTN_GAMEPAD: u16 = 0x130;
 const BTN_SOUTH: u16 = 0x130;
 const BTN_EAST: u16 = 0x131;
 #[allow(dead_code)]
@@ -872,52 +920,52 @@ mod tests {
 
     #[test]
     fn btn_from_u16() {
-        assert_eq!(Some(Button::South), Button::from_u16(super::BTN_SOUTH));
-        assert_eq!(Some(Button::East), Button::from_u16(super::BTN_EAST));
-        assert_eq!(Some(Button::North), Button::from_u16(super::BTN_NORTH));
-        assert_eq!(Some(Button::West), Button::from_u16(super::BTN_WEST));
-        assert_eq!(Some(Button::C), Button::from_u16(super::BTN_C));
-        assert_eq!(Some(Button::Z), Button::from_u16(super::BTN_Z));
-        assert_eq!(Some(Button::LeftTrigger), Button::from_u16(super::BTN_TL));
-        assert_eq!(Some(Button::LeftTrigger2), Button::from_u16(super::BTN_TL2));
-        assert_eq!(Some(Button::RightTrigger), Button::from_u16(super::BTN_TR));
-        assert_eq!(Some(Button::RightTrigger2),
+        assert_eq!(Button::South, Button::from_u16(super::BTN_SOUTH));
+        assert_eq!(Button::East, Button::from_u16(super::BTN_EAST));
+        assert_eq!(Button::North, Button::from_u16(super::BTN_NORTH));
+        assert_eq!(Button::West, Button::from_u16(super::BTN_WEST));
+        assert_eq!(Button::C, Button::from_u16(super::BTN_C));
+        assert_eq!(Button::Z, Button::from_u16(super::BTN_Z));
+        assert_eq!(Button::LeftTrigger, Button::from_u16(super::BTN_TL));
+        assert_eq!(Button::LeftTrigger2, Button::from_u16(super::BTN_TL2));
+        assert_eq!(Button::RightTrigger, Button::from_u16(super::BTN_TR));
+        assert_eq!(Button::RightTrigger2,
                    Button::from_u16(super::BTN_TR2));
-        assert_eq!(Some(Button::Select), Button::from_u16(super::BTN_SELECT));
-        assert_eq!(Some(Button::Start), Button::from_u16(super::BTN_START));
-        assert_eq!(Some(Button::Mode), Button::from_u16(super::BTN_MODE));
-        assert_eq!(Some(Button::LeftThumb), Button::from_u16(super::BTN_THUMBL));
-        assert_eq!(Some(Button::RightThumb),
+        assert_eq!(Button::Select, Button::from_u16(super::BTN_SELECT));
+        assert_eq!(Button::Start, Button::from_u16(super::BTN_START));
+        assert_eq!(Button::Mode, Button::from_u16(super::BTN_MODE));
+        assert_eq!(Button::LeftThumb, Button::from_u16(super::BTN_THUMBL));
+        assert_eq!(Button::RightThumb,
                    Button::from_u16(super::BTN_THUMBR));
-        assert_eq!(Some(Button::DPadUp), Button::from_u16(super::BTN_DPAD_UP));
-        assert_eq!(Some(Button::DPadDown),
+        assert_eq!(Button::DPadUp, Button::from_u16(super::BTN_DPAD_UP));
+        assert_eq!(Button::DPadDown,
                    Button::from_u16(super::BTN_DPAD_DOWN));
-        assert_eq!(Some(Button::DPadLeft),
+        assert_eq!(Button::DPadLeft,
                    Button::from_u16(super::BTN_DPAD_LEFT));
-        assert_eq!(Some(Button::DPadRight),
+        assert_eq!(Button::DPadRight,
                    Button::from_u16(super::BTN_DPAD_RIGHT));
 
-        assert_eq!(None, Button::from_u16(super::BTN_SOUTH - 1));
-        assert_eq!(None, Button::from_u16(super::BTN_THUMBR + 1));
-        assert_eq!(None, Button::from_u16(super::BTN_DPAD_UP - 1));
-        assert_eq!(None, Button::from_u16(super::BTN_DPAD_RIGHT + 1));
+        assert_eq!(Button::Unknown, Button::from_u16(super::BTN_SOUTH - 1));
+        assert_eq!(Button::Unknown, Button::from_u16(super::BTN_THUMBR + 1));
+        assert_eq!(Button::Unknown, Button::from_u16(super::BTN_DPAD_UP - 1));
+        assert_eq!(Button::Unknown, Button::from_u16(super::BTN_DPAD_RIGHT + 1));
     }
 
     #[test]
     fn axis_from_u16() {
-        assert_eq!(Some(Axis::LeftStickX), Axis::from_u16(super::ABS_X));
-        assert_eq!(Some(Axis::LeftStickY), Axis::from_u16(super::ABS_Y));
-        assert_eq!(Some(Axis::LeftZ), Axis::from_u16(super::ABS_Z));
-        assert_eq!(Some(Axis::RightStickX), Axis::from_u16(super::ABS_RX));
-        assert_eq!(Some(Axis::RightStickY), Axis::from_u16(super::ABS_RY));
-        assert_eq!(Some(Axis::RightZ), Axis::from_u16(super::ABS_RZ));
-        assert_eq!(Some(Axis::LeftTrigger), Axis::from_u16(super::ABS_HAT1Y));
-        assert_eq!(Some(Axis::LeftTrigger2), Axis::from_u16(super::ABS_HAT2Y));
-        assert_eq!(Some(Axis::RightTrigger), Axis::from_u16(super::ABS_HAT1X));
-        assert_eq!(Some(Axis::RightTrigger2), Axis::from_u16(super::ABS_HAT2X));
+        assert_eq!(Axis::LeftStickX, Axis::from_u16(super::ABS_X));
+        assert_eq!(Axis::LeftStickY, Axis::from_u16(super::ABS_Y));
+        assert_eq!(Axis::LeftZ, Axis::from_u16(super::ABS_Z));
+        assert_eq!(Axis::RightStickX, Axis::from_u16(super::ABS_RX));
+        assert_eq!(Axis::RightStickY, Axis::from_u16(super::ABS_RY));
+        assert_eq!(Axis::RightZ, Axis::from_u16(super::ABS_RZ));
+        assert_eq!(Axis::LeftTrigger, Axis::from_u16(super::ABS_HAT1Y));
+        assert_eq!(Axis::LeftTrigger2, Axis::from_u16(super::ABS_HAT2Y));
+        assert_eq!(Axis::RightTrigger, Axis::from_u16(super::ABS_HAT1X));
+        assert_eq!(Axis::RightTrigger2, Axis::from_u16(super::ABS_HAT2X));
 
-        assert_eq!(None, Axis::from_u16(super::ABS_RZ + 1));
-        assert_eq!(None, Axis::from_u16(super::ABS_HAT1X - 1));
-        assert_eq!(None, Axis::from_u16(super::ABS_HAT2Y + 1));
+        assert_eq!(Axis::Unknown, Axis::from_u16(super::ABS_RZ + 1));
+        assert_eq!(Axis::Unknown, Axis::from_u16(super::ABS_HAT1X - 1));
+        assert_eq!(Axis::Unknown, Axis::from_u16(super::ABS_HAT2Y + 1));
     }
 }
