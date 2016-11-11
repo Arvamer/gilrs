@@ -1,13 +1,38 @@
 Change Log
 ==========
 
+v0.4.0 - unreleased
+-------------------
+
+### Added
+
+- `Gamepad::mappings_source(&self)` which can be used to filter gamepads which
+  not provide unified controller layout
+- `MappingsSource` enum
+
+### Changed
+
+- Button and axis events now also have native event codes
+- On Linux, if button or axis is not known, is now reported as `Unknown`
+  (previously all unknown events have been ignored)
+- More devices are now treated as gamepads on Linux (use `mappings_source()` to
+  filter unwanted gamepads)
+
+### Fixed
+
+- Integer overflow if button with keyboard code was pressed on Linux
+- `Gilrs` should no longer panic if there are some unexpected problems with
+  Udev
+
 v0.3.1 - 2016-09-23
+-------------------
 
 ### Fixed
 
 - Fixed compilation error on non-x86_64 Linux
 
 v0.3.0 - 2016-09-22
+-------------------
 
 ### Added
 
