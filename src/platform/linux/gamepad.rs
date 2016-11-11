@@ -368,13 +368,17 @@ impl Gamepad {
             Some(uuid) => uuid,
             None => {
                 error!("Failed to get id of device {:?}", path);
+                unsafe { c::close(fd); }
                 return None;
             },
         };
 
         let mapping = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
             Some(m) => m,
-            None => return None,
+            None => {
+                unsafe { c::close(fd); }
+                return None;
+            },
         };
 
         let name = Self::get_name(fd, &mapping).unwrap_or_else(|| {
@@ -451,7 +455,6 @@ impl Gamepad {
                                  EV_ABS as u32,
                                  abs_bits.len() as i32,
                                  abs_bits.as_mut_ptr()) < 0 {
-                c::close(fd);
                 info!("Unable to get essential information about device {:?}, probably js \
                        interface, skipping…",
                       path);
@@ -814,7 +817,6 @@ const EV_FF: u16 = 0x15;
 const BTN_MISC: u16 = 0x100;
 const BTN_MOUSE: u16 = 0x110;
 const BTN_JOYSTICK: u16 = 0x120;
-const BTN_GAMEPAD: u16 = 0x130;
 const BTN_SOUTH: u16 = 0x130;
 const BTN_EAST: u16 = 0x131;
 #[allow(dead_code)]
