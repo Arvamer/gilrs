@@ -8,7 +8,7 @@
 use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
-    Deadzones};
+              Deadzones, MappingsSource};
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -225,6 +225,7 @@ pub struct Gamepad {
     uuid: Uuid,
     bt_capacity_fd: i32,
     bt_status_fd: i32,
+    mappings_source: MappingsSource,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -345,6 +346,7 @@ impl Gamepad {
             uuid: Uuid::nil(),
             bt_status_fd: -1,
             bt_capacity_fd: -1,
+            mappings_source: MappingsSource::None,
         }
     }
 
@@ -373,7 +375,7 @@ impl Gamepad {
             },
         };
 
-        let mapping = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
+        let (mapping, src) = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
             Some(m) => m,
             None => {
                 unsafe { c::close(fd); }
@@ -401,6 +403,7 @@ impl Gamepad {
             uuid: uuid,
             bt_capacity_fd: cap,
             bt_status_fd: status,
+            mappings_source: src,
         };
 
         info!("Found {:#?}", gamepad);
@@ -440,7 +443,8 @@ impl Gamepad {
         }
     }
 
-    fn create_mappings_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr) -> Option<Mapping> {
+    fn create_mappings_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr)
+        -> Option<(Mapping, MappingsSource)> {
         unsafe {
             let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
@@ -481,11 +485,19 @@ impl Gamepad {
             }
 
             let mapping = db.get(uuid)
-                .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
-                .unwrap_or(Mapping::new());
+                .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok());
 
             if Self::is_gamepad(&buttons, &axes) {
-                Some(mapping)
+                let src = if mapping.is_some() {
+                    MappingsSource::SdlMappings
+                } else {
+                    if Self::uses_gamepad_api(&key_bits) {
+                        MappingsSource::Driver
+                    } else {
+                        MappingsSource::None
+                    }
+                };
+                Some((mapping.unwrap_or(Mapping::new()), src))
             } else {
                 warn!("{:?} doesn't have at least 1 button and 2 axes, ignoring.", path);
                 None
@@ -494,12 +506,16 @@ impl Gamepad {
         }
     }
 
-    fn is_gamepad(keys: &[u16], axes: &[u16]) -> bool {
-        if keys.len() >= 1 && axes.len() >= 2 {
+    fn is_gamepad(btns: &[u16], axes: &[u16]) -> bool {
+        if btns.len() >= 1 && axes.len() >= 2 {
             true
         } else {
             false
         }
+    }
+
+    fn uses_gamepad_api(keys: &[u8]) -> bool {
+        test_bit(BTN_GAMEPAD, keys)
     }
 
     fn create_uuid(fd: i32) -> Option<Uuid> {
@@ -697,6 +713,10 @@ impl Gamepad {
         }
     }
 
+    pub fn mappings_source(&self) -> MappingsSource {
+        self.mappings_source
+    }
+
     pub fn max_ff_effects(&self) -> usize {
         if self.ff_supported {
             let mut max_effects = 0;
@@ -817,6 +837,7 @@ const EV_FF: u16 = 0x15;
 const BTN_MISC: u16 = 0x100;
 const BTN_MOUSE: u16 = 0x110;
 const BTN_JOYSTICK: u16 = 0x120;
+const BTN_GAMEPAD: u16 = 0x130;
 const BTN_SOUTH: u16 = 0x130;
 const BTN_EAST: u16 = 0x131;
 #[allow(dead_code)]

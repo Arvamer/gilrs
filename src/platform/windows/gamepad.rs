@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones};
+use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones,
+              MappingsSource};
 use uuid::Uuid;
 use std::thread;
 use std::mem;
@@ -285,6 +286,10 @@ impl Gamepad {
                 PowerInfo::Unknown
             }
         }
+    }
+
+    pub fn mappings_source(&self) -> MappingsSource {
+        MappingsSource::Driver
     }
 
     pub fn max_ff_effects(&self) -> usize {

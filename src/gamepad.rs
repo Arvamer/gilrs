@@ -220,6 +220,22 @@ impl Gamepad {
         self.inner.power_info()
     }
 
+    /// Returns source of gamepad mappings. Can be used to filter gamepads which do not provide
+    /// unified controller layout.
+    ///
+    /// ```
+    /// use gilrs::MappingsSource;
+    /// # let mut gilrs = gilrs::Gilrs::new();
+    ///
+    /// for (_, gamepad) in gilrs.gamepads().filter(
+    ///     |gp| gp.1.mappings_source() != MappingsSource::None)
+    /// {
+    ///     println!("{} is ready to use!", gamepad.name());
+    /// }
+    pub fn mappings_source(&self) -> MappingsSource {
+        self.inner.mappings_source()
+    }
+
     /// Creates and uploads new force feedback effect using `data`. This function will fail if
     /// device doesn't have space for new effect or doesn't support requested effect. Returns
     /// effect's index.
@@ -768,4 +784,16 @@ pub enum PowerInfo {
     Charging(u8),
     /// Battery is charged.
     Charged,
+}
+
+/// Source of gamepad mappings.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MappingsSource {
+    /// Gamepad uses SDL mappings.
+    SdlMappings,
+    /// Gamepad does not use any mappings but driver should provide unified controller layout.
+    Driver,
+    /// Gamepad does not use any mappings and most gamepad events will probably be `Button::Unknown`
+    /// or `Axis::Unknown`
+    None,
 }
