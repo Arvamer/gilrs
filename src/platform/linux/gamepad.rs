@@ -481,14 +481,21 @@ impl Gamepad {
                 .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
                 .unwrap_or(Mapping::new());
 
-            if !test_bit(mapping.map_rev(BTN_GAMEPAD, Kind::Button), &key_bits) {
-                warn!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
-                c::close(fd);
-                None
-            } else {
+            if Self::is_gamepad(&buttons, &axes) {
                 Some(mapping)
+            } else {
+                warn!("{:?} doesn't have at least 1 button and 2 axes, ignoring.", path);
+                None
             }
 
+        }
+    }
+
+    fn is_gamepad(keys: &[u16], axes: &[u16]) -> bool {
+        if keys.len() >= 1 && axes.len() >= 2 {
+            true
+        } else {
+            false
         }
     }
 
