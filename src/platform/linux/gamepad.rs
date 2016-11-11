@@ -244,6 +244,62 @@ struct AxesInfo {
 }
 
 impl AxesInfo {
+    fn new(fd: i32, mapping: &Mapping) -> Self {
+        unsafe {
+            let mut axesi = mem::zeroed::<Self>();
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_X, Kind::Axis) as u32,
+                             &mut axesi.x as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_Y, Kind::Axis) as u32,
+                             &mut axesi.y as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_Z, Kind::Axis) as u32,
+                             &mut axesi.z as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_RX, Kind::Axis) as u32,
+                             &mut axesi.rx as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_RY, Kind::Axis) as u32,
+                             &mut axesi.ry as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_RZ, Kind::Axis) as u32,
+                             &mut axesi.rz as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT0X, Kind::Axis) as u32,
+                             &mut axesi.dpadx as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT0Y, Kind::Axis) as u32,
+                             &mut axesi.dpady as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT1X, Kind::Axis) as u32,
+                             &mut axesi.right_tr as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT1Y, Kind::Axis) as u32,
+                             &mut axesi.left_tr as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT2X, Kind::Axis) as u32,
+                             &mut axesi.right_tr2 as *mut _);
+
+            ioctl::eviocgabs(fd,
+                             mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
+                             &mut axesi.left_tr2 as *mut _);
+
+            axesi.normalize();
+            axesi
+        }
+    }
+
     fn normalize(&mut self) {
         // Some devices report sticks value in range [0, Max], and some in range [-Max, Max]
         Self::normalize_abs(&mut self.x);
@@ -302,13 +358,86 @@ impl Gamepad {
             None => return None,
         };
 
-        unsafe {
-            let fd = c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK);
-            if fd < 0 {
-                error!("Failed to open {:?}", path);
-                return None;
-            }
+        let fd = unsafe { c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK) };
+        if fd < 0 {
+            error!("Failed to open {:?}", path);
+            return None;
+        }
 
+        let uuid = match Self::create_uuid(fd) {
+            Some(uuid) => uuid,
+            None => {
+                error!("Failed to get id of device {:?}", path);
+                return None;
+            },
+        };
+
+        let mapping = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
+            Some(m) => m,
+            None => return None,
+        };
+
+        let name = Self::get_name(fd, &mapping).unwrap_or_else(|| {
+            error!("Failed to get name od device {:?}", path);
+            "Unknown".into()
+        });
+
+        let axesi = AxesInfo::new(fd, &mapping);
+        let ff_supported = Self::test_ff(fd);
+        let (cap, status) = Self::battery_fd(&dev);
+
+        let gamepad = Gamepad {
+            fd: fd,
+            axes_info: axesi,
+            abs_dpad_prev_val: (0, 0),
+            mapping: mapping,
+            ff_supported: ff_supported,
+            devpath: path.to_string_lossy().into_owned(),
+            name: name,
+            uuid: uuid,
+            bt_capacity_fd: cap,
+            bt_status_fd: status,
+        };
+
+        info!("Found {:#?}", gamepad);
+
+        Some(gamepad)
+    }
+
+    fn get_name(fd: i32, mapping: &Mapping) -> Option<String> {
+        if mapping.name().is_empty() {
+            unsafe {
+                let mut namebuff = mem::uninitialized::<[u8; 128]>();
+                if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
+                    None
+                } else {
+                    Some(CStr::from_ptr(namebuff.as_ptr() as *const i8)
+                        .to_string_lossy().into_owned())
+                }
+            }
+        } else {
+            Some(mapping.name().to_owned())
+        }
+    }
+
+    fn test_ff(fd: i32) -> bool {
+        unsafe {
+            let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
+            if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
+                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
+                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+    }
+
+    fn create_mappings_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr) -> Option<Mapping> {
+        unsafe {
             let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
             let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
@@ -348,118 +477,30 @@ impl Gamepad {
                 }
             }
 
-            debug!("{:?}", buttons);
-
-            let mut namebuff = mem::uninitialized::<[u8; 128]>();
-            let mut input_id = mem::uninitialized::<ioctl::input_id>();
-
-            if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
-                error!("Failed to get name of device {:?}", path);
-                return None;
-            }
-
-            if ioctl_def::eviocgid(fd, &mut input_id as *mut _) < 0 {
-                error!("Failed to get id of device {:?}", path);
-                return None;
-            }
-
-
-            let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
-            let mut ff_supported = false;
-
-            if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
-                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
-                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
-                    ff_supported = true;
-                }
-            }
-
-            let mut axesi = mem::zeroed::<AxesInfo>();
-            let uuid = create_uuid(input_id);
-            let mapping = mapping_db.get(uuid)
+            let mapping = db.get(uuid)
                 .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok())
                 .unwrap_or(Mapping::new());
 
-            let name = if mapping.name().is_empty() {
-                CStr::from_ptr(namebuff.as_ptr() as *const i8).to_string_lossy().into_owned()
-            } else {
-                mapping.name().to_owned()
-            };
-
             if !test_bit(mapping.map_rev(BTN_GAMEPAD, Kind::Button), &key_bits) {
-                warn!("{:?}({}) doesn't have BTN_GAMEPAD, ignoring.", path, name);
+                warn!("{:?} doesn't have BTN_GAMEPAD, ignoring.", path);
                 c::close(fd);
-                return None;
+                None
+            } else {
+                Some(mapping)
             }
 
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_X, Kind::Axis) as u32,
-                             &mut axesi.x as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_Y, Kind::Axis) as u32,
-                             &mut axesi.y as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_Z, Kind::Axis) as u32,
-                             &mut axesi.z as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_RX, Kind::Axis) as u32,
-                             &mut axesi.rx as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_RY, Kind::Axis) as u32,
-                             &mut axesi.ry as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_RZ, Kind::Axis) as u32,
-                             &mut axesi.rz as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT0X, Kind::Axis) as u32,
-                             &mut axesi.dpadx as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT0Y, Kind::Axis) as u32,
-                             &mut axesi.dpady as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT1X, Kind::Axis) as u32,
-                             &mut axesi.right_tr as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT1Y, Kind::Axis) as u32,
-                             &mut axesi.left_tr as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT2X, Kind::Axis) as u32,
-                             &mut axesi.right_tr2 as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
-                             &mut axesi.left_tr2 as *mut _);
-
-            axesi.normalize();
-            let (cap, status) = Self::battery_fd(&dev);
-
-            let gamepad = Gamepad {
-                fd: fd,
-                axes_info: axesi,
-                abs_dpad_prev_val: (0, 0),
-                mapping: mapping,
-                ff_supported: ff_supported,
-                devpath: path.to_string_lossy().into_owned(),
-                name: name,
-                uuid: uuid,
-                bt_capacity_fd: cap,
-                bt_status_fd: status,
-            };
-
-            info!("Found {:#?}", gamepad);
-
-            Some(gamepad)
         }
+    }
+
+    fn create_uuid(fd: i32) -> Option<Uuid> {
+        let mut iid;
+        unsafe {
+            iid = mem::uninitialized::<ioctl::input_id>();
+            if ioctl_def::eviocgid(fd, &mut iid as *mut _) < 0 {
+                return None;
+            }
+        }
+        Some(create_uuid(iid))
     }
 
     fn battery_fd(dev: &Device) -> (i32, i32) {
