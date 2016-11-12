@@ -17,7 +17,7 @@ RUN apt-get update && \
        --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-ENV RUST_VERSION=1.12.0
+ENV RUST_VERSION=1.13.0
 
 ENV RUST_URL_BASE=https://static.rust-lang.org/dist
 ENV RUST_ARCHIVE=rust-$RUST_VERSION-x86_64-unknown-linux-gnu.tar.gz
