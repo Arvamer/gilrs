@@ -8,8 +8,9 @@
 
 use vec_map::VecMap;
 use std::collections::HashMap;
-use platform;
-use platform::native_ev_codes;
+use std::ops::{Index, IndexMut};
+use platform::{self, native_ev_codes};
+use gamepad::{NativeEvCode, Axis, Button};
 use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -414,6 +415,48 @@ impl MappingDb {
 
     pub fn get(&self, uuid: Uuid) -> Option<&String> {
         self.mappings.get(&uuid)
+    }
+}
+
+pub struct MappingsData {
+    buttons: VecMap<u16>,
+    axes: VecMap<u16>,
+}
+
+impl MappingsData {
+    pub fn new() -> Self {
+        MappingsData {
+            buttons: VecMap::with_capacity(18),
+            axes: VecMap::with_capacity(11),
+        }
+    }
+}
+
+impl Index<Button> for MappingsData {
+    type Output = NativeEvCode;
+
+    fn index(&self, index: Button) -> &Self::Output {
+        &self.buttons[index as usize]
+    }
+}
+
+impl Index<Axis> for MappingsData {
+    type Output = NativeEvCode;
+
+    fn index(&self, index: Axis) -> &Self::Output {
+        &self.axes[index as usize]
+    }
+}
+
+impl IndexMut<Button> for MappingsData {
+    fn index_mut(&mut self, index: Button) -> &mut Self::Output {
+        &mut self.buttons[index as usize]
+    }
+}
+
+impl IndexMut<Axis> for MappingsData {
+    fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
+        &mut self.axes[index as usize]
     }
 }
 
