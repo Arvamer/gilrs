@@ -8,6 +8,7 @@
 
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones,
               MappingsSource};
+use mapping::{MappingsData, MappingsError};
 use uuid::Uuid;
 use std::thread;
 use std::mem;
@@ -290,6 +291,11 @@ impl Gamepad {
 
     pub fn mappings_source(&self) -> MappingsSource {
         MappingsSource::Driver
+    }
+
+    pub fn set_mappings(&mut self, _mappings: &MappingsData, _strict: bool)
+                        -> Result<String, MappingsError> {
+        Err(MappingsError::NotImplemented)
     }
 
     pub fn max_ff_effects(&self) -> usize {

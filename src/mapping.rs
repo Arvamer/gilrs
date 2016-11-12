@@ -348,7 +348,7 @@ pub enum ParseSdlMappingError {
 }
 
 impl ParseSdlMappingError {
-    fn to_str(self) -> &'static str {
+    fn into_str(self) -> &'static str {
         match self {
             ParseSdlMappingError::MissingGuid => "GUID is missing",
             ParseSdlMappingError::InvalidGuid => "GUID is invalid",
@@ -364,13 +364,13 @@ impl ParseSdlMappingError {
 
 impl Error for ParseSdlMappingError {
     fn description(&self) -> &str {
-        self.to_str()
+        self.into_str()
     }
 }
 
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        fmt.write_str(self.to_str())
+        fmt.write_str(self.into_str())
     }
 }
 
@@ -457,6 +457,34 @@ impl IndexMut<Button> for MappingsData {
 impl IndexMut<Axis> for MappingsData {
     fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
         &mut self.axes[index as usize]
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MappingsError {
+    InvalidCode,
+    NotImplemented,
+}
+
+impl MappingsError {
+    fn into_str(self) -> &'static str {
+        match self {
+            MappingsError::InvalidCode => "gamepad does not have element with requested event code",
+            MappingsError::NotImplemented => "current platform does not implement setting custom \
+                mappings",
+        }
+    }
+}
+
+impl Error for MappingsError {
+    fn description(&self) -> &str {
+        self.into_str()
+    }
+}
+
+impl Display for MappingsError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        f.write_str(self.into_str())
     }
 }
 

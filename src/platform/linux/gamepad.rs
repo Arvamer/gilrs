@@ -16,7 +16,7 @@ use uuid::Uuid;
 use libc as c;
 use ioctl;
 use constants;
-use mapping::{Mapping, Kind, MappingDb};
+use mapping::{Mapping, Kind, MappingDb, MappingsData, MappingsError};
 use ioctl::input_absinfo as AbsInfo;
 use super::ioctl_def;
 
@@ -715,6 +715,11 @@ impl Gamepad {
 
     pub fn mappings_source(&self) -> MappingsSource {
         self.mappings_source
+    }
+
+    pub fn set_mappings(&mut self, mappings: &MappingsData, strict: bool)
+                        -> Result<String, MappingsError> {
+        Err(MappingsError::NotImplemented)
     }
 
     pub fn max_ff_effects(&self) -> usize {

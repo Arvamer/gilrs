@@ -1,5 +1,6 @@
 use platform;
 use constants::*;
+use mapping::{MappingsData, MappingsError};
 use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
@@ -234,6 +235,18 @@ impl Gamepad {
     /// }
     pub fn mappings_source(&self) -> MappingsSource {
         self.inner.mappings_source()
+    }
+
+    /// TODO: Documentation
+    /// Created mappings may not be compatible with format used by SDL2.
+    pub fn set_mappings(&mut self, mappings: &MappingsData) -> Result<String, MappingsError> {
+        self.inner.set_mappings(mappings, false)
+    }
+
+    /// TODO: Documentation
+    /// Created mappings are compatible with format used by SDL2.
+    pub fn set_mappings_strict(&mut self, mappings: &MappingsData) -> Result<String, MappingsError> {
+        self.inner.set_mappings(mappings, true)
     }
 
     /// Creates and uploads new force feedback effect using `data`. This function will fail if

@@ -7,6 +7,7 @@
 #![allow(unused_variables)]
 
 use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt, MappingsSource};
+use mapping::{MappingsData, MappingsError};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -66,6 +67,11 @@ impl Gamepad {
 
     pub fn mappings_source(&self) -> MappingsSource {
         MappingsSource::None
+    }
+
+    pub fn set_mappings(&mut self, _mappings: &MappingsData, _strict: bool)
+                        -> Result<String, MappingsError> {
+        Err(MappingsError::NotImplemented)
     }
 
     pub fn max_ff_effects(&self) -> usize {
