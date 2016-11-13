@@ -293,7 +293,7 @@ impl Gamepad {
         MappingsSource::Driver
     }
 
-    pub fn set_mappings(&mut self, _mappings: &MappingsData, _strict: bool)
+    pub fn set_mappings(&mut self, _mappings: &MappingsData, _strict: bool, _name: Option<&str>)
                         -> Result<String, MappingsError> {
         Err(MappingsError::NotImplemented)
     }

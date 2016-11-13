@@ -743,9 +743,31 @@ impl Gamepad {
         self.mappings_source
     }
 
-    pub fn set_mappings(&mut self, mappings: &MappingsData, strict: bool)
+    pub fn set_mappings(&mut self, mappings: &MappingsData, strict: bool, name: Option<&str>)
                         -> Result<String, MappingsError> {
-        Err(MappingsError::NotImplemented)
+        if self.fd < 0 {
+            return Err(MappingsError::NotConnected);
+        }
+
+        let name = match name {
+            Some(n) => n,
+            None => &self.name
+        };
+
+        let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
+        let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
+
+        unsafe {
+            ioctl::eviocgbit(self.fd, EV_KEY as u32, key_bits.len() as i32, key_bits.as_mut_ptr());
+            ioctl::eviocgbit(self.fd, EV_ABS as u32, abs_bits.len() as i32, abs_bits.as_mut_ptr());
+        }
+
+        let buttons = Self::find_buttons(&key_bits, strict);
+        let axes = Self::find_axes(&abs_bits);
+
+        let (mapping, s) = Mapping::from_data(mappings, &buttons, &axes, name, self.uuid)?;
+        self.mapping = mapping;
+        Ok(s)
     }
 
     pub fn max_ff_effects(&self) -> usize {

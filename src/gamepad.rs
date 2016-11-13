@@ -239,14 +239,16 @@ impl Gamepad {
 
     /// TODO: Documentation
     /// Created mappings may not be compatible with format used by SDL2.
-    pub fn set_mappings(&mut self, mappings: &MappingsData) -> Result<String, MappingsError> {
-        self.inner.set_mappings(mappings, false)
+    pub fn set_mappings<'a, O: Into<Option<&'a str>>>(&mut self, mappings: &MappingsData, name: O)
+                                               -> Result<String, MappingsError> {
+        self.inner.set_mappings(mappings, false, name.into())
     }
 
     /// TODO: Documentation
     /// Created mappings are compatible with format used by SDL2.
-    pub fn set_mappings_strict(&mut self, mappings: &MappingsData) -> Result<String, MappingsError> {
-        self.inner.set_mappings(mappings, true)
+    pub fn set_mappings_strict<'a, O: Into<Option<&'a str>>>(&mut self, mappings: &MappingsData, name: O)
+                                                      -> Result<String, MappingsError> {
+        self.inner.set_mappings(mappings, true, name.into())
     }
 
     /// Creates and uploads new force feedback effect using `data`. This function will fail if
