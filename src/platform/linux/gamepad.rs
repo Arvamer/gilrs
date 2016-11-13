@@ -465,24 +465,8 @@ impl Gamepad {
                 return None;
             }
 
-            let mut buttons = Vec::with_capacity(16);
-            let mut axes = Vec::with_capacity(8);
-
-            for bit in (BTN_MISC)..(BTN_MOUSE) {
-                if test_bit(bit, &key_bits) {
-                    buttons.push(bit);
-                }
-            }
-            for bit in (BTN_JOYSTICK)..(key_bits.len() as u16 * 8) {
-                if test_bit(bit, &key_bits) {
-                    buttons.push(bit);
-                }
-            }
-            for bit in 0..(abs_bits.len() * 8) {
-                if test_bit(bit as u16, &abs_bits) {
-                    axes.push(bit as u16);
-                }
-            }
+            let buttons = Self::find_buttons(&key_bits, false);
+            let axes = Self::find_axes(&abs_bits);
 
             let mapping = db.get(uuid)
                 .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok());
@@ -527,6 +511,48 @@ impl Gamepad {
             }
         }
         Some(create_uuid(iid))
+    }
+
+    fn find_buttons(key_bits: &[u8], only_gamepad_btns: bool) -> Vec<u16> {
+        let mut buttons = Vec::with_capacity(16);
+
+        for bit in BTN_MISC..BTN_MOUSE {
+            if test_bit(bit, &key_bits) {
+                buttons.push(bit);
+            }
+        }
+        for bit in BTN_JOYSTICK..(key_bits.len() as u16 * 8) {
+            if test_bit(bit, &key_bits) {
+                buttons.push(bit);
+            }
+        }
+
+        if !only_gamepad_btns {
+            for bit in 0..BTN_MISC {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+            for bit in BTN_MOUSE..BTN_JOYSTICK {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+        }
+
+        buttons
+    }
+
+    fn find_axes(abs_bits: &[u8]) -> Vec<u16> {
+        let mut axes = Vec::with_capacity(8);
+
+        for bit in 0..(abs_bits.len() * 8) {
+            if test_bit(bit as u16, &abs_bits) {
+                axes.push(bit as u16);
+            }
+        }
+
+        axes
     }
 
     fn battery_fd(dev: &Device) -> (i32, i32) {
