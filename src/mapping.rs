@@ -17,6 +17,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use uuid::{Uuid, ParseError as UuidError};
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Mapping {
     axes: VecMap<u16>,
     btns: VecMap<u16>,
@@ -39,6 +40,10 @@ impl Mapping {
     pub fn from_data(data: &MappingsData, buttons: &[u16], axes: &[u16], name: &str, uuid: Uuid)
                      -> Result<(Self, String), MappingsError> {
         use constants::*;
+
+        if !Self::is_name_valid(name) {
+            return Err(MappingsError::InvalidName);
+        }
 
         let mut mapped_btns = VecMap::<u16>::new();
         let mut mapped_axes = VecMap::<u16>::new();
@@ -383,7 +388,7 @@ impl Mapping {
                   -> Result<(), MappingsError> {
         let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode)?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
-        mapped_btns[ev_code as usize] = mapped_ev_code;
+        mapped_btns.insert(ev_code as usize, mapped_ev_code);
         Ok(())
     }
 
@@ -396,8 +401,12 @@ impl Mapping {
                 -> Result<(), MappingsError> {
         let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode)?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
-        mapped_axes[ev_code as usize] = mapped_ev_code;
+        mapped_axes.insert(ev_code as usize, mapped_ev_code);
         Ok(())
+    }
+
+    fn is_name_valid(name: &str) -> bool {
+        !name.chars().any(|x| x == ',')
     }
 
     pub fn map(&self, code: u16, kind: Kind) -> u16 {
@@ -543,19 +552,20 @@ impl Index<Axis> for MappingsData {
 
 impl IndexMut<Button> for MappingsData {
     fn index_mut(&mut self, index: Button) -> &mut Self::Output {
-        &mut self.buttons[index as usize]
+        self.buttons.entry(index as usize).or_insert(0)
     }
 }
 
 impl IndexMut<Axis> for MappingsData {
     fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
-        &mut self.axes[index as usize]
+        self.axes.entry(index as usize).or_insert(0)
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MappingsError {
     InvalidCode,
+    InvalidName,
     NotImplemented,
     NotConnected,
 }
@@ -564,6 +574,7 @@ impl MappingsError {
     fn into_str(self) -> &'static str {
         match self {
             MappingsError::InvalidCode => "gamepad does not have element with requested event code",
+            MappingsError::InvalidName => "name can not contain comma",
             MappingsError::NotImplemented => "current platform does not implement setting custom \
                 mappings",
             MappingsError::NotConnected => "gamepad is not connected",
@@ -586,6 +597,8 @@ impl Display for MappingsError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gamepad::{Button, Axis};
+    use uuid::Uuid;
     // Do not include platform, mapping from
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
     const TEST_STR: &'static str = "03000000260900008888000000010000,GameCube {WiseGroup USB \
@@ -599,5 +612,35 @@ mod tests {
     #[test]
     fn mapping() {
         Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
+    }
+
+    #[test]
+    fn from_data_basic() {
+        let uuid = Uuid::nil();
+        let name = "Best Gamepad";
+        let buttons = [10, 11, 12, 13, 14, 15];
+        let axes = [0, 1, 2, 3];
+
+        let mut data = MappingsData::new();
+        data[Axis::LeftStickX] = 0;
+        data[Axis::LeftStickY] = 1;
+        data[Axis::LeftTrigger] = 2;
+        data[Axis::LeftTrigger2] = 3;
+        data[Button::South] = 10;
+        data[Button::South] = 10;
+        data[Button::West] = 11;
+        data[Button::Start] = 15;
+
+        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
+            .unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+        assert_eq!(mappings, sdl_mappings);
+
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, "Inval,id name", uuid);
+        assert_eq!(Err(MappingsError::InvalidName), incorrect_mappings);
+
+        data[Button::South] = 22;
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        assert_eq!(Err(MappingsError::InvalidCode), incorrect_mappings);
     }
 }
