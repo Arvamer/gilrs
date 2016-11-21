@@ -60,6 +60,7 @@ impl Mapping {
                     BTN_SOUTH => add_button("a", ev_code, nec::BTN_SOUTH)?,
                     BTN_EAST => add_button("b", ev_code, nec::BTN_EAST)?,
                     BTN_WEST => add_button("x", ev_code, nec::BTN_WEST)?,
+                    BTN_NORTH => add_button("y", ev_code, nec::BTN_NORTH)?,
                     BTN_LT => add_button("leftshoulder", ev_code, nec::BTN_LT)?,
                     BTN_RT => add_button("rightshoulder", ev_code, nec::BTN_RT)?,
                     BTN_LT2 => add_button("lefttrigger", ev_code, nec::BTN_LT2)?,
@@ -386,7 +387,7 @@ impl Mapping {
                   sdl_mappings: &mut String,
                   mapped_btns: &mut VecMap<u16>)
                   -> Result<(), MappingsError> {
-        let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode)?;
+        let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
         mapped_btns.insert(ev_code as usize, mapped_ev_code);
         Ok(())
@@ -399,7 +400,7 @@ impl Mapping {
                 sdl_mappings: &mut String,
                 mapped_axes: &mut VecMap<u16>)
                 -> Result<(), MappingsError> {
-        let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode)?;
+        let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
         mapped_axes.insert(ev_code as usize, mapped_ev_code);
         Ok(())
@@ -564,7 +565,7 @@ impl IndexMut<Axis> for MappingsData {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MappingsError {
-    InvalidCode,
+    InvalidCode(NativeEvCode),
     InvalidName,
     NotImplemented,
     NotConnected,
@@ -573,7 +574,7 @@ pub enum MappingsError {
 impl MappingsError {
     fn into_str(self) -> &'static str {
         match self {
-            MappingsError::InvalidCode => "gamepad does not have element with requested event code",
+            MappingsError::InvalidCode(_) => "gamepad does not have element with requested event code",
             MappingsError::InvalidName => "name can not contain comma",
             MappingsError::NotImplemented => "current platform does not implement setting custom \
                 mappings",
@@ -641,6 +642,6 @@ mod tests {
 
         data[Button::South] = 22;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingsError::InvalidCode), incorrect_mappings);
+        assert_eq!(Err(MappingsError::InvalidCode(22)), incorrect_mappings);
     }
 }
