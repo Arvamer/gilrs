@@ -533,6 +533,14 @@ impl MappingsData {
             axes: VecMap::with_capacity(11),
         }
     }
+
+    pub fn button(&self, idx: Button) -> Option<NativeEvCode> {
+        self.buttons.get(idx as usize).cloned()
+    }
+
+    pub fn axis(&self, idx: Axis) -> Option<NativeEvCode> {
+        self.axes.get(idx as usize).cloned()
+    }
 }
 
 impl Index<Button> for MappingsData {
