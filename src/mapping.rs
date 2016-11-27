@@ -45,6 +45,20 @@ impl Mapping {
             return Err(MappingsError::InvalidName);
         }
 
+        if data.axes.contains_key(Axis::LeftTrigger as usize)
+           && data.buttons.contains_key(Button::LeftTrigger as usize)
+           ||
+           data.axes.contains_key(Axis::LeftTrigger2 as usize)
+           && data.buttons.contains_key(Button::LeftTrigger2 as usize)
+           ||
+           data.axes.contains_key(Axis::RightTrigger as usize)
+           && data.buttons.contains_key(Button::RightTrigger as usize)
+           ||
+           data.axes.contains_key(Axis::RightTrigger2 as usize)
+           && data.buttons.contains_key(Button::RightTrigger2 as usize) {
+            return Err(MappingsError::DuplicatedEntry);
+        }
+
         let mut mapped_btns = VecMap::<u16>::new();
         let mut mapped_axes = VecMap::<u16>::new();
         let mut sdl_mappings = format!("{},{},", uuid.simple(), name);
@@ -577,6 +591,7 @@ pub enum MappingsError {
     InvalidName,
     NotImplemented,
     NotConnected,
+    DuplicatedEntry,
 }
 
 impl MappingsError {
@@ -587,6 +602,7 @@ impl MappingsError {
             MappingsError::NotImplemented => "current platform does not implement setting custom \
                 mappings",
             MappingsError::NotConnected => "gamepad is not connected",
+            MappingsError::DuplicatedEntry => "same gamepad element is referenced by axis and button"
         }
     }
 }
@@ -624,7 +640,7 @@ mod tests {
     }
 
     #[test]
-    fn from_data_basic() {
+    fn from_data() {
         let uuid = Uuid::nil();
         let name = "Best Gamepad";
         let buttons = [10, 11, 12, 13, 14, 15];
@@ -651,5 +667,10 @@ mod tests {
         data[Button::South] = 22;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
         assert_eq!(Err(MappingsError::InvalidCode(22)), incorrect_mappings);
+
+        data[Button::South] = 10;
+        data[Button::LeftTrigger] = 11;
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        assert_eq!(Err(MappingsError::DuplicatedEntry), incorrect_mappings);
     }
 }
