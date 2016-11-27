@@ -37,12 +37,12 @@ impl Mapping {
         &self.name
     }
 
-    pub fn from_data(data: &MappingsData, buttons: &[u16], axes: &[u16], name: &str, uuid: Uuid)
-                     -> Result<(Self, String), MappingsError> {
+    pub fn from_data(data: &MappingData, buttons: &[u16], axes: &[u16], name: &str, uuid: Uuid)
+                     -> Result<(Self, String), MappingError> {
         use constants::*;
 
         if !Self::is_name_valid(name) {
-            return Err(MappingsError::InvalidName);
+            return Err(MappingError::InvalidName);
         }
 
         if data.axes.contains_key(Axis::LeftTrigger as usize)
@@ -56,7 +56,7 @@ impl Mapping {
            ||
            data.axes.contains_key(Axis::RightTrigger2 as usize)
            && data.buttons.contains_key(Button::RightTrigger2 as usize) {
-            return Err(MappingsError::DuplicatedEntry);
+            return Err(MappingError::DuplicatedEntry);
         }
 
         let mut mapped_btns = VecMap::<u16>::new();
@@ -400,8 +400,8 @@ impl Mapping {
                   buttons: &[u16],
                   sdl_mappings: &mut String,
                   mapped_btns: &mut VecMap<u16>)
-                  -> Result<(), MappingsError> {
-        let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode(ev_code))?;
+                  -> Result<(), MappingError> {
+        let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
         mapped_btns.insert(ev_code as usize, mapped_ev_code);
         Ok(())
@@ -413,8 +413,8 @@ impl Mapping {
                 axes: &[u16],
                 sdl_mappings: &mut String,
                 mapped_axes: &mut VecMap<u16>)
-                -> Result<(), MappingsError> {
-        let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(MappingsError::InvalidCode(ev_code))?;
+                -> Result<(), MappingError> {
+        let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
         mapped_axes.insert(ev_code as usize, mapped_ev_code);
         Ok(())
@@ -535,14 +535,14 @@ impl MappingDb {
     }
 }
 
-pub struct MappingsData {
+pub struct MappingData {
     buttons: VecMap<u16>,
     axes: VecMap<u16>,
 }
 
-impl MappingsData {
+impl MappingData {
     pub fn new() -> Self {
-        MappingsData {
+        MappingData {
             buttons: VecMap::with_capacity(18),
             axes: VecMap::with_capacity(11),
         }
@@ -557,7 +557,7 @@ impl MappingsData {
     }
 }
 
-impl Index<Button> for MappingsData {
+impl Index<Button> for MappingData {
     type Output = NativeEvCode;
 
     fn index(&self, index: Button) -> &Self::Output {
@@ -565,7 +565,7 @@ impl Index<Button> for MappingsData {
     }
 }
 
-impl Index<Axis> for MappingsData {
+impl Index<Axis> for MappingData {
     type Output = NativeEvCode;
 
     fn index(&self, index: Axis) -> &Self::Output {
@@ -573,20 +573,20 @@ impl Index<Axis> for MappingsData {
     }
 }
 
-impl IndexMut<Button> for MappingsData {
+impl IndexMut<Button> for MappingData {
     fn index_mut(&mut self, index: Button) -> &mut Self::Output {
         self.buttons.entry(index as usize).or_insert(0)
     }
 }
 
-impl IndexMut<Axis> for MappingsData {
+impl IndexMut<Axis> for MappingData {
     fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
         self.axes.entry(index as usize).or_insert(0)
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MappingsError {
+pub enum MappingError {
     InvalidCode(NativeEvCode),
     InvalidName,
     NotImplemented,
@@ -594,26 +594,26 @@ pub enum MappingsError {
     DuplicatedEntry,
 }
 
-impl MappingsError {
+impl MappingError {
     fn into_str(self) -> &'static str {
         match self {
-            MappingsError::InvalidCode(_) => "gamepad does not have element with requested event code",
-            MappingsError::InvalidName => "name can not contain comma",
-            MappingsError::NotImplemented => "current platform does not implement setting custom \
+            MappingError::InvalidCode(_) => "gamepad does not have element with requested event code",
+            MappingError::InvalidName => "name can not contain comma",
+            MappingError::NotImplemented => "current platform does not implement setting custom \
                 mappings",
-            MappingsError::NotConnected => "gamepad is not connected",
-            MappingsError::DuplicatedEntry => "same gamepad element is referenced by axis and button"
+            MappingError::NotConnected => "gamepad is not connected",
+            MappingError::DuplicatedEntry => "same gamepad element is referenced by axis and button"
         }
     }
 }
 
-impl Error for MappingsError {
+impl Error for MappingError {
     fn description(&self) -> &str {
         self.into_str()
     }
 }
 
-impl Display for MappingsError {
+impl Display for MappingError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         f.write_str(self.into_str())
     }
@@ -646,7 +646,7 @@ mod tests {
         let buttons = [10, 11, 12, 13, 14, 15];
         let axes = [0, 1, 2, 3];
 
-        let mut data = MappingsData::new();
+        let mut data = MappingData::new();
         data[Axis::LeftStickX] = 0;
         data[Axis::LeftStickY] = 1;
         data[Axis::LeftTrigger] = 2;
@@ -662,15 +662,15 @@ mod tests {
         assert_eq!(mappings, sdl_mappings);
 
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, "Inval,id name", uuid);
-        assert_eq!(Err(MappingsError::InvalidName), incorrect_mappings);
+        assert_eq!(Err(MappingError::InvalidName), incorrect_mappings);
 
         data[Button::South] = 22;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingsError::InvalidCode(22)), incorrect_mappings);
+        assert_eq!(Err(MappingError::InvalidCode(22)), incorrect_mappings);
 
         data[Button::South] = 10;
         data[Button::LeftTrigger] = 11;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingsError::DuplicatedEntry), incorrect_mappings);
+        assert_eq!(Err(MappingError::DuplicatedEntry), incorrect_mappings);
     }
 }

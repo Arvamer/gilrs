@@ -8,7 +8,7 @@
 use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
-              Deadzones, MappingsSource};
+              Deadzones, MappingSource};
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -16,7 +16,7 @@ use uuid::Uuid;
 use libc as c;
 use ioctl;
 use constants;
-use mapping::{Mapping, Kind, MappingDb, MappingsData, MappingsError};
+use mapping::{Mapping, Kind, MappingDb, MappingData, MappingError};
 use ioctl::input_absinfo as AbsInfo;
 use super::ioctl_def;
 
@@ -225,7 +225,7 @@ pub struct Gamepad {
     uuid: Uuid,
     bt_capacity_fd: i32,
     bt_status_fd: i32,
-    mappings_source: MappingsSource,
+    mapping_source: MappingSource,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -346,7 +346,7 @@ impl Gamepad {
             uuid: Uuid::nil(),
             bt_status_fd: -1,
             bt_capacity_fd: -1,
-            mappings_source: MappingsSource::None,
+            mapping_source: MappingSource::None,
         }
     }
 
@@ -375,7 +375,7 @@ impl Gamepad {
             },
         };
 
-        let (mapping, src) = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
+        let (mapping, src) = match Self::create_mapping_if_gamepad(fd, mapping_db, uuid, path) {
             Some(m) => m,
             None => {
                 unsafe { c::close(fd); }
@@ -403,7 +403,7 @@ impl Gamepad {
             uuid: uuid,
             bt_capacity_fd: cap,
             bt_status_fd: status,
-            mappings_source: src,
+            mapping_source: src,
         };
 
         info!("Found {:#?}", gamepad);
@@ -443,8 +443,8 @@ impl Gamepad {
         }
     }
 
-    fn create_mappings_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr)
-        -> Option<(Mapping, MappingsSource)> {
+    fn create_mapping_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr)
+                                 -> Option<(Mapping, MappingSource)> {
         unsafe {
             let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
@@ -473,12 +473,12 @@ impl Gamepad {
 
             if Self::is_gamepad(&buttons, &axes) {
                 let src = if mapping.is_some() {
-                    MappingsSource::SdlMappings
+                    MappingSource::SdlMappings
                 } else {
                     if Self::uses_gamepad_api(&key_bits) {
-                        MappingsSource::Driver
+                        MappingSource::Driver
                     } else {
-                        MappingsSource::None
+                        MappingSource::None
                     }
                 };
                 Some((mapping.unwrap_or(Mapping::new()), src))
@@ -739,14 +739,14 @@ impl Gamepad {
         }
     }
 
-    pub fn mappings_source(&self) -> MappingsSource {
-        self.mappings_source
+    pub fn mapping_source(&self) -> MappingSource {
+        self.mapping_source
     }
 
-    pub fn set_mappings(&mut self, mappings: &MappingsData, strict: bool, name: Option<&str>)
-                        -> Result<String, MappingsError> {
+    pub fn set_mapping(&mut self, mapping: &MappingData, strict: bool, name: Option<&str>)
+                        -> Result<String, MappingError> {
         if self.fd < 0 {
-            return Err(MappingsError::NotConnected);
+            return Err(MappingError::NotConnected);
         }
 
         let name = match name {
@@ -765,7 +765,7 @@ impl Gamepad {
         let buttons = Self::find_buttons(&key_bits, strict);
         let axes = Self::find_axes(&abs_bits);
 
-        let (mapping, s) = Mapping::from_data(mappings, &buttons, &axes, name, self.uuid)?;
+        let (mapping, s) = Mapping::from_data(mapping, &buttons, &axes, name, self.uuid)?;
         self.mapping = mapping;
         Ok(s)
     }

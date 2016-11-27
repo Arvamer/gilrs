@@ -1,6 +1,6 @@
 use platform;
 use constants::*;
-use mapping::{MappingsData, MappingsError};
+use mapping::{MappingData, MappingError};
 use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
@@ -221,34 +221,34 @@ impl Gamepad {
         self.inner.power_info()
     }
 
-    /// Returns source of gamepad mappings. Can be used to filter gamepads which do not provide
+    /// Returns source of gamepad mapping. Can be used to filter gamepads which do not provide
     /// unified controller layout.
     ///
     /// ```
-    /// use gilrs::MappingsSource;
+    /// use gilrs::MappingSource;
     /// # let mut gilrs = gilrs::Gilrs::new();
     ///
     /// for (_, gamepad) in gilrs.gamepads().filter(
-    ///     |gp| gp.1.mappings_source() != MappingsSource::None)
+    ///     |gp| gp.1.mapping_source() != MappingSource::None)
     /// {
     ///     println!("{} is ready to use!", gamepad.name());
     /// }
-    pub fn mappings_source(&self) -> MappingsSource {
-        self.inner.mappings_source()
+    pub fn mapping_source(&self) -> MappingSource {
+        self.inner.mapping_source()
     }
 
     /// TODO: Documentation
     /// Created mappings may not be compatible with format used by SDL2.
-    pub fn set_mappings<'a, O: Into<Option<&'a str>>>(&mut self, mappings: &MappingsData, name: O)
-                                               -> Result<String, MappingsError> {
-        self.inner.set_mappings(mappings, false, name.into())
+    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(&mut self, mapping: &MappingData, name: O)
+                                                      -> Result<String, MappingError> {
+        self.inner.set_mapping(mapping, false, name.into())
     }
 
     /// TODO: Documentation
     /// Created mappings are compatible with format used by SDL2.
-    pub fn set_mappings_strict<'a, O: Into<Option<&'a str>>>(&mut self, mappings: &MappingsData, name: O)
-                                                      -> Result<String, MappingsError> {
-        self.inner.set_mappings(mappings, true, name.into())
+    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self, mapping: &MappingData, name: O)
+                                                            -> Result<String, MappingError> {
+        self.inner.set_mapping(mapping, true, name.into())
     }
 
     /// Creates and uploads new force feedback effect using `data`. This function will fail if
@@ -803,7 +803,7 @@ pub enum PowerInfo {
 
 /// Source of gamepad mappings.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MappingsSource {
+pub enum MappingSource {
     /// Gamepad uses SDL mappings.
     SdlMappings,
     /// Gamepad does not use any mappings but driver should provide unified controller layout.

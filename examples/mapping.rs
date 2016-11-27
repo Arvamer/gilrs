@@ -1,16 +1,16 @@
 extern crate gilrs;
-use gilrs::{Gilrs, Mappings, Button, Axis, Event};
+use gilrs::{Gilrs, Mapping, Button, Axis, Event};
 use std::io;
 use std::collections::HashMap;
 use std::u16::MAX as U16_MAX;
 
 fn main() {
     let mut gilrs = Gilrs::new();
-    let mut mapping = Mappings::new();
+    let mut mapping = Mapping::new();
 
     println!("Connected gamepads:");
     for (id, gp) in gilrs.gamepads() {
-        println!("{}: {} (mapping source: {:?})", id, gp.name(), gp.mappings_source());
+        println!("{}: {} (mapping source: {:?})", id, gp.name(), gp.mapping_source());
     }
 
     println!("Pleas select id:");
@@ -100,10 +100,10 @@ fn main() {
     // that generate ABS events different than ABS_HAT0X and ABS_HAT0Y (code 16 and 17) on Linux,
     // pleas create issue on https://gitlab.com/Arvamer/gilrs/issues
 
-    let sdl_mappings = gilrs.gamepad_mut(id).set_mappings(&mapping, None)
-        .expect("Failed to set gamepad mappings");
+    let sdl_mapping = gilrs.gamepad_mut(id).set_mapping(&mapping, None)
+        .expect("Failed to set gamepad mapping");
 
-    println!("\nSDL mappings:\n\n{}\n", sdl_mappings);
+    println!("\nSDL mapping:\n\n{}\n", sdl_mapping);
     println!("Gamepad mapped, you can test it now. Press CTRL-C to quit.\n");
 
     loop {
