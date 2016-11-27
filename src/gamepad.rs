@@ -25,7 +25,9 @@ use std::f32::NAN;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, Event::ButtonPressed(Button::South, _)) => println!("Player {}: jump!", id + 1),
+///             (id, Event::ButtonPressed(Button::South, _)) => {
+///                 println!("Player {}: jump!", id + 1)
+///             }
 ///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
 ///             _ => (),
 ///         };
@@ -239,14 +241,18 @@ impl Gamepad {
 
     /// TODO: Documentation
     /// Created mappings may not be compatible with format used by SDL2.
-    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(&mut self, mapping: &MappingData, name: O)
-                                                      -> Result<String, MappingError> {
+    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(&mut self,
+                                                     mapping: &MappingData,
+                                                     name: O)
+                                                     -> Result<String, MappingError> {
         self.inner.set_mapping(mapping, false, name.into())
     }
 
     /// TODO: Documentation
     /// Created mappings are compatible with format used by SDL2.
-    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self, mapping: &MappingData, name: O)
+    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self,
+                                                            mapping: &MappingData,
+                                                            name: O)
                                                             -> Result<String, MappingError> {
         self.inner.set_mapping(mapping, true, name.into())
     }
@@ -560,9 +566,9 @@ impl Deadzones {
 
 /// Platform specific event code.
 ///
-/// Meaning of specific codes can vary not only between platforms but also between different devices.
-/// Context is also important - axis with code 2 is something totally different than button with
-/// code 2.
+/// Meaning of specific codes can vary not only between platforms but also between different
+/// devices. Context is also important - axis with code 2 is something totally different than button
+/// with code 2.
 ///
 /// **DPad is often represented as 2 axis, not 4 buttons.** So if you get event `(0,
 /// Button::DPadDown, 4)`, you can not be sure if 4 is button or axis. On Linux you can assume that
@@ -748,8 +754,8 @@ pub enum Axis {
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,
     RightTrigger2 = AXIS_RT2,
-    Unknown = ::std::u16::MAX, // some "random" value because rustc want to assign 11u16 which
-                               // already exists
+    Unknown = ::std::u16::MAX, /* some "random" value because rustc want to assign 11u16 which
+                                * already exists */
 }
 
 impl Axis {

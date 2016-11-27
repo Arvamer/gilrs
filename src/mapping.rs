@@ -37,7 +37,11 @@ impl Mapping {
         &self.name
     }
 
-    pub fn from_data(data: &MappingData, buttons: &[u16], axes: &[u16], name: &str, uuid: Uuid)
+    pub fn from_data(data: &MappingData,
+                     buttons: &[u16],
+                     axes: &[u16],
+                     name: &str,
+                     uuid: Uuid)
                      -> Result<(Self, String), MappingError> {
         use constants::*;
 
@@ -45,17 +49,14 @@ impl Mapping {
             return Err(MappingError::InvalidName);
         }
 
-        if data.axes.contains_key(Axis::LeftTrigger as usize)
-           && data.buttons.contains_key(Button::LeftTrigger as usize)
-           ||
-           data.axes.contains_key(Axis::LeftTrigger2 as usize)
-           && data.buttons.contains_key(Button::LeftTrigger2 as usize)
-           ||
-           data.axes.contains_key(Axis::RightTrigger as usize)
-           && data.buttons.contains_key(Button::RightTrigger as usize)
-           ||
-           data.axes.contains_key(Axis::RightTrigger2 as usize)
-           && data.buttons.contains_key(Button::RightTrigger2 as usize) {
+        if data.axes.contains_key(Axis::LeftTrigger as usize) &&
+           data.buttons.contains_key(Button::LeftTrigger as usize) ||
+           data.axes.contains_key(Axis::LeftTrigger2 as usize) &&
+           data.buttons.contains_key(Button::LeftTrigger2 as usize) ||
+           data.axes.contains_key(Axis::RightTrigger as usize) &&
+           data.buttons.contains_key(Button::RightTrigger as usize) ||
+           data.axes.contains_key(Axis::RightTrigger2 as usize) &&
+           data.buttons.contains_key(Button::RightTrigger2 as usize) {
             return Err(MappingError::DuplicatedEntry);
         }
 
@@ -65,9 +66,13 @@ impl Mapping {
 
         {
             let mut add_button = |ident, ev_code, mapped_ev_code| {
-                        Self::add_button(ident, ev_code, mapped_ev_code, buttons,
-                                         &mut sdl_mappings, &mut mapped_btns)
-                    };
+                Self::add_button(ident,
+                                 ev_code,
+                                 mapped_ev_code,
+                                 buttons,
+                                 &mut sdl_mappings,
+                                 &mut mapped_btns)
+            };
 
             for (button, &ev_code) in &data.buttons {
                 match button as u16 {
@@ -88,16 +93,20 @@ impl Mapping {
                     BTN_DPAD_DOWN => add_button("dpleft", ev_code, nec::BTN_DPAD_DOWN)?,
                     BTN_DPAD_LEFT => add_button("dpleft", ev_code, nec::BTN_DPAD_LEFT)?,
                     BTN_DPAD_RIGHT => add_button("dpright", ev_code, nec::BTN_DPAD_RIGHT)?,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
         }
 
         {
             let mut add_axis = |ident, ev_code, mapped_ev_code| {
-                        Self::add_axis(ident, ev_code, mapped_ev_code, axes,
-                                       &mut sdl_mappings, &mut mapped_axes)
-                    };
+                Self::add_axis(ident,
+                               ev_code,
+                               mapped_ev_code,
+                               axes,
+                               &mut sdl_mappings,
+                               &mut mapped_axes)
+            };
 
             for (axis, &ev_code) in &data.axes {
                 match axis as u16 {
@@ -109,7 +118,7 @@ impl Mapping {
                     AXIS_LT => add_axis("leftshoulder", ev_code, nec::AXIS_LT)?,
                     AXIS_RT2 => add_axis("righttrigger", ev_code, nec::AXIS_RT2)?,
                     AXIS_LT2 => add_axis("lefttrigger", ev_code, nec::AXIS_LT2)?,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
         }
@@ -401,7 +410,8 @@ impl Mapping {
                   sdl_mappings: &mut String,
                   mapped_btns: &mut VecMap<u16>)
                   -> Result<(), MappingError> {
-        let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
+        let n_btn =
+            buttons.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
         mapped_btns.insert(ev_code as usize, mapped_ev_code);
         Ok(())
@@ -414,7 +424,8 @@ impl Mapping {
                 sdl_mappings: &mut String,
                 mapped_axes: &mut VecMap<u16>)
                 -> Result<(), MappingError> {
-        let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
+        let n_axis =
+            axes.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
         mapped_axes.insert(ev_code as usize, mapped_ev_code);
         Ok(())
@@ -597,12 +608,17 @@ pub enum MappingError {
 impl MappingError {
     fn into_str(self) -> &'static str {
         match self {
-            MappingError::InvalidCode(_) => "gamepad does not have element with requested event code",
+            MappingError::InvalidCode(_) => {
+                "gamepad does not have element with requested event code"
+            }
             MappingError::InvalidName => "name can not contain comma",
-            MappingError::NotImplemented => "current platform does not implement setting custom \
-                mappings",
+            MappingError::NotImplemented => {
+                "current platform does not implement setting custom mappings"
+            }
             MappingError::NotConnected => "gamepad is not connected",
-            MappingError::DuplicatedEntry => "same gamepad element is referenced by axis and button"
+            MappingError::DuplicatedEntry => {
+                "same gamepad element is referenced by axis and button"
+            }
         }
     }
 }

@@ -178,7 +178,7 @@ impl Error {
             Error::NotEnoughSpace => "not enough space for new effect",
             Error::FfNotSupported => "force feedback is not supported",
             Error::EffectNotSupported => "effect is not supported by device",
-            Error::FailedToPlay => "can't play effect"
+            Error::FailedToPlay => "can't play effect",
         }
     }
 }

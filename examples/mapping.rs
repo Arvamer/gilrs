@@ -10,7 +10,10 @@ fn main() {
 
     println!("Connected gamepads:");
     for (id, gp) in gilrs.gamepads() {
-        println!("{}: {} (mapping source: {:?})", id, gp.name(), gp.mapping_source());
+        println!("{}: {} (mapping source: {:?})",
+                 id,
+                 gp.name(),
+                 gp.mapping_source());
     }
 
     println!("Pleas select id:");
@@ -23,8 +26,8 @@ fn main() {
     // Discard unwanted events
     for _ in gilrs.poll_events() {}
 
-    println!("Press east button on action pad (B on XBox gamepad layout). It will be used to skip \
-    other mappings.");
+    println!("Press east button on action pad (B on XBox gamepad layout). It will be used to \
+              skip other mappings.");
     get_btn_nevc(&mut gilrs, id, U16_MAX).map(|nevc| mapping[Button::East] = nevc);
     let skip_btn = mapping[Button::East];
 
@@ -100,7 +103,8 @@ fn main() {
     // that generate ABS events different than ABS_HAT0X and ABS_HAT0Y (code 16 and 17) on Linux,
     // pleas create issue on https://gitlab.com/Arvamer/gilrs/issues
 
-    let sdl_mapping = gilrs.gamepad_mut(id).set_mapping(&mapping, None)
+    let sdl_mapping = gilrs.gamepad_mut(id)
+        .set_mapping(&mapping, None)
         .expect("Failed to set gamepad mapping");
 
     println!("\nSDL mapping:\n\n{}\n", sdl_mapping);
@@ -122,7 +126,9 @@ enum ButtonOrAxis {
 fn get_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
     loop {
         for (i, ev) in g.poll_events() {
-            if id != i { continue }
+            if id != i {
+                continue;
+            }
             match ev {
                 Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
                 Event::ButtonPressed(_, nevc) => return Some(nevc),
@@ -136,13 +142,18 @@ fn get_axis_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
     let mut state = HashMap::new();
     loop {
         for (i, ev) in g.poll_events() {
-            if id != i { continue }
+            if id != i {
+                continue;
+            }
             match ev {
                 Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::AxisChanged(_, val, nevc)
-                    if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7
-                    => return Some(nevc),
-                Event::AxisChanged(_, val, nevc) => { state.insert(nevc, val); },
+                Event::AxisChanged(_, val, nevc) if val.abs() > 0.7 &&
+                                                    state.get(&nevc)
+                    .unwrap_or(&1.0f32)
+                    .abs() <= 0.7 => return Some(nevc),
+                Event::AxisChanged(_, val, nevc) => {
+                    state.insert(nevc, val);
+                }
                 _ => (),
             }
         }
@@ -153,15 +164,19 @@ fn get_axis_or_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<(Butt
     let mut state = HashMap::new();
     loop {
         for (i, ev) in g.poll_events() {
-            if id != i { continue }
+            if id != i {
+                continue;
+            }
             match ev {
                 Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
                 Event::ButtonPressed(_, nevc) => return Some((ButtonOrAxis::Button, nevc)),
-                Event::AxisChanged(_, val, nevc)
-                    if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7
-                    => return Some((ButtonOrAxis::Axis, nevc)),
-                Event::AxisChanged(_, val, nevc)
-                    => { state.insert(nevc, val); },
+                Event::AxisChanged(_, val, nevc) if val.abs() > 0.7 &&
+                                                    state.get(&nevc)
+                    .unwrap_or(&1.0f32)
+                    .abs() <= 0.7 => return Some((ButtonOrAxis::Axis, nevc)),
+                Event::AxisChanged(_, val, nevc) => {
+                    state.insert(nevc, val);
+                }
                 _ => (),
             };
         }

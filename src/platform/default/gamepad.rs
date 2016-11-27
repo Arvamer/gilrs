@@ -69,8 +69,11 @@ impl Gamepad {
         MappingSource::None
     }
 
-    pub fn set_mapping(&mut self, _mapping: &MappingData, _strict: bool, _name: Option<&str>)
-                        -> Result<String, MappingError> {
+    pub fn set_mapping(&mut self,
+                       _mapping: &MappingData,
+                       _strict: bool,
+                       _name: Option<&str>)
+                       -> Result<String, MappingError> {
         Err(MappingError::NotImplemented)
     }
 

@@ -51,8 +51,9 @@ impl Gilrs {
         Gilrs {
             gamepads: gamepads,
             rx: rx,
-            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved,
-                          deadzones()),
+            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(),
+                                                              Status::NotObserved,
+                                                              deadzones()),
         }
     }
 
@@ -153,25 +154,41 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
                 true => tx.send((id, Event::ButtonPressed(Button::DPadUp, XINPUT_GAMEPAD_DPAD_UP))),
-                false => tx.send((id, Event::ButtonReleased(Button::DPadUp, XINPUT_GAMEPAD_DPAD_UP))),
+                false => {
+                    tx.send((id, Event::ButtonReleased(Button::DPadUp, XINPUT_GAMEPAD_DPAD_UP)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_DOWN) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_DOWN != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::DPadDown, XINPUT_GAMEPAD_DPAD_DOWN))),
-                false => tx.send((id, Event::ButtonReleased(Button::DPadDown, XINPUT_GAMEPAD_DPAD_DOWN))),
+                true => {
+                    tx.send((id, Event::ButtonPressed(Button::DPadDown, XINPUT_GAMEPAD_DPAD_DOWN)))
+                }
+                false => {
+                    tx.send((id, Event::ButtonReleased(Button::DPadDown, XINPUT_GAMEPAD_DPAD_DOWN)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_LEFT) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_LEFT != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::DPadLeft, XINPUT_GAMEPAD_DPAD_LEFT))),
-                false => tx.send((id, Event::ButtonReleased(Button::DPadLeft, XINPUT_GAMEPAD_DPAD_LEFT))),
+                true => {
+                    tx.send((id, Event::ButtonPressed(Button::DPadLeft, XINPUT_GAMEPAD_DPAD_LEFT)))
+                }
+                false => {
+                    tx.send((id, Event::ButtonReleased(Button::DPadLeft, XINPUT_GAMEPAD_DPAD_LEFT)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::DPadRight, XINPUT_GAMEPAD_DPAD_RIGHT))),
-                false => tx.send((id, Event::ButtonReleased(Button::DPadRight, XINPUT_GAMEPAD_DPAD_RIGHT))),
+                true => {
+                    tx.send((id,
+                             Event::ButtonPressed(Button::DPadRight, XINPUT_GAMEPAD_DPAD_RIGHT)))
+                }
+                false => {
+                    tx.send((id,
+                             Event::ButtonReleased(Button::DPadRight, XINPUT_GAMEPAD_DPAD_RIGHT)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_START) {
@@ -188,26 +205,54 @@ impl Gilrs {
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_THUMB) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_THUMB != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::LeftThumb, XINPUT_GAMEPAD_LEFT_THUMB))),
-                false => tx.send((id, Event::ButtonReleased(Button::LeftThumb, XINPUT_GAMEPAD_LEFT_THUMB))),
+                true => {
+                    tx.send((id,
+                             Event::ButtonPressed(Button::LeftThumb, XINPUT_GAMEPAD_LEFT_THUMB)))
+                }
+                false => {
+                    tx.send((id,
+                             Event::ButtonReleased(Button::LeftThumb, XINPUT_GAMEPAD_LEFT_THUMB)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::RightThumb, XINPUT_GAMEPAD_RIGHT_THUMB))),
-                false => tx.send((id, Event::ButtonReleased(Button::RightThumb, XINPUT_GAMEPAD_RIGHT_THUMB))),
+                true => {
+                    tx.send((id,
+                             Event::ButtonPressed(Button::RightThumb, XINPUT_GAMEPAD_RIGHT_THUMB)))
+                }
+                false => {
+                    tx.send((id,
+                             Event::ButtonReleased(Button::RightThumb, XINPUT_GAMEPAD_RIGHT_THUMB)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::LeftTrigger, XINPUT_GAMEPAD_LEFT_SHOULDER))),
-                false => tx.send((id, Event::ButtonReleased(Button::LeftTrigger, XINPUT_GAMEPAD_LEFT_SHOULDER))),
+                true => {
+                    tx.send((id,
+                             Event::ButtonPressed(Button::LeftTrigger,
+                                                  XINPUT_GAMEPAD_LEFT_SHOULDER)))
+                }
+                false => {
+                    tx.send((id,
+                             Event::ButtonReleased(Button::LeftTrigger,
+                                                   XINPUT_GAMEPAD_LEFT_SHOULDER)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::RightTrigger, XINPUT_GAMEPAD_RIGHT_SHOULDER))),
-                false => tx.send((id, Event::ButtonReleased(Button::RightTrigger, XINPUT_GAMEPAD_RIGHT_SHOULDER))),
+                true => {
+                    tx.send((id,
+                             Event::ButtonPressed(Button::RightTrigger,
+                                                  XINPUT_GAMEPAD_RIGHT_SHOULDER)))
+                }
+                false => {
+                    tx.send((id,
+                             Event::ButtonReleased(Button::RightTrigger,
+                                                   XINPUT_GAMEPAD_RIGHT_SHOULDER)))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_A) {
@@ -293,8 +338,11 @@ impl Gamepad {
         MappingSource::Driver
     }
 
-    pub fn set_mapping(&mut self, _mapping: &MappingData, _strict: bool, _name: Option<&str>)
-                        -> Result<String, MappingError> {
+    pub fn set_mapping(&mut self,
+                       _mapping: &MappingData,
+                       _strict: bool,
+                       _name: Option<&str>)
+                       -> Result<String, MappingError> {
         Err(MappingError::NotImplemented)
     }
 
@@ -339,7 +387,7 @@ fn deadzones() -> Deadzones {
         left_stick: xi::XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as f32 / 65534.0,
         left_trigger2: xi::XINPUT_GAMEPAD_TRIGGER_THRESHOLD as f32 / 255.0,
         ..Default::default()
-   }
+    }
 }
 
 pub mod native_ev_codes {
