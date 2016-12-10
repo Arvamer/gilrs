@@ -8,14 +8,19 @@
 
 use vec_map::VecMap;
 use std::collections::HashMap;
-use platform;
-use platform::native_ev_codes;
+use std::ops::{Index, IndexMut};
+use platform::{self, native_ev_codes as nec};
+use gamepad::{NativeEvCode, Axis, Button};
 use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use uuid::{Uuid, ParseError as UuidError};
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+/// Store mappings from one `NativeEvCode` (`u16`) to another.
+///
+/// This struct is internal, `MappingData` is exported in public interface as `Mapping`.
 pub struct Mapping {
     axes: VecMap<u16>,
     btns: VecMap<u16>,
@@ -33,6 +38,101 @@ impl Mapping {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn from_data(data: &MappingData,
+                     buttons: &[u16],
+                     axes: &[u16],
+                     name: &str,
+                     uuid: Uuid)
+                     -> Result<(Self, String), MappingError> {
+        use constants::*;
+
+        if !Self::is_name_valid(name) {
+            return Err(MappingError::InvalidName);
+        }
+
+        if data.axes.contains_key(Axis::LeftTrigger as usize) &&
+           data.buttons.contains_key(Button::LeftTrigger as usize) ||
+           data.axes.contains_key(Axis::LeftTrigger2 as usize) &&
+           data.buttons.contains_key(Button::LeftTrigger2 as usize) ||
+           data.axes.contains_key(Axis::RightTrigger as usize) &&
+           data.buttons.contains_key(Button::RightTrigger as usize) ||
+           data.axes.contains_key(Axis::RightTrigger2 as usize) &&
+           data.buttons.contains_key(Button::RightTrigger2 as usize) {
+            return Err(MappingError::DuplicatedEntry);
+        }
+
+        let mut mapped_btns = VecMap::<u16>::new();
+        let mut mapped_axes = VecMap::<u16>::new();
+        let mut sdl_mappings = format!("{},{},", uuid.simple(), name);
+
+        {
+            let mut add_button = |ident, ev_code, mapped_ev_code| {
+                Self::add_button(ident,
+                                 ev_code,
+                                 mapped_ev_code,
+                                 buttons,
+                                 &mut sdl_mappings,
+                                 &mut mapped_btns)
+            };
+
+            for (button, &ev_code) in &data.buttons {
+                match button as u16 {
+                    BTN_SOUTH => add_button("a", ev_code, nec::BTN_SOUTH)?,
+                    BTN_EAST => add_button("b", ev_code, nec::BTN_EAST)?,
+                    BTN_WEST => add_button("x", ev_code, nec::BTN_WEST)?,
+                    BTN_NORTH => add_button("y", ev_code, nec::BTN_NORTH)?,
+                    BTN_LT => add_button("leftshoulder", ev_code, nec::BTN_LT)?,
+                    BTN_RT => add_button("rightshoulder", ev_code, nec::BTN_RT)?,
+                    BTN_LT2 => add_button("lefttrigger", ev_code, nec::BTN_LT2)?,
+                    BTN_RT2 => add_button("righttrigger", ev_code, nec::BTN_RT2)?,
+                    BTN_SELECT => add_button("back", ev_code, nec::BTN_SELECT)?,
+                    BTN_START => add_button("start", ev_code, nec::BTN_START)?,
+                    BTN_MODE => add_button("guide", ev_code, nec::BTN_MODE)?,
+                    BTN_LTHUMB => add_button("leftstick", ev_code, nec::BTN_LTHUMB)?,
+                    BTN_RTHUMB => add_button("rightstick", ev_code, nec::BTN_RTHUMB)?,
+                    BTN_DPAD_UP => add_button("dpup", ev_code, nec::BTN_DPAD_UP)?,
+                    BTN_DPAD_DOWN => add_button("dpdown", ev_code, nec::BTN_DPAD_DOWN)?,
+                    BTN_DPAD_LEFT => add_button("dpleft", ev_code, nec::BTN_DPAD_LEFT)?,
+                    BTN_DPAD_RIGHT => add_button("dpright", ev_code, nec::BTN_DPAD_RIGHT)?,
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        {
+            let mut add_axis = |ident, ev_code, mapped_ev_code| {
+                Self::add_axis(ident,
+                               ev_code,
+                               mapped_ev_code,
+                               axes,
+                               &mut sdl_mappings,
+                               &mut mapped_axes)
+            };
+
+            for (axis, &ev_code) in &data.axes {
+                match axis as u16 {
+                    AXIS_LSTICKX => add_axis("leftx", ev_code, nec::AXIS_LSTICKX)?,
+                    AXIS_LSTICKY => add_axis("lefty", ev_code, nec::AXIS_LSTICKY)?,
+                    AXIS_RSTICKX => add_axis("rightx", ev_code, nec::AXIS_RSTICKX)?,
+                    AXIS_RSTICKY => add_axis("righty", ev_code, nec::AXIS_RSTICKY)?,
+                    AXIS_RT => add_axis("rightshoulder", ev_code, nec::AXIS_RT)?,
+                    AXIS_LT => add_axis("leftshoulder", ev_code, nec::AXIS_LT)?,
+                    AXIS_RT2 => add_axis("righttrigger", ev_code, nec::AXIS_RT2)?,
+                    AXIS_LT2 => add_axis("lefttrigger", ev_code, nec::AXIS_LT2)?,
+                    _ => unreachable!(),
+                }
+            }
+        }
+
+        let mapping = Mapping {
+            axes: mapped_axes,
+            btns: mapped_btns,
+            name: name.to_owned(),
+        };
+
+        Ok((mapping, sdl_mappings))
     }
 
     pub fn parse_sdl_mapping(line: &str,
@@ -80,43 +180,43 @@ impl Mapping {
                     }
                 }
                 "x" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_WEST));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_WEST));
                 }
                 "a" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_SOUTH));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_SOUTH));
                 }
                 "b" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_EAST));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_EAST));
                 }
                 "y" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_NORTH));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_NORTH));
                 }
                 "back" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_SELECT));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_SELECT));
                 }
                 "guide" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_MODE));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_MODE));
                 }
                 "start" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_START));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_START));
                 }
                 "leftstick" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_LTHUMB));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_LTHUMB));
                 }
                 "rightstick" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, native_ev_codes::BTN_RTHUMB));
+                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_RTHUMB));
                 }
                 "leftx" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, native_ev_codes::AXIS_LSTICKX));
+                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LSTICKX));
                 }
                 "lefty" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, native_ev_codes::AXIS_LSTICKY));
+                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LSTICKY));
                 }
                 "rightx" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, native_ev_codes::AXIS_RSTICKX));
+                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RSTICKX));
                 }
                 "righty" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, native_ev_codes::AXIS_RSTICKY));
+                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RSTICKY));
                 }
                 "leftshoulder" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -124,8 +224,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_LT,
-                                                     native_ev_codes::AXIS_LT));
+                                                     nec::BTN_LT,
+                                                     nec::AXIS_LT));
                 }
                 "lefttrigger" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -133,8 +233,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_LT2,
-                                                     native_ev_codes::AXIS_LT2));
+                                                     nec::BTN_LT2,
+                                                     nec::AXIS_LT2));
                 }
                 "rightshoulder" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -142,8 +242,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_RT,
-                                                     native_ev_codes::AXIS_RT));
+                                                     nec::BTN_RT,
+                                                     nec::AXIS_RT));
                 }
                 "righttrigger" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -151,8 +251,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_RT2,
-                                                     native_ev_codes::AXIS_RT2));
+                                                     nec::BTN_RT2,
+                                                     nec::AXIS_RT2));
                 }
                 "dpleft" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -160,8 +260,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_DPAD_LEFT,
-                                                     native_ev_codes::AXIS_DPADX));
+                                                     nec::BTN_DPAD_LEFT,
+                                                     nec::AXIS_DPADX));
                 }
                 "dpright" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -169,8 +269,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_DPAD_RIGHT,
-                                                     native_ev_codes::AXIS_DPADX));
+                                                     nec::BTN_DPAD_RIGHT,
+                                                     nec::AXIS_DPADX));
                 }
                 "dpup" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -178,8 +278,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_DPAD_UP,
-                                                     native_ev_codes::AXIS_DPADY));
+                                                     nec::BTN_DPAD_UP,
+                                                     nec::AXIS_DPADY));
                 }
                 "dpdown" => {
                     try!(Mapping::insert_btn_or_axis(val,
@@ -187,8 +287,8 @@ impl Mapping {
                                                      axes,
                                                      m_btns,
                                                      m_axes,
-                                                     native_ev_codes::BTN_DPAD_DOWN,
-                                                     native_ev_codes::AXIS_DPADY));
+                                                     nec::BTN_DPAD_DOWN,
+                                                     nec::AXIS_DPADY));
                 }
                 _ => (),
             }
@@ -231,8 +331,8 @@ impl Mapping {
             };
 
             match dir {
-                1 | 4 => Ok(platform::native_ev_codes::AXIS_DPADY),
-                2 | 8 => Ok(platform::native_ev_codes::AXIS_DPADX),
+                1 | 4 => Ok(nec::AXIS_DPADY),
+                2 | 8 => Ok(nec::AXIS_DPADX),
                 _ => Err(ParseSdlMappingError::InvalidValue),
             }
         } else {
@@ -306,6 +406,38 @@ impl Mapping {
         Ok(())
     }
 
+    fn add_button(ident: &str,
+                  ev_code: u16,
+                  mapped_ev_code: u16,
+                  buttons: &[u16],
+                  sdl_mappings: &mut String,
+                  mapped_btns: &mut VecMap<u16>)
+                  -> Result<(), MappingError> {
+        let n_btn =
+            buttons.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
+        sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
+        mapped_btns.insert(ev_code as usize, mapped_ev_code);
+        Ok(())
+    }
+
+    fn add_axis(ident: &str,
+                ev_code: u16,
+                mapped_ev_code: u16,
+                axes: &[u16],
+                sdl_mappings: &mut String,
+                mapped_axes: &mut VecMap<u16>)
+                -> Result<(), MappingError> {
+        let n_axis =
+            axes.iter().position(|&x| x == ev_code).ok_or(MappingError::InvalidCode(ev_code))?;
+        sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
+        mapped_axes.insert(ev_code as usize, mapped_ev_code);
+        Ok(())
+    }
+
+    fn is_name_valid(name: &str) -> bool {
+        !name.chars().any(|x| x == ',')
+    }
+
     pub fn map(&self, code: u16, kind: Kind) -> u16 {
         match kind {
             Kind::Button => *self.btns.get(code as usize).unwrap_or(&code),
@@ -347,7 +479,7 @@ pub enum ParseSdlMappingError {
 }
 
 impl ParseSdlMappingError {
-    fn to_str(self) -> &'static str {
+    fn into_str(self) -> &'static str {
         match self {
             ParseSdlMappingError::MissingGuid => "GUID is missing",
             ParseSdlMappingError::InvalidGuid => "GUID is invalid",
@@ -363,13 +495,13 @@ impl ParseSdlMappingError {
 
 impl Error for ParseSdlMappingError {
     fn description(&self) -> &str {
-        self.to_str()
+        self.into_str()
     }
 }
 
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        fmt.write_str(self.to_str())
+        fmt.write_str(self.into_str())
     }
 }
 
@@ -417,9 +549,136 @@ impl MappingDb {
     }
 }
 
+/// Stores data used to map gamepad buttons and axes.
+///
+/// To add new element, you should use `IndexMut` operator using `Axis` or `Button` as index (see
+/// example). After you add all mappings, use
+/// [`Gamepad::set_mapping(…)`](struct.Gamepad.html#method.set_mapping) to change mapping of
+/// existing gamepad.
+///
+/// Example
+/// =======
+///
+/// ```
+/// use gilrs::{Mapping, Button, Axis};
+///
+/// let mut data = Mapping::new();
+/// // map native event code 3 to Axis::LeftStickX
+/// data[Axis::LeftStickX] = 3;
+/// // map native event code 3 to Button::South (although both are 3,
+/// // they refer to different things)
+/// data[Button::South] = 3;
+///
+/// assert_eq!(data.axis(Axis::LeftStickX), Some(3));
+/// assert_eq!(data.button(Button::South), Some(3));
+/// ```
+///
+/// See `examples/mapping.rs` for more detailed example.
+#[derive(Debug, Clone)]
+// Re-exported as Mapping
+pub struct MappingData {
+    buttons: VecMap<u16>,
+    axes: VecMap<u16>,
+}
+
+impl MappingData {
+    /// Creates new `Mapping`.
+    pub fn new() -> Self {
+        MappingData {
+            buttons: VecMap::with_capacity(18),
+            axes: VecMap::with_capacity(11),
+        }
+    }
+
+    /// Returns `NativeEvCode` associated with button index.
+    pub fn button(&self, idx: Button) -> Option<NativeEvCode> {
+        self.buttons.get(idx as usize).cloned()
+    }
+
+    /// Returns `NativeEvCode` associated with axis index.
+    pub fn axis(&self, idx: Axis) -> Option<NativeEvCode> {
+        self.axes.get(idx as usize).cloned()
+    }
+}
+
+impl Index<Button> for MappingData {
+    type Output = NativeEvCode;
+
+    fn index(&self, index: Button) -> &Self::Output {
+        &self.buttons[index as usize]
+    }
+}
+
+impl Index<Axis> for MappingData {
+    type Output = NativeEvCode;
+
+    fn index(&self, index: Axis) -> &Self::Output {
+        &self.axes[index as usize]
+    }
+}
+
+impl IndexMut<Button> for MappingData {
+    fn index_mut(&mut self, index: Button) -> &mut Self::Output {
+        self.buttons.entry(index as usize).or_insert(0)
+    }
+}
+
+impl IndexMut<Axis> for MappingData {
+    fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
+        self.axes.entry(index as usize).or_insert(0)
+    }
+}
+
+/// The error type for functions related to gamepad mapping.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MappingError {
+    /// Gamepad does not have element referenced by `NativeEvCode`.
+    InvalidCode(NativeEvCode),
+    /// Name contains comma (',').
+    InvalidName,
+    /// This function is not implemented for current platform.
+    NotImplemented,
+    /// Gamepad is not connected.
+    NotConnected,
+    /// Same gamepad element is referenced by axis and button.
+    DuplicatedEntry,
+}
+
+impl MappingError {
+    fn into_str(self) -> &'static str {
+        match self {
+            MappingError::InvalidCode(_) => {
+                "gamepad does not have element with requested event code"
+            }
+            MappingError::InvalidName => "name can not contain comma",
+            MappingError::NotImplemented => {
+                "current platform does not implement setting custom mappings"
+            }
+            MappingError::NotConnected => "gamepad is not connected",
+            MappingError::DuplicatedEntry => {
+                "same gamepad element is referenced by axis and button"
+            }
+        }
+    }
+}
+
+impl Error for MappingError {
+    fn description(&self) -> &str {
+        self.into_str()
+    }
+}
+
+impl Display for MappingError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        f.write_str(self.into_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gamepad::{Button, Axis};
+    use uuid::Uuid;
     // Do not include platform, mapping from
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
     const TEST_STR: &'static str = "03000000260900008888000000010000,GameCube {WiseGroup USB \
@@ -433,5 +692,40 @@ mod tests {
     #[test]
     fn mapping() {
         Mapping::parse_sdl_mapping(TEST_STR, &BUTTONS, &AXES).unwrap();
+    }
+
+    #[test]
+    fn from_data() {
+        let uuid = Uuid::nil();
+        let name = "Best Gamepad";
+        let buttons = [10, 11, 12, 13, 14, 15];
+        let axes = [0, 1, 2, 3];
+
+        let mut data = MappingData::new();
+        data[Axis::LeftStickX] = 0;
+        data[Axis::LeftStickY] = 1;
+        data[Axis::LeftTrigger] = 2;
+        data[Axis::LeftTrigger2] = 3;
+        data[Button::South] = 10;
+        data[Button::South] = 10;
+        data[Button::West] = 11;
+        data[Button::Start] = 15;
+
+        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
+            .unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+        assert_eq!(mappings, sdl_mappings);
+
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, "Inval,id name", uuid);
+        assert_eq!(Err(MappingError::InvalidName), incorrect_mappings);
+
+        data[Button::South] = 22;
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        assert_eq!(Err(MappingError::InvalidCode(22)), incorrect_mappings);
+
+        data[Button::South] = 10;
+        data[Button::LeftTrigger] = 11;
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        assert_eq!(Err(MappingError::DuplicatedEntry), incorrect_mappings);
     }
 }

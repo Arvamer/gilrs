@@ -1,5 +1,6 @@
 use platform;
 use constants::*;
+use mapping::{MappingData, MappingError};
 use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
@@ -24,7 +25,9 @@ use std::f32::NAN;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, Event::ButtonPressed(Button::South, _)) => println!("Player {}: jump!", id + 1),
+///             (id, Event::ButtonPressed(Button::South, _)) => {
+///                 println!("Player {}: jump!", id + 1)
+///             }
 ///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
 ///             _ => (),
 ///         };
@@ -220,20 +223,79 @@ impl Gamepad {
         self.inner.power_info()
     }
 
-    /// Returns source of gamepad mappings. Can be used to filter gamepads which do not provide
+    /// Returns source of gamepad mapping. Can be used to filter gamepads which do not provide
     /// unified controller layout.
     ///
     /// ```
-    /// use gilrs::MappingsSource;
+    /// use gilrs::MappingSource;
     /// # let mut gilrs = gilrs::Gilrs::new();
     ///
     /// for (_, gamepad) in gilrs.gamepads().filter(
-    ///     |gp| gp.1.mappings_source() != MappingsSource::None)
+    ///     |gp| gp.1.mapping_source() != MappingSource::None)
     /// {
     ///     println!("{} is ready to use!", gamepad.name());
     /// }
-    pub fn mappings_source(&self) -> MappingsSource {
-        self.inner.mappings_source()
+    pub fn mapping_source(&self) -> MappingSource {
+        self.inner.mapping_source()
+    }
+
+    /// Sets gamepad's mapping and returns SDL2 representation of them. Returned mappings may not be
+    /// compatible with SDL2 - if it is important, use
+    /// [`set_mapping_strict()`](#method.set_mapping_strict).
+    ///
+    /// The `name` argument can be a string slice with custom gamepad name or `None`. If `None`,
+    /// gamepad name reported by driver will be used.
+    ///
+    /// This function return error if `name` contains comma, `mapping` have axis and button entry
+    /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
+    /// not have any element with `NativeEvCode` used in mapping. Error is also returned if this
+    /// function is not implemented or gamepad is not connected.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gilrs::{Mapping, Button};
+    ///
+    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// let mut data = Mapping::new();
+    /// data[Button::South] = 213;
+    /// // …
+    ///
+    /// // or `match gilrs[0].set_mapping(&data, None) {`
+    /// match gilrs[0].set_mapping(&data, "Custom name") {
+    ///     Ok(sdl) => println!("SDL2 mapping: {}", sdl),
+    ///     Err(e) => println!("Failed to set mapping: {}", e),
+    /// };
+    /// ```
+    ///
+    /// Example with `MappingError::DuplicatedEntry`:
+    ///
+    /// ```no_run
+    /// use gilrs::{Mapping, Button, Axis, MappingError};
+    ///
+    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// let mut data = Mapping::new();
+    /// data[Button::RightTrigger2] = 2;
+    /// data[Axis::RightTrigger2] = 2;
+    ///
+    /// assert_eq!(gilrs[0].set_mapping(&data, None), Err(MappingError::DuplicatedEntry));
+    /// ```
+    ///
+    /// See also `examples/mapping.rs`.
+    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(&mut self,
+                                                     mapping: &MappingData,
+                                                     name: O)
+                                                     -> Result<String, MappingError> {
+        self.inner.set_mapping(mapping, false, name.into())
+    }
+
+    /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
+    /// with SDL2.
+    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self,
+                                                            mapping: &MappingData,
+                                                            name: O)
+                                                            -> Result<String, MappingError> {
+        self.inner.set_mapping(mapping, true, name.into())
     }
 
     /// Creates and uploads new force feedback effect using `data`. This function will fail if
@@ -545,9 +607,9 @@ impl Deadzones {
 
 /// Platform specific event code.
 ///
-/// Meaning of specific codes can vary not only between platforms but also between different devices.
-/// Context is also important - axis with code 2 is something totally different than button with
-/// code 2.
+/// Meaning of specific codes can vary not only between platforms but also between different
+/// devices. Context is also important - axis with code 2 is something totally different than button
+/// with code 2.
 ///
 /// **DPad is often represented as 2 axis, not 4 buttons.** So if you get event `(0,
 /// Button::DPadDown, 4)`, you can not be sure if 4 is button or axis. On Linux you can assume that
@@ -733,8 +795,8 @@ pub enum Axis {
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,
     RightTrigger2 = AXIS_RT2,
-    Unknown = ::std::u16::MAX, // some "random" value because rustc want to assign 11u16 which
-                               // already exists
+    Unknown = ::std::u16::MAX, /* some "random" value because rustc want to assign 11u16 which
+                                * already exists */
 }
 
 impl Axis {
@@ -788,7 +850,7 @@ pub enum PowerInfo {
 
 /// Source of gamepad mappings.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MappingsSource {
+pub enum MappingSource {
     /// Gamepad uses SDL mappings.
     SdlMappings,
     /// Gamepad does not use any mappings but driver should provide unified controller layout.

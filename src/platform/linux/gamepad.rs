@@ -8,7 +8,7 @@
 use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
-              Deadzones, MappingsSource};
+              Deadzones, MappingSource};
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -16,7 +16,7 @@ use uuid::Uuid;
 use libc as c;
 use ioctl;
 use constants;
-use mapping::{Mapping, Kind, MappingDb};
+use mapping::{Mapping, Kind, MappingDb, MappingData, MappingError};
 use ioctl::input_absinfo as AbsInfo;
 use super::ioctl_def;
 
@@ -225,7 +225,7 @@ pub struct Gamepad {
     uuid: Uuid,
     bt_capacity_fd: i32,
     bt_status_fd: i32,
-    mappings_source: MappingsSource,
+    mapping_source: MappingSource,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -346,7 +346,7 @@ impl Gamepad {
             uuid: Uuid::nil(),
             bt_status_fd: -1,
             bt_capacity_fd: -1,
-            mappings_source: MappingsSource::None,
+            mapping_source: MappingSource::None,
         }
     }
 
@@ -370,17 +370,21 @@ impl Gamepad {
             Some(uuid) => uuid,
             None => {
                 error!("Failed to get id of device {:?}", path);
-                unsafe { c::close(fd); }
+                unsafe {
+                    c::close(fd);
+                }
                 return None;
-            },
+            }
         };
 
-        let (mapping, src) = match Self::create_mappings_if_gamepad(fd, mapping_db, uuid, path) {
+        let (mapping, src) = match Self::create_mapping_if_gamepad(fd, mapping_db, uuid, path) {
             Some(m) => m,
             None => {
-                unsafe { c::close(fd); }
+                unsafe {
+                    c::close(fd);
+                }
                 return None;
-            },
+            }
         };
 
         let name = Self::get_name(fd, &mapping).unwrap_or_else(|| {
@@ -403,7 +407,7 @@ impl Gamepad {
             uuid: uuid,
             bt_capacity_fd: cap,
             bt_status_fd: status,
-            mappings_source: src,
+            mapping_source: src,
         };
 
         info!("Found {:#?}", gamepad);
@@ -419,7 +423,8 @@ impl Gamepad {
                     None
                 } else {
                     Some(CStr::from_ptr(namebuff.as_ptr() as *const i8)
-                        .to_string_lossy().into_owned())
+                        .to_string_lossy()
+                        .into_owned())
                 }
             }
         } else {
@@ -432,7 +437,7 @@ impl Gamepad {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
                 if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
-                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
+                   test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits) {
                     true
                 } else {
                     false
@@ -443,63 +448,51 @@ impl Gamepad {
         }
     }
 
-    fn create_mappings_if_gamepad(fd: i32, db: &MappingDb, uuid: Uuid, path: &CStr)
-        -> Option<(Mapping, MappingsSource)> {
+    fn create_mapping_if_gamepad(fd: i32,
+                                 db: &MappingDb,
+                                 uuid: Uuid,
+                                 path: &CStr)
+                                 -> Option<(Mapping, MappingSource)> {
         unsafe {
             let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
             let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
             let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
 
             if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
-                ioctl::eviocgbit(fd,
-                                 EV_KEY as u32,
-                                 key_bits.len() as i32,
-                                 key_bits.as_mut_ptr()) < 0 ||
-                ioctl::eviocgbit(fd,
-                                 EV_ABS as u32,
-                                 abs_bits.len() as i32,
-                                 abs_bits.as_mut_ptr()) < 0 {
+               ioctl::eviocgbit(fd,
+                                EV_KEY as u32,
+                                key_bits.len() as i32,
+                                key_bits.as_mut_ptr()) < 0 ||
+               ioctl::eviocgbit(fd,
+                                EV_ABS as u32,
+                                abs_bits.len() as i32,
+                                abs_bits.as_mut_ptr()) < 0 {
                 info!("Unable to get essential information about device {:?}, probably js \
                        interface, skipping…",
                       path);
                 return None;
             }
 
-            let mut buttons = Vec::with_capacity(16);
-            let mut axes = Vec::with_capacity(8);
-
-            for bit in (BTN_MISC)..(BTN_MOUSE) {
-                if test_bit(bit, &key_bits) {
-                    buttons.push(bit);
-                }
-            }
-            for bit in (BTN_JOYSTICK)..(key_bits.len() as u16 * 8) {
-                if test_bit(bit, &key_bits) {
-                    buttons.push(bit);
-                }
-            }
-            for bit in 0..(abs_bits.len() * 8) {
-                if test_bit(bit as u16, &abs_bits) {
-                    axes.push(bit as u16);
-                }
-            }
+            let buttons = Self::find_buttons(&key_bits, false);
+            let axes = Self::find_axes(&abs_bits);
 
             let mapping = db.get(uuid)
                 .and_then(|s| Mapping::parse_sdl_mapping(s, &buttons, &axes).ok());
 
             if Self::is_gamepad(&buttons, &axes) {
                 let src = if mapping.is_some() {
-                    MappingsSource::SdlMappings
+                    MappingSource::SdlMappings
                 } else {
                     if Self::uses_gamepad_api(&key_bits) {
-                        MappingsSource::Driver
+                        MappingSource::Driver
                     } else {
-                        MappingsSource::None
+                        MappingSource::None
                     }
                 };
                 Some((mapping.unwrap_or(Mapping::new()), src))
             } else {
-                warn!("{:?} doesn't have at least 1 button and 2 axes, ignoring.", path);
+                warn!("{:?} doesn't have at least 1 button and 2 axes, ignoring.",
+                      path);
                 None
             }
 
@@ -507,11 +500,7 @@ impl Gamepad {
     }
 
     fn is_gamepad(btns: &[u16], axes: &[u16]) -> bool {
-        if btns.len() >= 1 && axes.len() >= 2 {
-            true
-        } else {
-            false
-        }
+        if btns.len() >= 1 && axes.len() >= 2 { true } else { false }
     }
 
     fn uses_gamepad_api(keys: &[u8]) -> bool {
@@ -527,6 +516,48 @@ impl Gamepad {
             }
         }
         Some(create_uuid(iid))
+    }
+
+    fn find_buttons(key_bits: &[u8], only_gamepad_btns: bool) -> Vec<u16> {
+        let mut buttons = Vec::with_capacity(16);
+
+        for bit in BTN_MISC..BTN_MOUSE {
+            if test_bit(bit, &key_bits) {
+                buttons.push(bit);
+            }
+        }
+        for bit in BTN_JOYSTICK..(key_bits.len() as u16 * 8) {
+            if test_bit(bit, &key_bits) {
+                buttons.push(bit);
+            }
+        }
+
+        if !only_gamepad_btns {
+            for bit in 0..BTN_MISC {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+            for bit in BTN_MOUSE..BTN_JOYSTICK {
+                if test_bit(bit, &key_bits) {
+                    buttons.push(bit);
+                }
+            }
+        }
+
+        buttons
+    }
+
+    fn find_axes(abs_bits: &[u8]) -> Vec<u16> {
+        let mut axes = Vec::with_capacity(8);
+
+        for bit in 0..(abs_bits.len() * 8) {
+            if test_bit(bit as u16, &abs_bits) {
+                axes.push(bit as u16);
+            }
+        }
+
+        axes
     }
 
     fn battery_fd(dev: &Device) -> (i32, i32) {
@@ -585,7 +616,8 @@ impl Gamepad {
                                 0 => {
                                     match self.abs_dpad_prev_val.1 {
                                         val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadDown, event.code))
+                                            Some(Event::ButtonReleased(Button::DPadDown,
+                                                                       event.code))
                                         }
                                         val if val < 0 => {
                                             Some(Event::ButtonReleased(Button::DPadUp, event.code))
@@ -593,8 +625,12 @@ impl Gamepad {
                                         _ => None,
                                     }
                                 }
-                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadDown, event.code)),
-                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadUp, event.code)),
+                                val if val > 0 => {
+                                    Some(Event::ButtonPressed(Button::DPadDown, event.code))
+                                }
+                                val if val < 0 => {
+                                    Some(Event::ButtonPressed(Button::DPadUp, event.code))
+                                }
                                 _ => unreachable!(),
                             };
                             self.abs_dpad_prev_val.1 = event.value as i16;
@@ -605,16 +641,22 @@ impl Gamepad {
                                 0 => {
                                     match self.abs_dpad_prev_val.0 {
                                         val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadRight, event.code))
+                                            Some(Event::ButtonReleased(Button::DPadRight,
+                                                                       event.code))
                                         }
                                         val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadLeft, event.code))
+                                            Some(Event::ButtonReleased(Button::DPadLeft,
+                                                                       event.code))
                                         }
                                         _ => None,
                                     }
                                 }
-                                val if val > 0 => Some(Event::ButtonPressed(Button::DPadRight, event.code)),
-                                val if val < 0 => Some(Event::ButtonPressed(Button::DPadLeft, event.code)),
+                                val if val > 0 => {
+                                    Some(Event::ButtonPressed(Button::DPadRight, event.code))
+                                }
+                                val if val < 0 => {
+                                    Some(Event::ButtonPressed(Button::DPadLeft, event.code))
+                                }
                                 _ => unreachable!(),
                             };
                             self.abs_dpad_prev_val.0 = event.value as i16;
@@ -713,8 +755,44 @@ impl Gamepad {
         }
     }
 
-    pub fn mappings_source(&self) -> MappingsSource {
-        self.mappings_source
+    pub fn mapping_source(&self) -> MappingSource {
+        self.mapping_source
+    }
+
+    pub fn set_mapping(&mut self,
+                       mapping: &MappingData,
+                       strict: bool,
+                       name: Option<&str>)
+                       -> Result<String, MappingError> {
+        if self.fd < 0 {
+            return Err(MappingError::NotConnected);
+        }
+
+        let name = match name {
+            Some(n) => n,
+            None => &self.name,
+        };
+
+        let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
+        let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
+
+        unsafe {
+            ioctl::eviocgbit(self.fd,
+                             EV_KEY as u32,
+                             key_bits.len() as i32,
+                             key_bits.as_mut_ptr());
+            ioctl::eviocgbit(self.fd,
+                             EV_ABS as u32,
+                             abs_bits.len() as i32,
+                             abs_bits.as_mut_ptr());
+        }
+
+        let buttons = Self::find_buttons(&key_bits, strict);
+        let axes = Self::find_axes(&abs_bits);
+
+        let (mapping, s) = Mapping::from_data(mapping, &buttons, &axes, name, self.uuid)?;
+        self.mapping = mapping;
+        Ok(s)
     }
 
     pub fn max_ff_effects(&self) -> usize {
@@ -950,21 +1028,16 @@ mod tests {
         assert_eq!(Button::LeftTrigger, Button::from_u16(super::BTN_TL));
         assert_eq!(Button::LeftTrigger2, Button::from_u16(super::BTN_TL2));
         assert_eq!(Button::RightTrigger, Button::from_u16(super::BTN_TR));
-        assert_eq!(Button::RightTrigger2,
-                   Button::from_u16(super::BTN_TR2));
+        assert_eq!(Button::RightTrigger2, Button::from_u16(super::BTN_TR2));
         assert_eq!(Button::Select, Button::from_u16(super::BTN_SELECT));
         assert_eq!(Button::Start, Button::from_u16(super::BTN_START));
         assert_eq!(Button::Mode, Button::from_u16(super::BTN_MODE));
         assert_eq!(Button::LeftThumb, Button::from_u16(super::BTN_THUMBL));
-        assert_eq!(Button::RightThumb,
-                   Button::from_u16(super::BTN_THUMBR));
+        assert_eq!(Button::RightThumb, Button::from_u16(super::BTN_THUMBR));
         assert_eq!(Button::DPadUp, Button::from_u16(super::BTN_DPAD_UP));
-        assert_eq!(Button::DPadDown,
-                   Button::from_u16(super::BTN_DPAD_DOWN));
-        assert_eq!(Button::DPadLeft,
-                   Button::from_u16(super::BTN_DPAD_LEFT));
-        assert_eq!(Button::DPadRight,
-                   Button::from_u16(super::BTN_DPAD_RIGHT));
+        assert_eq!(Button::DPadDown, Button::from_u16(super::BTN_DPAD_DOWN));
+        assert_eq!(Button::DPadLeft, Button::from_u16(super::BTN_DPAD_LEFT));
+        assert_eq!(Button::DPadRight, Button::from_u16(super::BTN_DPAD_RIGHT));
 
         assert_eq!(Button::Unknown, Button::from_u16(super::BTN_SOUTH - 1));
         assert_eq!(Button::Unknown, Button::from_u16(super::BTN_THUMBR + 1));

@@ -1,5 +1,5 @@
 pub fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
-    let magnitude = (x*x + y*y).sqrt();
+    let magnitude = (x * x + y * y).sqrt();
     if magnitude <= threshold {
         (0.0, 0.0)
     } else {

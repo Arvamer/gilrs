@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt, MappingsSource};
+use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt, MappingSource};
+use mapping::{MappingData, MappingError};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -64,8 +65,16 @@ impl Gamepad {
         PowerInfo::Unknown
     }
 
-    pub fn mappings_source(&self) -> MappingsSource {
-        MappingsSource::None
+    pub fn mapping_source(&self) -> MappingSource {
+        MappingSource::None
+    }
+
+    pub fn set_mapping(&mut self,
+                       _mapping: &MappingData,
+                       _strict: bool,
+                       _name: Option<&str>)
+                       -> Result<String, MappingError> {
+        Err(MappingError::NotImplemented)
     }
 
     pub fn max_ff_effects(&self) -> usize {
