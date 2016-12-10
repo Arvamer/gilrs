@@ -9,6 +9,7 @@ v0.4.0 - unreleased
 - `Gamepad::mappings_source(&self)` which can be used to filter gamepads which
   not provide unified controller layout
 - `MappingsSource` enum
+- You can now set custom mapping for gamepad with `Gamepad::set_mapping(…)`
 
 ### Changed
 
