@@ -31,9 +31,9 @@ pub struct Gilrs {
 }
 
 impl Gilrs {
-    pub fn new() -> Self {
+    pub fn with_mappings(sdl_mappings: &str) -> Self {
         let mut gamepads = Vec::new();
-        let mapping_db = MappingDb::new();
+        let mapping_db = MappingDb::with_mappings(sdl_mappings);
 
         let udev = match Udev::new() {
             Some(udev) => udev,
@@ -78,6 +78,10 @@ impl Gilrs {
                                                          Default::default()),
             event_counter: 0,
         }
+    }
+
+    pub fn new() -> Self {
+        Self::with_mappings("")
     }
 
     fn none() -> Self {

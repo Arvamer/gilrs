@@ -10,6 +10,7 @@ v0.4.0 - unreleased
   not provide unified controller layout
 - `MappingsSource` enum
 - You can now set custom mapping for gamepad with `Gamepad::set_mapping(…)`
+- `Gilrs::with_mappings(&str)` to create Gilrs with additional gamepad mappings
 
 ### Changed
 

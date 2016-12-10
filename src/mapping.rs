@@ -548,8 +548,8 @@ impl MappingDb {
         }
     }
 
-    pub fn get(&self, uuid: Uuid) -> Option<&String> {
-        self.mappings.get(&uuid)
+    pub fn get(&self, uuid: Uuid) -> Option<&str> {
+        self.mappings.get(&uuid).map(String::as_ref)
     }
 }
 
@@ -683,9 +683,9 @@ mod tests {
     use super::*;
     use gamepad::{Button, Axis};
     use uuid::Uuid;
-    // Do not include platform, mapping from
+    // Do not include platform, mapping from (with UUID modified)
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
-    const TEST_STR: &'static str = "03000000260900008888000000010000,GameCube {WiseGroup USB \
+    const TEST_STR: &'static str = "03000000260900008888000000010001,GameCube {WiseGroup USB \
                                     box},a:b0,b:b2,y:b3,x:b1,start:b7,rightshoulder:b6,dpup:h0.1,\
                                     dpleft:h0.8,dpdown:h0.4,dpright:h0.2,leftx:a0,lefty:a1,rightx:\
                                     a2,righty:a3,lefttrigger:a4,righttrigger:a5,";
@@ -731,5 +731,13 @@ mod tests {
         data[Button::LeftTrigger] = 11;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
         assert_eq!(Err(MappingError::DuplicatedEntry), incorrect_mappings);
+    }
+
+    #[test]
+    fn with_mappings() {
+        let mappings = format!("\nShould be ignored\nThis also should,be ignored\n\n{}", TEST_STR);
+        let db = MappingDb::with_mappings(&mappings);
+        assert_eq!(Some(TEST_STR),
+                   db.get(Uuid::parse_str("03000000260900008888000000010001").unwrap()));
     }
 }

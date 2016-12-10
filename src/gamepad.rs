@@ -51,6 +51,14 @@ impl Gilrs {
         Gilrs { inner: platform::Gilrs::new() }
     }
 
+    /// Creates new `Gilrs` and add content of `sdl_mapping` to internal database. Each mapping
+    /// should be in separate line. Lines that does not start from UUID are ignored.
+    ///
+    /// This function does not check validity of mappings.
+    pub fn with_mappings(sdl_mapping: &str) -> Self {
+        Gilrs { inner: platform::Gilrs::with_mappings(sdl_mapping) }
+    }
+
     /// Creates iterator over available events. See [`Event`](enum.Event.html) for more information.
     pub fn poll_events(&mut self) -> EventIterator {
         EventIterator { gilrs: &mut self.inner }

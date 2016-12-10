@@ -25,6 +25,10 @@ impl Gilrs {
         }
     }
 
+    pub fn with_mappings(_sdl_mapping: &str) -> Self {
+        Self::new()
+    }
+
     pub fn next_event(&mut self) -> Option<(usize, Event)> {
         None
     }
