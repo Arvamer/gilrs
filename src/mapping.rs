@@ -18,6 +18,9 @@ use uuid::{Uuid, ParseError as UuidError};
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
+/// Store mappings from one `NativeEvCode` (`u16`) to another.
+///
+/// This struct is internal, `MappingData` is exported in public interface as `Mapping`.
 pub struct Mapping {
     axes: VecMap<u16>,
     btns: VecMap<u16>,
@@ -89,8 +92,8 @@ impl Mapping {
                     BTN_MODE => add_button("guide", ev_code, nec::BTN_MODE)?,
                     BTN_LTHUMB => add_button("leftstick", ev_code, nec::BTN_LTHUMB)?,
                     BTN_RTHUMB => add_button("rightstick", ev_code, nec::BTN_RTHUMB)?,
-                    BTN_DPAD_UP => add_button("dpdown", ev_code, nec::BTN_DPAD_UP)?,
-                    BTN_DPAD_DOWN => add_button("dpleft", ev_code, nec::BTN_DPAD_DOWN)?,
+                    BTN_DPAD_UP => add_button("dpup", ev_code, nec::BTN_DPAD_UP)?,
+                    BTN_DPAD_DOWN => add_button("dpdown", ev_code, nec::BTN_DPAD_DOWN)?,
                     BTN_DPAD_LEFT => add_button("dpleft", ev_code, nec::BTN_DPAD_LEFT)?,
                     BTN_DPAD_RIGHT => add_button("dpright", ev_code, nec::BTN_DPAD_RIGHT)?,
                     _ => unreachable!(),
@@ -546,6 +549,7 @@ impl MappingDb {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MappingData {
     buttons: VecMap<u16>,
     axes: VecMap<u16>,
