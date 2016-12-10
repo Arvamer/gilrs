@@ -523,24 +523,28 @@ pub struct MappingDb {
 
 impl MappingDb {
     pub fn new() -> Self {
-        let mut hmap = HashMap::new();
-
-        Self::insert_to(include_str!("../SDL_GameControllerDB/gamecontrollerdb.txt"),
-                        &mut hmap);
-
-        if let Ok(mapping) = env::var("SDL_GAMECONTROLLERCONFIG") {
-            Self::insert_to(&mapping, &mut hmap);
-        }
-
-        MappingDb { mappings: hmap }
+        Self::with_mappings("")
     }
 
-    fn insert_to(s: &str, map: &mut HashMap<Uuid, String>) {
+    pub fn with_mappings(sdl_mappings: &str) -> Self {
+        let mut db = MappingDb { mappings: HashMap::new() };
+
+        db.insert(include_str!("../SDL_GameControllerDB/gamecontrollerdb.txt"));
+        db.insert(sdl_mappings);
+
+        if let Ok(mapping) = env::var("SDL_GAMECONTROLLERCONFIG") {
+            db.insert(&mapping);
+        }
+
+        db
+    }
+
+    pub fn insert(&mut self, s: &str) {
         for mapping in s.lines() {
             mapping.split(',')
                 .next()
                 .and_then(|s| Uuid::parse_str(s).ok())
-                .and_then(|uuid| map.insert(uuid, mapping.to_owned()));
+                .and_then(|uuid| self.mappings.insert(uuid, mapping.to_owned()));
         }
     }
 
