@@ -549,13 +549,40 @@ impl MappingDb {
     }
 }
 
+/// Stores data used to map gamepad buttons and axes.
+///
+/// To add new element, you should use `IndexMut` operator using `Axis` or `Button` as index (see
+/// example). After you add all mappings, use
+/// [`Gamepad::set_mapping(…)`](struct.Gamepad.html#method.set_mapping) to change mapping of
+/// existing gamepad.
+///
+/// Example
+/// =======
+///
+/// ```
+/// use gilrs::{Mapping, Button, Axis};
+///
+/// let mut data = Mapping::new();
+/// // map native event code 3 to Axis::LeftStickX
+/// data[Axis::LeftStickX] = 3;
+/// // map native event code 3 to Button::South (although both are 3,
+/// // they refer to different things)
+/// data[Button::South] = 3;
+///
+/// assert_eq!(data.axis(Axis::LeftStickX), Some(3));
+/// assert_eq!(data.button(Button::South), Some(3));
+/// ```
+///
+/// See `examples/mapping.rs` for more detailed example.
 #[derive(Debug, Clone)]
+// Re-exported as Mapping
 pub struct MappingData {
     buttons: VecMap<u16>,
     axes: VecMap<u16>,
 }
 
 impl MappingData {
+    /// Creates new `Mapping`.
     pub fn new() -> Self {
         MappingData {
             buttons: VecMap::with_capacity(18),
@@ -563,10 +590,12 @@ impl MappingData {
         }
     }
 
+    /// Returns `NativeEvCode` associated with button index.
     pub fn button(&self, idx: Button) -> Option<NativeEvCode> {
         self.buttons.get(idx as usize).cloned()
     }
 
+    /// Returns `NativeEvCode` associated with axis index.
     pub fn axis(&self, idx: Axis) -> Option<NativeEvCode> {
         self.axes.get(idx as usize).cloned()
     }
@@ -600,12 +629,18 @@ impl IndexMut<Axis> for MappingData {
     }
 }
 
+/// The error type for functions related to gamepad mapping.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MappingError {
+    /// Gamepad does not have element referenced by `NativeEvCode`.
     InvalidCode(NativeEvCode),
+    /// Name contains comma (',').
     InvalidName,
+    /// This function is not implemented for current platform.
     NotImplemented,
+    /// Gamepad is not connected.
     NotConnected,
+    /// Same gamepad element is referenced by axis and button.
     DuplicatedEntry,
 }
 

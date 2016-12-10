@@ -239,8 +239,49 @@ impl Gamepad {
         self.inner.mapping_source()
     }
 
-    /// TODO: Documentation
-    /// Created mappings may not be compatible with format used by SDL2.
+    /// Sets gamepad's mapping and returns SDL2 representation of them. Returned mappings may not be
+    /// compatible with SDL2 - if it is important, use
+    /// [`set_mapping_strict()`](#method.set_mapping_strict).
+    ///
+    /// The `name` argument can be a string slice with custom gamepad name or `None`. If `None`,
+    /// gamepad name reported by driver will be used.
+    ///
+    /// This function return error if `name` contains comma, `mapping` have axis and button entry
+    /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
+    /// not have any element with `NativeEvCode` used in mapping. Error is also returned if this
+    /// function is not implemented or gamepad is not connected.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gilrs::{Mapping, Button};
+    ///
+    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// let mut data = Mapping::new();
+    /// data[Button::South] = 213;
+    /// // …
+    ///
+    /// // or `match gilrs[0].set_mapping(&data, None) {`
+    /// match gilrs[0].set_mapping(&data, "Custom name") {
+    ///     Ok(sdl) => println!("SDL2 mapping: {}", sdl),
+    ///     Err(e) => println!("Failed to set mapping: {}", e),
+    /// };
+    /// ```
+    ///
+    /// Example with `MappingError::DuplicatedEntry`:
+    ///
+    /// ```no_run
+    /// use gilrs::{Mapping, Button, Axis, MappingError};
+    ///
+    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// let mut data = Mapping::new();
+    /// data[Button::RightTrigger2] = 2;
+    /// data[Axis::RightTrigger2] = 2;
+    ///
+    /// assert_eq!(gilrs[0].set_mapping(&data, None), Err(MappingError::DuplicatedEntry));
+    /// ```
+    ///
+    /// See also `examples/mapping.rs`.
     pub fn set_mapping<'a, O: Into<Option<&'a str>>>(&mut self,
                                                      mapping: &MappingData,
                                                      name: O)
@@ -248,8 +289,8 @@ impl Gamepad {
         self.inner.set_mapping(mapping, false, name.into())
     }
 
-    /// TODO: Documentation
-    /// Created mappings are compatible with format used by SDL2.
+    /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
+    /// with SDL2.
     pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self,
                                                             mapping: &MappingData,
                                                             name: O)
