@@ -730,6 +730,7 @@ impl Gamepad {
 
         let (mapping, s) = Mapping::from_data(mapping, &buttons, &axes, name, self.uuid)?;
         self.mapping = mapping;
+        self.mapping_source = MappingSource::SdlMappings;
         Ok(s)
     }
 
