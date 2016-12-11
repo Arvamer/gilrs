@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-v0.4.0 - unreleased
+v0.4.0 - 2016-12-11
 -------------------
 
 ### Added
@@ -19,6 +19,9 @@ v0.4.0 - unreleased
   (previously all unknown events have been ignored)
 - More devices are now treated as gamepads on Linux (use `mappings_source()` to
   filter unwanted gamepads)
+- Renamed `{Gamepad,GamepadState}::is_btn_pressed(Button)` to
+  `is_pressed(Button)`
+- Renamed `{Gamepad,GamepadState}::axis_val(Axis)` to `value(Axis)`
 
 ### Fixed
 
