@@ -12,6 +12,7 @@ use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, Ga
 use std::ffi::CStr;
 use std::mem;
 use std::str;
+use std::ops::Index;
 use uuid::Uuid;
 use libc as c;
 use ioctl;
@@ -19,6 +20,7 @@ use constants;
 use mapping::{Mapping, Kind, MappingDb, MappingData, MappingError};
 use ioctl::input_absinfo as AbsInfo;
 use super::ioctl_def;
+use vec_map::VecMap;
 
 
 #[derive(Debug)]
@@ -56,10 +58,10 @@ impl Gilrs {
         for dev in en.iter() {
             if let Some(dev) = Device::from_syspath(&udev, &dev) {
                 if let Some(gamepad) = Gamepad::open(&dev, &mapping_db) {
-                    let ainfo = gamepad.axes_info;
+                    let deadzones = gamepad.axes_info.deadzones(&gamepad.mapping);
                     gamepads.push(MainGamepad::from_inner_status(gamepad,
                                                                  Status::Connected,
-                                                                 ainfo.into()));
+                                                                 deadzones));
                 }
             }
         }
@@ -167,17 +169,17 @@ impl Gilrs {
                         if let Some(id) = self.gamepads.iter().position(|gp| {
                             gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
                         }) {
-                            let ainfo = gamepad.axes_info;
+                            let deadzones = gamepad.axes_info.deadzones(&gamepad.mapping);
                             self.gamepads[id] = MainGamepad::from_inner_status(gamepad,
                                                                                Status::Connected,
-                                                                               ainfo.into());
+                                                                               deadzones);
                             return Some((id, Event::Connected));
                         } else {
-                            let ainfo = gamepad.axes_info;
+                            let deadzones = gamepad.axes_info.deadzones(&gamepad.mapping);
                             self.gamepads
                                 .push(MainGamepad::from_inner_status(gamepad,
                                                                      Status::Connected,
-                                                                     ainfo.into()));
+                                                                     deadzones));
                             return Some((self.gamepads.len() - 1, Event::Connected));
                         }
                     }
@@ -232,91 +234,49 @@ pub struct Gamepad {
     mapping_source: MappingSource,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 struct AxesInfo {
-    x: AbsInfo,
-    y: AbsInfo,
-    z: AbsInfo,
-    rx: AbsInfo,
-    ry: AbsInfo,
-    rz: AbsInfo,
-    dpadx: AbsInfo,
-    dpady: AbsInfo,
-    left_tr: AbsInfo,
-    right_tr: AbsInfo,
-    left_tr2: AbsInfo,
-    right_tr2: AbsInfo,
+    info: VecMap<AbsInfo>,
 }
 
 impl AxesInfo {
-    fn new(fd: i32, mapping: &Mapping) -> Self {
+    fn new(fd: i32) -> Self {
+        let mut map = VecMap::new();
         unsafe {
-            let mut axesi = mem::zeroed::<Self>();
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_X, Kind::Axis) as u32,
-                             &mut axesi.x as *mut _);
+            let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
+            ioctl::eviocgbit(fd, EV_ABS as u32, abs_bits.len() as i32, abs_bits.as_mut_ptr());
+            for axis in Gamepad::find_axes(&abs_bits) {
+                let mut info = AbsInfo::default();
+                ioctl::eviocgabs(fd, axis as u32, &mut info as *mut _);
+                map.insert(axis as usize, info);
+            }
+        }
+        AxesInfo { info: map }
+    }
 
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_Y, Kind::Axis) as u32,
-                             &mut axesi.y as *mut _);
+    fn deadzone(&self, idx: u16) -> f32 {
+        self.info.get(idx as usize).map_or(0.0, |i| i.flat as f32 / i.maximum as f32)
+    }
 
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_Z, Kind::Axis) as u32,
-                             &mut axesi.z as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_RX, Kind::Axis) as u32,
-                             &mut axesi.rx as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_RY, Kind::Axis) as u32,
-                             &mut axesi.ry as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_RZ, Kind::Axis) as u32,
-                             &mut axesi.rz as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT0X, Kind::Axis) as u32,
-                             &mut axesi.dpadx as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT0Y, Kind::Axis) as u32,
-                             &mut axesi.dpady as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT1X, Kind::Axis) as u32,
-                             &mut axesi.right_tr as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT1Y, Kind::Axis) as u32,
-                             &mut axesi.left_tr as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT2X, Kind::Axis) as u32,
-                             &mut axesi.right_tr2 as *mut _);
-
-            ioctl::eviocgabs(fd,
-                             mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
-                             &mut axesi.left_tr2 as *mut _);
-
-            axesi
+    fn deadzones(&self, mapping: &Mapping) -> Deadzones {
+        Deadzones {
+            right_stick: self.deadzone(mapping.map_rev_axis(ABS_RX)),
+            left_stick: self.deadzone(mapping.map_rev_axis(ABS_X)),
+            left_z: self.deadzone(mapping.map_rev_axis(ABS_Z)),
+            right_z: self.deadzone(mapping.map_rev_axis(ABS_RZ)),
+            right_trigger: self.deadzone(mapping.map_rev_axis(ABS_HAT1X)),
+            right_trigger2: self.deadzone(mapping.map_rev_axis(ABS_HAT2X)),
+            left_trigger: self.deadzone(mapping.map_rev_axis(ABS_HAT1Y)),
+            left_trigger2: self.deadzone(mapping.map_rev_axis(ABS_HAT2Y)),
         }
     }
 }
 
-impl From<AxesInfo> for Deadzones {
-    fn from(f: AxesInfo) -> Self {
-        Deadzones {
-            right_stick: f.x.flat as f32 / f.x.maximum as f32,
-            left_stick: f.rx.flat as f32 / f.rx.maximum as f32,
-            left_z: f.z.flat as f32 / f.z.maximum as f32,
-            right_z: f.rz.flat as f32 / f.rx.maximum as f32,
-            right_trigger: f.right_tr.flat as f32 / f.right_tr.maximum as f32,
-            right_trigger2: f.right_tr2.flat as f32 / f.right_tr2.maximum as f32,
-            left_trigger: f.left_tr.flat as f32 / f.left_tr.maximum as f32,
-            left_trigger2: f.left_tr2.flat as f32 / f.left_tr2.maximum as f32,
-        }
+impl Index<u16> for AxesInfo {
+    type Output = AbsInfo;
+
+    fn index(&self, i: u16) -> &Self::Output {
+        &self.info[i as usize]
     }
 }
 
@@ -384,7 +344,7 @@ impl Gamepad {
             "Unknown".into()
         });
 
-        let axesi = AxesInfo::new(fd, &mapping);
+        let axesi = AxesInfo::new(fd);
         let ff_supported = Self::test_ff(fd);
         let (cap, status) = Self::battery_fd(&dev);
 
@@ -655,23 +615,9 @@ impl Gamepad {
                             ev
                         }
                         code => {
-                            let axis = Axis::from_u16(code);
-                            let ai = &self.axes_info;
-                            let val = event.value;
-                            let val = match axis {
-                                a @ Axis::LeftStickX => Self::axis_value(ai.x, val, a),
-                                a @ Axis::LeftStickY => Self::axis_value(ai.y, val, a),
-                                a @ Axis::LeftZ => Self::axis_value(ai.z, val, a),
-                                a @ Axis::RightStickX => Self::axis_value(ai.rx, val, a),
-                                a @ Axis::RightStickY => Self::axis_value(ai.ry, val, a),
-                                a @ Axis::RightZ => Self::axis_value(ai.rz, val, a),
-                                a @ Axis::LeftTrigger => Self::axis_value(ai.left_tr, val, a),
-                                a @ Axis::LeftTrigger2 => Self::axis_value(ai.left_tr2, val, a),
-                                a @ Axis::RightTrigger => Self::axis_value(ai.right_tr, val, a),
-                                a @ Axis::RightTrigger2 => Self::axis_value(ai.right_tr2, val, a),
-                                Axis::Unknown => val as f32,
-                            };
-                            Some(Event::AxisChanged(axis, val, event.code))
+                            let a = Axis::from_u16(code);
+                            let val = Self::axis_value(self.axes_info[event.code], event.value, a);
+                            Some(Event::AxisChanged(a, val, event.code))
                         }
                     }
                 }

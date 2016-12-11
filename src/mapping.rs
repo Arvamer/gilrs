@@ -445,19 +445,8 @@ impl Mapping {
         }
     }
 
-    pub fn map_rev(&self, code: u16, kind: Kind) -> u16 {
-        match kind {
-            Kind::Button => {
-                self.btns
-                    .iter()
-                    .find(|x| *x.1 == code)
-                    .unwrap_or((code as usize, &0))
-                    .0 as u16
-            }
-            Kind::Axis => {
-                self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
-            }
-        }
+    pub fn map_rev_axis(&self, code: u16) -> u16 {
+        self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
     }
 }
 
