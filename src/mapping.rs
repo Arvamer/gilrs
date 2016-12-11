@@ -735,7 +735,8 @@ mod tests {
 
     #[test]
     fn with_mappings() {
-        let mappings = format!("\nShould be ignored\nThis also should,be ignored\n\n{}", TEST_STR);
+        let mappings = format!("\nShould be ignored\nThis also should,be ignored\n\n{}",
+                               TEST_STR);
         let db = MappingDb::with_mappings(&mappings);
         assert_eq!(Some(TEST_STR),
                    db.get(Uuid::parse_str("03000000260900008888000000010001").unwrap()));

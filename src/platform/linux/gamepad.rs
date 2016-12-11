@@ -300,24 +300,7 @@ impl AxesInfo {
                              mapping.map_rev(ABS_HAT2Y, Kind::Axis) as u32,
                              &mut axesi.left_tr2 as *mut _);
 
-            axesi.normalize();
             axesi
-        }
-    }
-
-    fn normalize(&mut self) {
-        // Some devices report sticks value in range [0, Max], and some in range [-Max, Max]
-        Self::normalize_abs(&mut self.x);
-        Self::normalize_abs(&mut self.y);
-        Self::normalize_abs(&mut self.rx);
-        Self::normalize_abs(&mut self.ry);
-    }
-
-    fn normalize_abs(abs: &mut AbsInfo) {
-        if abs.minimum == 0 {
-            abs.maximum /= 2;
-            // Don't change minimum value, it allow to see if reported axis value should also be
-            // modified
         }
     }
 }
@@ -697,11 +680,11 @@ impl Gamepad {
     }
 
     fn axis_value(axes_info: AbsInfo, val: i32, kind: Axis) -> f32 {
-        let val =
-            if kind.is_stick() && axes_info.minimum == 0 { val - axes_info.maximum } else { val };
-
-        let val = val as f32 / axes_info.maximum as f32;
-
+        let mut val = val as f32 /
+                      if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
+        if kind.is_stick() && axes_info.minimum == 0 {
+            val = (val - 0.5) * 2.0
+        }
         val * if kind == Axis::LeftStickY || kind == Axis::RightStickY { -1.0 } else { 1.0 }
     }
 
