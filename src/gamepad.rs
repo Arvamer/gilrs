@@ -38,7 +38,7 @@ use std::f32::NAN;
 ///
 /// Additionally, every time you use `poll_events()`, cached gamepad state is updated. Use
 /// `gamepad(usize)` method or index operator to borrow gamepad and then `state()`,
-/// `is_btn_pressed(Button)` or `axis_val(Axis)` to examine gamepad's state. See
+/// `is_pressed(Button)` or `value(Axis)` to examine gamepad's state. See
 /// [`Gamepad`](struct.Gamepad.html) for more info.
 #[derive(Debug)]
 pub struct Gilrs {
@@ -192,8 +192,8 @@ impl Gamepad {
     ///     for _ in gilrs.poll_events() {}
     ///
     ///     println!("Start: {}, Left Stick X: {}",
-    ///              gilrs[0].is_btn_pressed(Button::Start),
-    ///              gilrs[0].axis_val(Axis::LeftStickX));
+    ///              gilrs[0].is_pressed(Button::Start),
+    ///              gilrs[0].value(Axis::LeftStickX));
     ///     # break;
     /// }
     /// ```
@@ -216,14 +216,14 @@ impl Gamepad {
 
     /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
     /// represented by axis returns true if value is not equal to 0.0.
-    pub fn is_btn_pressed(&self, btn: Button) -> bool {
-        self.state.is_btn_pressed(btn)
+    pub fn is_pressed(&self, btn: Button) -> bool {
+        self.state.is_pressed(btn)
     }
 
     /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
     /// device it value is 0.0 if button is not pressed or 1.0 if is pressed.
-    pub fn axis_val(&self, axis: Axis) -> f32 {
-        self.state.axis_val(axis)
+    pub fn value(&self, axis: Axis) -> f32 {
+        self.state.value(axis)
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.
@@ -505,7 +505,7 @@ impl GamepadState {
 
     /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
     /// represented by axis returns true if value is not equal to 0.0.
-    pub fn is_btn_pressed(&self, btn: Button) -> bool {
+    pub fn is_pressed(&self, btn: Button) -> bool {
         match btn {
             Button::South => self.btn_south,
             Button::East => self.btn_east,
@@ -537,7 +537,7 @@ impl GamepadState {
 
     /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
     /// device it value is 0.0 if button is not pressed or 1.0 if is pressed.
-    pub fn axis_val(&self, axis: Axis) -> f32 {
+    pub fn value(&self, axis: Axis) -> f32 {
         match axis {
             Axis::LeftStickX => self.left_stick.0,
             Axis::LeftStickY => self.left_stick.1,
@@ -643,31 +643,31 @@ impl<'a> Iterator for EventIterator<'a> {
                         let val = match axis {
                             Axis::LeftStickX => {
                                 apply_deadzone(val,
-                                               gamepad.axis_val(Axis::LeftStickY),
+                                               gamepad.value(Axis::LeftStickY),
                                                gamepad.threshold.left_stick)
                                     .0
                             }
                             Axis::LeftStickY => {
                                 apply_deadzone(val,
-                                               gamepad.axis_val(Axis::LeftStickX),
+                                               gamepad.value(Axis::LeftStickX),
                                                gamepad.threshold.left_stick)
                                     .0
                             }
                             Axis::RightStickX => {
                                 apply_deadzone(val,
-                                               gamepad.axis_val(Axis::RightStickY),
+                                               gamepad.value(Axis::RightStickY),
                                                gamepad.threshold.right_stick)
                                     .0
                             }
                             Axis::RightStickY => {
                                 apply_deadzone(val,
-                                               gamepad.axis_val(Axis::RightStickX),
+                                               gamepad.value(Axis::RightStickX),
                                                gamepad.threshold.right_stick)
                                     .0
                             }
                             axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
                         };
-                        if gamepad.axis_val(axis) != val {
+                        if gamepad.value(axis) != val {
                             gamepad.state.set_axis(axis, val)
                         } else {
                             return None;

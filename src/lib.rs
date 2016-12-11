@@ -40,7 +40,7 @@
 //!     }
 //!
 //!     // You can also use cached gamepad state
-//!     if gilrs[0].is_btn_pressed(Button::South) {
+//!     if gilrs[0].is_pressed(Button::South) {
 //!         println!("Button South is pressed (XBox - A, PS - X)");
 //!     }
 //!     # break;
