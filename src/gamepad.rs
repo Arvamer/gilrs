@@ -91,13 +91,13 @@ impl Gilrs {
         ConnectedGamepadsIterator(self, 0)
     }
 
-    /// Returns reference to connected gamepad or `None`.
+    /// Returns a reference to connected gamepad or `None`.
     pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
         let gp = self.inner.gamepad(id);
         if gp.is_connected() { Some(gp) } else { None }
     }
 
-    /// Returns reference to connected gamepad or `None`.
+    /// Returns a mutable reference to connected gamepad or `None`.
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
         if gp.is_connected() { Some(gp) } else { None }
@@ -695,8 +695,8 @@ pub enum Event {
     ButtonPressed(Button, NativeEvCode),
     /// Previously pressed button has been released.
     ButtonReleased(Button, NativeEvCode),
-    /// Value of axis has changed. Value can be in range [-1.0, 1.0] for sticks, [0.0, 1.0] for
-    /// triggers and if axis is `Unknown` range is undefined.
+    /// Value of axis has changed. Value can be in range [-1.0, 1.0] for sticks and [0.0, 1.0] for
+    /// triggers.
     AxisChanged(Axis, f32, NativeEvCode),
     /// Gamepad has been connected. If gamepad's UUID doesn't match one of disconnected gamepads,
     /// newly connected gamepad will get new ID.
