@@ -25,6 +25,7 @@ v0.4.0 - unreleased
 - Integer overflow if button with keyboard code was pressed on Linux
 - `Gilrs` should no longer panic if there are some unexpected problems with
   Udev
+- Fixed normalization of axes values on Linux
 
 v0.3.1 - 2016-09-23
 -------------------
