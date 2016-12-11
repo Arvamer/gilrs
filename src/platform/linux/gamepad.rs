@@ -347,6 +347,11 @@ impl Gamepad {
             None => return None,
         };
 
+        if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const i8).is_null() } {
+            info!("Device {:?} is js interface, ignoring.", path);
+            return None;
+        }
+
         let fd = unsafe { c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK) };
         if fd < 0 {
             error!("Failed to open {:?}", path);
