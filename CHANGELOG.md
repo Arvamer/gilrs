@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+v0.4.1 - 2016-12-12
+-------------------
+
+### Fixed
+
+- Type inference error introduced by generic index in `<[T]>::get`
+
 v0.4.0 - 2016-12-11
 -------------------
 
