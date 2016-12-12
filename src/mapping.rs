@@ -302,7 +302,7 @@ impl Mapping {
         if ident != "b" {
             return Err(ParseSdlMappingError::InvalidValue);
         }
-        let val = match val.parse() {
+        let val = match val.parse::<usize>() {
             Ok(val) => val,
             Err(_) => return Err(ParseSdlMappingError::InvalidValue),
         };
@@ -312,7 +312,7 @@ impl Mapping {
     fn get_axis(val: &str, axes: &[u16]) -> Result<u16, ParseSdlMappingError> {
         let (ident, val) = val.split_at(1);
         if ident == "a" {
-            let val = match val.parse() {
+            let val = match val.parse::<usize>() {
                 Ok(val) => val,
                 Err(_) => return Err(ParseSdlMappingError::InvalidValue),
             };
