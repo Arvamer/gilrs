@@ -232,6 +232,7 @@ pub struct Gamepad {
     bt_capacity_fd: i32,
     bt_status_fd: i32,
     mapping_source: MappingSource,
+    axes_values: VecMap<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -294,6 +295,7 @@ impl Gamepad {
             bt_status_fd: -1,
             bt_capacity_fd: -1,
             mapping_source: MappingSource::None,
+            axes_values: VecMap::new(),
         }
     }
 
@@ -360,6 +362,7 @@ impl Gamepad {
             bt_capacity_fd: cap,
             bt_status_fd: status,
             mapping_source: src,
+            axes_values: VecMap::new(),
         };
 
         info!("Found {:#?}", gamepad);
@@ -615,9 +618,18 @@ impl Gamepad {
                             ev
                         }
                         code => {
-                            let a = Axis::from_u16(code);
-                            let val = Self::axis_value(self.axes_info[event.code], event.value, a);
-                            Some(Event::AxisChanged(a, val, event.code))
+                            let axis_info = &self.axes_info[event.code];
+                            let max_allowed_jitter = (axis_info.maximum - axis_info.minimum) /
+                                MAX_AXIS_JITTER_RATIO;
+                            match self.axes_values.get(event.code as usize).cloned() {
+                                Some(v) if (v - event.value).abs() < max_allowed_jitter => { None }
+                                _ => {
+                                    self.axes_values.insert(event.code as usize, event.value);
+                                    let a = Axis::from_u16(code);
+                                    let val = Self::axis_value(*axis_info, event.value, a);
+                                    Some(Event::AxisChanged(a, val, event.code))
+                                }
+                            }
                         }
                     }
                 }
@@ -843,6 +855,8 @@ fn test_bit(n: u16, array: &[u8]) -> bool {
 unsafe fn cstr_new(bytes: &[u8]) -> &CStr {
     CStr::from_bytes_with_nul_unchecked(bytes)
 }
+
+const MAX_AXIS_JITTER_RATIO : i32 = 100;
 
 const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
