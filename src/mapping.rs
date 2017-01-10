@@ -126,11 +126,13 @@ impl Mapping {
             }
         }
 
-        let mapping = Mapping {
+        let mut mapping = Mapping {
             axes: mapped_axes,
             btns: mapped_btns,
             name: name.to_owned(),
         };
+
+        mapping.unmap_not_mapped_axes();
 
         Ok((mapping, sdl_mappings))
     }
@@ -294,6 +296,8 @@ impl Mapping {
             }
         }
 
+        mapping.unmap_not_mapped_axes();
+
         Ok(mapping)
     }
 
@@ -447,6 +451,18 @@ impl Mapping {
 
     pub fn map_rev_axis(&self, code: u16) -> u16 {
         self.axes.iter().find(|x| *x.1 == code).unwrap_or((code as usize, &0)).0 as u16
+    }
+
+    fn unmap_not_mapped_axes(&mut self) {
+        let mut mapped_axes = self.axes.iter()
+            .filter(|&(from, &to)| from != to as usize)
+            .map(|(_, &to)| to)
+            .collect::<Vec<_>>();
+        mapped_axes.sort();
+        mapped_axes.dedup();
+        for mapped_axis in mapped_axes.into_iter() {
+            self.axes.entry(mapped_axis as usize).or_insert(Axis::Unknown as u16);
+        }
     }
 }
 
