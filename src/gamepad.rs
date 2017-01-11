@@ -639,7 +639,7 @@ impl<'a> Iterator for EventIterator<'a> {
                 match ev {
                     Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
                     Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
-                    Event::AxisChanged(axis, val, _) => {
+                    Event::AxisChanged(axis, val, native_ev_code) => {
                         let val = match axis {
                             Axis::LeftStickX => {
                                 apply_deadzone(val,
@@ -668,7 +668,8 @@ impl<'a> Iterator for EventIterator<'a> {
                             axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
                         };
                         if gamepad.value(axis) != val {
-                            gamepad.state.set_axis(axis, val)
+                            gamepad.state.set_axis(axis, val);
+                            return Some((id, Event::AxisChanged(axis, val, native_ev_code)));
                         } else {
                             return None;
                         }
