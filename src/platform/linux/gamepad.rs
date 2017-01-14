@@ -247,7 +247,7 @@ impl AxesInfo {
             ioctl::eviocgbit(fd, EV_ABS as u32, abs_bits.len() as i32, abs_bits.as_mut_ptr());
             for axis in Gamepad::find_axes(&abs_bits) {
                 let mut info = AbsInfo::default();
-                ioctl::eviocgabs(fd, axis as u32, &mut info as *mut _);
+                ioctl::eviocgabs(fd, axis as u32, &mut info);
                 map.insert(axis as usize, info);
             }
         }
@@ -463,7 +463,7 @@ impl Gamepad {
         let mut iid;
         unsafe {
             iid = mem::uninitialized::<ioctl::input_id>();
-            if ioctl_def::eviocgid(fd, &mut iid as *mut _) < 0 {
+            if ioctl_def::eviocgid(fd, &mut iid) < 0 {
                 return None;
             }
         }
@@ -722,7 +722,7 @@ impl Gamepad {
         if self.ff_supported {
             let mut max_effects = 0;
             unsafe {
-                ioctl_def::eviocgeffects(self.fd, &mut max_effects as *mut _);
+                ioctl_def::eviocgeffects(self.fd, &mut max_effects);
             }
             max_effects as usize
         } else {

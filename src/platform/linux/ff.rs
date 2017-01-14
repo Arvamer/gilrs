@@ -22,7 +22,7 @@ pub struct Effect {
 impl Effect {
     pub fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, Error> {
         let mut data: ff_effect = data.into();
-        let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data as *mut _) };
+        let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data) };
         if res == -1 {
             Err(Error::EffectNotSupported)
         } else {
@@ -36,7 +36,7 @@ impl Effect {
     pub fn upload(&mut self, data: EffectData) -> Result<(), Error> {
         let mut data: ff_effect = data.into();
         data.id = self.id;
-        let res = unsafe { ioctl::eviocsff(self.fd, &mut data as *mut _) };
+        let res = unsafe { ioctl::eviocsff(self.fd, &mut data) };
         if res == -1 { Err(Error::EffectNotSupported) } else { Ok(()) }
     }
 

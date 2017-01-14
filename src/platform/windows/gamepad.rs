@@ -89,7 +89,7 @@ impl Gilrs {
                     for id in 0..4 {
                         if *connected.get_unchecked(id) ||
                            counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0 {
-                            let val = xinput::XInputGetState(id as u32, &mut state as &mut _);
+                            let val = xinput::XInputGetState(id as u32, &mut state);
                             if val == ERROR_SUCCESS {
                                 if !connected.get_unchecked(id) {
                                     *connected.get_unchecked_mut(id) = true;
@@ -315,7 +315,7 @@ impl Gamepad {
             let mut binfo = mem::uninitialized::<XBatteryInfo>();
             if xinput::XInputGetBatteryInformation(self.id,
                                                    xi::BATTERY_DEVTYPE_GAMEPAD,
-                                                   &mut binfo as *mut _) ==
+                                                   &mut binfo) ==
                ERROR_SUCCESS {
                 match binfo.BatteryType {
                     xi::BATTERY_TYPE_WIRED => PowerInfo::Wired,
@@ -375,7 +375,7 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
 
     let status = unsafe {
         let mut state = mem::zeroed::<XState>();
-        if xinput::XInputGetState(id, &mut state as *mut _) == ERROR_SUCCESS {
+        if xinput::XInputGetState(id, &mut state) == ERROR_SUCCESS {
             Status::Connected
         } else {
             Status::NotObserved

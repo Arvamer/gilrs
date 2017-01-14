@@ -206,7 +206,7 @@ impl Monitor {
                 events: c::POLLIN,
                 revents: 0,
             };
-            (c::poll(&mut fds as *mut _, 1, 0) == 1) && (fds.revents & c::POLLIN != 0)
+            (c::poll(&mut fds, 1, 0) == 1) && (fds.revents & c::POLLIN != 0)
         }
     }
 
