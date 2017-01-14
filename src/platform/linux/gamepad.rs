@@ -18,7 +18,7 @@ use libc as c;
 use ioctl;
 use constants;
 use mapping::{Mapping, Kind, MappingDb, MappingData, MappingError};
-use ioctl::input_absinfo as AbsInfo;
+use ioctl::{input_absinfo as AbsInfo, input_event as InputEvent};
 use super::ioctl_def;
 use vec_map::VecMap;
 
@@ -223,7 +223,6 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
 pub struct Gamepad {
     fd: i32,
     axes_info: AxesInfo,
-    abs_dpad_prev_val: (i16, i16),
     mapping: Mapping,
     ff_supported: bool,
     devpath: String,
@@ -286,7 +285,6 @@ impl Gamepad {
         Gamepad {
             fd: -3,
             axes_info: unsafe { mem::zeroed() },
-            abs_dpad_prev_val: (0, 0),
             mapping: Mapping::new(),
             ff_supported: false,
             devpath: String::new(),
@@ -353,7 +351,6 @@ impl Gamepad {
         let gamepad = Gamepad {
             fd: fd,
             axes_info: axesi,
-            abs_dpad_prev_val: (0, 0),
             mapping: mapping,
             ff_supported: ff_supported,
             devpath: path.to_string_lossy().into_owned(),
@@ -566,57 +563,7 @@ impl Gamepad {
                 EV_ABS => {
                     let code = self.mapping.map(event.code, Kind::Axis);
                     match code {
-                        ABS_HAT0Y => {
-                            let ev = match event.value {
-                                0 => {
-                                    match self.abs_dpad_prev_val.1 {
-                                        val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadDown,
-                                                                       event.code))
-                                        }
-                                        val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadUp, event.code))
-                                        }
-                                        _ => None,
-                                    }
-                                }
-                                val if val > 0 => {
-                                    Some(Event::ButtonPressed(Button::DPadDown, event.code))
-                                }
-                                val if val < 0 => {
-                                    Some(Event::ButtonPressed(Button::DPadUp, event.code))
-                                }
-                                _ => unreachable!(),
-                            };
-                            self.abs_dpad_prev_val.1 = event.value as i16;
-                            ev
-                        }
-                        ABS_HAT0X => {
-                            let ev = match event.value {
-                                0 => {
-                                    match self.abs_dpad_prev_val.0 {
-                                        val if val > 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadRight,
-                                                                       event.code))
-                                        }
-                                        val if val < 0 => {
-                                            Some(Event::ButtonReleased(Button::DPadLeft,
-                                                                       event.code))
-                                        }
-                                        _ => None,
-                                    }
-                                }
-                                val if val > 0 => {
-                                    Some(Event::ButtonPressed(Button::DPadRight, event.code))
-                                }
-                                val if val < 0 => {
-                                    Some(Event::ButtonPressed(Button::DPadLeft, event.code))
-                                }
-                                _ => unreachable!(),
-                            };
-                            self.abs_dpad_prev_val.0 = event.value as i16;
-                            ev
-                        }
+                        ABS_HAT0Y | ABS_HAT0X => self.handle_abs_dpad(code, event),
                         code => {
                             let axis_info = &self.axes_info[event.code];
                             let max_allowed_jitter = (axis_info.maximum - axis_info.minimum) /
@@ -641,6 +588,31 @@ impl Gamepad {
             return ev;
         }
     }
+
+    fn handle_abs_dpad(&mut self, code: u16, event: InputEvent) -> Option<Event> {
+        let ev_code = event.code as usize;
+        if event.value == 0 && self.axes_values.get(ev_code).cloned().unwrap_or(0) == 0 {
+            return None;
+        }
+
+        let right_or_down = event.value > 0 || self.axes_values.get(ev_code).cloned().unwrap_or(0) > 0;
+        let btn = match code {
+            ABS_HAT0X if right_or_down => Button::DPadRight,
+            ABS_HAT0X => Button::DPadLeft,
+            ABS_HAT0Y if right_or_down => Button::DPadDown,
+            ABS_HAT0Y => Button::DPadUp,
+            _ => unreachable!(),
+        };
+
+        self.axes_values.insert(ev_code, event.value);
+
+        Some(if event.value == 0 {
+            Event::ButtonReleased(btn, event.code)
+        } else {
+            Event::ButtonPressed(btn, event.code)
+        })
+    }
+
 
     fn axis_value(axes_info: AbsInfo, val: i32, kind: Axis) -> f32 {
         let mut val = val as f32 /
