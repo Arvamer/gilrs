@@ -219,21 +219,6 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
     }
 }
 
-#[derive(Debug)]
-pub struct Gamepad {
-    fd: i32,
-    axes_info: AxesInfo,
-    mapping: Mapping,
-    ff_supported: bool,
-    devpath: String,
-    name: String,
-    uuid: Uuid,
-    bt_capacity_fd: i32,
-    bt_status_fd: i32,
-    mapping_source: MappingSource,
-    axes_values: VecMap<i32>,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 struct AxesInfo {
     info: VecMap<AbsInfo>,
@@ -283,6 +268,25 @@ impl Index<u16> for AxesInfo {
     }
 }
 
+#[derive(Debug)]
+pub struct Gamepad {
+    fd: i32,
+    axes_info: AxesInfo,
+    mapping: Mapping,
+    ff_supported: bool,
+    devpath: String,
+    name: String,
+    uuid: Uuid,
+    bt_capacity_fd: i32,
+    bt_status_fd: i32,
+    mapping_source: MappingSource,
+    axes_values: VecMap<i32>,
+    buttons_values: VecMap<bool>,
+    dropped_events: Vec<InputEvent>,
+    axes: Vec<u16>,
+    buttons: Vec<u16>,
+}
+
 impl Gamepad {
     fn none() -> Self {
         Gamepad {
@@ -297,6 +301,10 @@ impl Gamepad {
             bt_capacity_fd: -1,
             mapping_source: MappingSource::None,
             axes_values: VecMap::new(),
+            buttons_values: VecMap::new(),
+            dropped_events: Vec::new(),
+            axes: Vec::new(),
+            buttons: Vec::new(),
         }
     }
 
@@ -351,7 +359,7 @@ impl Gamepad {
         let ff_supported = Self::test_ff(fd);
         let (cap, status) = Self::battery_fd(&dev);
 
-        let gamepad = Gamepad {
+        let mut gamepad = Gamepad {
             fd: fd,
             axes_info: axesi,
             mapping: mapping,
@@ -363,12 +371,41 @@ impl Gamepad {
             bt_status_fd: status,
             mapping_source: src,
             axes_values: VecMap::new(),
+            buttons_values: VecMap::new(),
+            dropped_events: Vec::new(),
+            axes: Vec::new(),
+            buttons: Vec::new(),
         };
+
+        // TODO: list of axes and buttons is used in other functions when opening gamepad. Don't
+        // TODO: create it multiple times.
+        gamepad.collect_axes_and_buttons();
 
         info!("Found {:#?}", gamepad);
 
         Some(gamepad)
     }
+
+    fn collect_axes_and_buttons(&mut self) {
+        let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
+        let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
+
+        unsafe {
+            ioctl::eviocgbit(self.fd,
+                             EV_KEY as u32,
+                             key_bits.len() as i32,
+                             key_bits.as_mut_ptr());
+            ioctl::eviocgbit(self.fd,
+                             EV_ABS as u32,
+                             abs_bits.len() as i32,
+                             abs_bits.as_mut_ptr());
+        }
+
+        self.buttons = Self::find_buttons(&key_bits, false);
+        self.axes = Self::find_axes(&abs_bits);
+    }
+
+
 
     fn get_name(fd: i32, mapping: &Mapping) -> Option<String> {
         if mapping.name().is_empty() {
@@ -539,22 +576,30 @@ impl Gamepad {
     }
 
     pub fn event(&mut self) -> Option<Event> {
-        let mut event = unsafe { mem::uninitialized::<ioctl::input_event>() };
+        let mut skip = false;
         // Skip all unknown events and return Option on first know event or when there is no more
         // events to read. Returning None on unknown event breaks iterators.
         loop {
-            let n = unsafe { c::read(self.fd, mem::transmute(&mut event), 24) };
+            let event = match self.next_event() {
+                Some(e) => e,
+                None => return None,
+            };
 
-            if n == -1 || n == 0 {
-                // Nothing to read (non-blocking IO)
-                return None;
-            } else if n != 24 {
-                unreachable!()
+            if skip {
+                if event._type == EV_SYN && event.code == SYN_REPORT {
+                    skip = false;
+                    self.compare_state();
+                }
+                continue;
             }
 
-
             let ev = match event._type {
+                EV_SYN if event.code == SYN_DROPPED => {
+                    skip = true;
+                    None
+                }
                 EV_KEY => {
+                    self.buttons_values.insert(event.code as usize, event.value == 1);
                     let code = self.mapping.map(event.code, Kind::Button);
                     let btn = Button::from_u16(code);
                     match event.value {
@@ -589,6 +634,62 @@ impl Gamepad {
                 continue;
             }
             return ev;
+        }
+    }
+
+    fn next_event(&mut self) -> Option<InputEvent> {
+        if self.dropped_events.len() > 0 {
+            self.dropped_events.pop()
+        } else {
+            unsafe {
+                let mut event = mem::uninitialized::<ioctl::input_event>();
+                let n = c::read(self.fd, mem::transmute(&mut event), 24);
+
+                if n == -1 || n == 0 {
+                    // Nothing to read (non-blocking IO)
+                    return None;
+                } else if n != 24 {
+                    unreachable!()
+                }
+
+                Some(event)
+            }
+        }
+    }
+
+    fn compare_state(&mut self) {
+        for axis in self.axes.iter().cloned() {
+            let value = unsafe {
+                let mut absinfo = mem::uninitialized();
+                ioctl::eviocgabs(self.fd, axis as u32, &mut absinfo);
+                absinfo.value
+            };
+
+            if self.axes_values.get(axis as usize).cloned().unwrap_or(0) != value {
+                self.dropped_events.push(InputEvent {
+                    _type: EV_ABS,
+                    code: axis,
+                    value: value,
+                    ..Default::default()
+                });
+            }
+        }
+
+        let mut buf = [0u8; KEY_MAX as usize / 8 + 1];
+        unsafe {
+            ioctl::eviocgkey(self.fd, buf.as_mut_ptr(), buf.len());
+        }
+
+        for btn in self.buttons.iter().cloned() {
+            let val = test_bit(btn, &buf);
+            if self.buttons_values.get(btn as usize).cloned().unwrap_or(false) != val {
+                self.dropped_events.push(InputEvent {
+                    _type: EV_KEY,
+                    code: btn,
+                    value: val as i32,
+                    ..Default::default()
+                });
+            }
         }
     }
 
@@ -836,10 +937,14 @@ const MAX_AXIS_JITTER_RATIO: i32 = 100;
 
 const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
+const EV_SYN: u16 = 0x00;
 const EV_KEY: u16 = 0x01;
 const EV_ABS: u16 = 0x03;
 const ABS_MAX: u16 = 0x3f;
 const EV_FF: u16 = 0x15;
+
+const SYN_REPORT: u16 = 0x00;
+const SYN_DROPPED: u16 = 0x03;
 
 const BTN_MISC: u16 = 0x100;
 const BTN_MOUSE: u16 = 0x110;
