@@ -608,7 +608,7 @@ impl Deadzones {
             Axis::LeftTrigger2 => self.left_trigger2,
             Axis::RightTrigger => self.right_trigger,
             Axis::RightTrigger2 => self.right_trigger2,
-            Axis::Unknown => NAN,
+            Axis::Unknown => 0.05,
         }
     }
 }
