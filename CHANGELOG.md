@@ -1,6 +1,22 @@
 Change Log
 ==========
 
+v0.4.2 - unreleased
+-------------------
+
+### Changed
+
+- Updated SDL_GameControllerDB to latest revision.
+- Changes in axes values that are less than 1% are now ignored.
+
+### Fixed
+
+- Fixed multiple axes mapped to same axis name when mappings are incomplete.
+- Values returned with `AxisChanged` event now have correctly applied
+  deadzones.
+- Linux: Correctly handle event queue overrun.
+
+
 v0.4.1 - 2016-12-12
 -------------------
 
