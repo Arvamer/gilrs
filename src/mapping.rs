@@ -454,7 +454,8 @@ impl Mapping {
     }
 
     fn unmap_not_mapped_axes(&mut self) {
-        let mut mapped_axes = self.axes.iter()
+        let mut mapped_axes = self.axes
+            .iter()
             .filter(|&(from, &to)| from != to as usize)
             .map(|(_, &to)| to)
             .collect::<Vec<_>>();

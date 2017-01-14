@@ -315,8 +315,7 @@ impl Gamepad {
             let mut binfo = mem::uninitialized::<XBatteryInfo>();
             if xinput::XInputGetBatteryInformation(self.id,
                                                    xi::BATTERY_DEVTYPE_GAMEPAD,
-                                                   &mut binfo) ==
-               ERROR_SUCCESS {
+                                                   &mut binfo) == ERROR_SUCCESS {
                 match binfo.BatteryType {
                     xi::BATTERY_TYPE_WIRED => PowerInfo::Wired,
                     xi::BATTERY_TYPE_ALKALINE |

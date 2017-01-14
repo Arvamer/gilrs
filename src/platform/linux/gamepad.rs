@@ -244,7 +244,10 @@ impl AxesInfo {
         let mut map = VecMap::new();
         unsafe {
             let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
-            ioctl::eviocgbit(fd, EV_ABS as u32, abs_bits.len() as i32, abs_bits.as_mut_ptr());
+            ioctl::eviocgbit(fd,
+                             EV_ABS as u32,
+                             abs_bits.len() as i32,
+                             abs_bits.as_mut_ptr());
             for axis in Gamepad::find_axes(&abs_bits) {
                 let mut info = AbsInfo::default();
                 ioctl::eviocgabs(fd, axis as u32, &mut info);
@@ -567,9 +570,9 @@ impl Gamepad {
                         code => {
                             let axis_info = &self.axes_info[event.code];
                             let max_allowed_jitter = (axis_info.maximum - axis_info.minimum) /
-                                MAX_AXIS_JITTER_RATIO;
+                                                     MAX_AXIS_JITTER_RATIO;
                             match self.axes_values.get(event.code as usize).cloned() {
-                                Some(v) if (v - event.value).abs() < max_allowed_jitter => { None }
+                                Some(v) if (v - event.value).abs() < max_allowed_jitter => None,
                                 _ => {
                                     self.axes_values.insert(event.code as usize, event.value);
                                     let a = Axis::from_u16(code);
@@ -595,7 +598,8 @@ impl Gamepad {
             return None;
         }
 
-        let right_or_down = event.value > 0 || self.axes_values.get(ev_code).cloned().unwrap_or(0) > 0;
+        let right_or_down = event.value > 0 ||
+                            self.axes_values.get(ev_code).cloned().unwrap_or(0) > 0;
         let btn = match code {
             ABS_HAT0X if right_or_down => Button::DPadRight,
             ABS_HAT0X => Button::DPadLeft,
@@ -828,7 +832,7 @@ unsafe fn cstr_new(bytes: &[u8]) -> &CStr {
     CStr::from_bytes_with_nul_unchecked(bytes)
 }
 
-const MAX_AXIS_JITTER_RATIO : i32 = 100;
+const MAX_AXIS_JITTER_RATIO: i32 = 100;
 
 const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
