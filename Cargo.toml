@@ -7,7 +7,6 @@ exclude = ["controller.svg", "ci_docker"]
 description = "Game Input Library for Rust"
 documentation = "https://docs.rs/gilrs/"
 repository = "https://gitlab.com/Arvamer/gilrs"
-homepage = "https://gitlab.com/Arvamer/gilrs"
 readme = "README.md"
 keywords = ["gamepad", "joystick", "input"]
 
