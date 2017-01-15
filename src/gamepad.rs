@@ -504,7 +504,8 @@ impl GamepadState {
     }
 
     /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
-    /// represented by axis returns true if value is not equal to 0.0.
+    /// represented by axis returns true if value is not equal to 0.0. Always returns `false` for
+    /// `Button::Unknown`.
     pub fn is_pressed(&self, btn: Button) -> bool {
         match btn {
             Button::South => self.btn_south,
@@ -536,7 +537,8 @@ impl GamepadState {
     }
 
     /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
-    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed.
+    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Returns `NaN` for
+    /// `Axis::Unknown`.
     pub fn value(&self, axis: Axis) -> f32 {
         match axis {
             Axis::LeftStickX => self.left_stick.0,
