@@ -12,10 +12,10 @@ GilRs abstract platform specific APIs to provide unified interfaces for working 
 
 Main features:
 
-- Unified gamepad layout - buttons and axes are represented by familiar names
+- Unified gamepad layout—buttons and axes are represented by familiar names
 - Support for SDL2 mappings including `SDL_GAMECONTROLLERCONFIG` environment
   variable which Steam uses
-- Hotplugging - GilRs will try to assign new ID for new gamepads and reuse same
+- Hotplugging—GilRs will try to assign new ID for new gamepads and reuse same
   ID for gamepads which reconnected
 - Force feedback (rumble)
 - Power information (is gamepad wired, current battery status)
@@ -24,7 +24,7 @@ The project's main repository [is on GitLab](https://gitlab.com/Arvamer/gilrs)
 although there is also a [GitHub mirror](https://github.com/Arvamer/gilrs).
 Please use GitLab's issue tracker and merge requests.
 
-This repository contains submodule - after you clone it, don't forget to run
+This repository contains submodule; after you clone it, don't forget to run
 `git submodule init; git submodule update` (or clone with `--recursive` flag)
 or you will get compile errors.
 
