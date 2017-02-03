@@ -10,7 +10,6 @@ use mapping::{MappingData, MappingError};
 use ff::{self, EffectData};
 use uuid::Uuid;
 use AsInner;
-use utils::apply_deadzone;
 use std::ops::{Index, IndexMut};
 use std::f32::NAN;
 
@@ -877,4 +876,14 @@ pub enum MappingSource {
     /// Gamepad does not use any mappings and most gamepad events will probably be `Button::Unknown`
     /// or `Axis::Unknown`
     None,
+}
+
+pub fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
+    let magnitude = (x * x + y * y).sqrt();
+    if magnitude <= threshold {
+        (0.0, 0.0)
+    } else {
+        let norm = ((magnitude - threshold) / (1.0 - threshold)) / magnitude;
+        (x * norm, y * norm)
+    }
 }
