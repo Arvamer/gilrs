@@ -12,20 +12,29 @@
 //! event.
 //!
 //! ```rust,no_run
-//! use gilrs::ff::EffectData;
 //! use gilrs::Gilrs;
+//! use gilrs::ff::{EffectData, EffectType, Waveform, Envelope};
 //!
 //! let mut gilrs = Gilrs::new();
+//! let effect = EffectData {
+//!     kind: EffectType::Periodic {
+//!         wave: Waveform::Sine,
+//!         period: 1000,
+//!         magnitude: 30_000,
+//!         offset: 0,
+//!         phase: 0,
+//!         envelope: Envelope {
+//!             attack_length: 1000,
+//!             attack_level: 0,
+//!             fade_length: 1000,
+//!             fade_level: 0,
+//!         }
+//!     },
+//!     .. Default::default()
+//! };
 //!
-//! let mut effect = EffectData::default();
-//! effect.period = 1000;
-//! effect.magnitude = 20000;
-//! effect.replay.length = 5000;
-//! effect.envelope.attack_length = 1000;
-//! effect.envelope.fade_length = 1000;
-//!
-//! let effect_idx = gilrs.gamepad_mut(0).add_ff_effect(effect).unwrap();
-//! gilrs.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
+//! let effect_idx = gilrs[0].add_ff_effect(effect).unwrap();
+//! gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
 //! ```
 
 use gamepad::Button;
@@ -36,45 +45,71 @@ use std::fmt;
 
 pub use gamepad::Effect;
 
-/// Describes wave-shaped force feedback effect that repeat itself over time.
-///
-/// *Borrowed* from [SDL Documentation](https://wiki.libsdl.org/SDL_HapticPeriodic):
-///
-/// ```text
-/// button         period
-/// press          |     |
-///   ||      __    __    __    __    __    _
-///   ||     |  |  |  |  |  |  |  |  |  |   magnitude
-///   \/     |  |__|  |__|  |__|  |__|  |   _
-///    -----
-///       |            offset?
-///     delay          phase?
-///
-/// -------------------------------------
-///               length
-/// ===================================================
-///                       interval
-/// ```
+/// Data describing force feedback effect.
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct EffectData {
-    /// Kind of the wave
-    pub wave: Waveform,
     /// Direction of the effect
     pub direction: Direction,
-    /// Period of the wave in ms
-    pub period: u16,
-    /// Peak value
-    pub magnitude: i16,
-    /// Mean value of the wave
-    pub offset: i16,
-    /// Horizontal shift
-    pub phase: u16,
-    /// Envelope data
-    pub envelope: Envelope,
     /// Scheduling of the effect
     pub replay: Replay,
     /// Trigger conditions
     pub trigger: Trigger,
+    /// Type of effect
+    pub kind: EffectType,
+}
+
+/// Type of the effect.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum EffectType {
+    /// Describes wave-shaped force feedback effect that repeat itself over time.
+    ///
+    /// *Borrowed* from [SDL Documentation](https://wiki.libsdl.org/SDL_HapticPeriodic):
+    ///
+    /// ```text
+    /// button         period
+    /// press          |     |
+    ///   ||      __    __    __    __    __    _
+    ///   ||     |  |  |  |  |  |  |  |  |  |   magnitude
+    ///   \/     |  |__|  |__|  |__|  |__|  |   _
+    ///    -----
+    ///       |            offset?
+    ///     delay          phase?
+    ///
+    /// -------------------------------------
+    ///               length
+    /// ===================================================
+    ///                       interval
+    /// ```
+    Periodic {
+        /// Kind of the wave
+        wave: Waveform,
+        /// Period of the wave in ms
+        period: u16,
+        /// Peak value
+        magnitude: i16,
+        /// Mean value of the wave
+        offset: i16,
+        /// Horizontal shift
+        phase: u16,
+        /// Envelope data
+        envelope: Envelope,
+    },
+    /// Simple force feedback effect.
+    Rumble {
+        /// Magnitude of the stronger motor
+        strong: u16,
+        /// Magnitude of the weaker motor
+        weak: u16,
+    },
+}
+
+impl Default for EffectType {
+    fn default() -> Self {
+        EffectType::Rumble {
+            strong: 0,
+            weak: 0,
+        }
+    }
 }
 
 /// Wave shape.

@@ -4,7 +4,7 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use ff::{EffectData, Waveform, Trigger, Error};
+use ff::{EffectData, Waveform, Trigger, Error, EffectType};
 use super::gamepad::Gamepad;
 use ioctl::{ff_effect, input_event};
 use ioctl;
@@ -72,21 +72,34 @@ impl Drop for Effect {
 impl Into<ff_effect> for EffectData {
     fn into(self) -> ff_effect {
         let mut effect = ff_effect {
-            _type: FF_PERIODIC,
+            _type: 0,
             id: -1,
             direction: self.direction.angle,
             trigger: self.trigger.into(),
             replay: unsafe { mem::transmute(self.replay) },
             u: unsafe { mem::uninitialized() },
         };
-        unsafe {
-            let mut periodic = effect.u.periodic();
-            (*periodic).waveform = self.wave.into();
-            (*periodic).period = self.period;
-            (*periodic).magnitude = self.magnitude;
-            (*periodic).offset = self.offset;
-            (*periodic).phase = self.phase;
-            (*periodic).envelope = mem::transmute(self.envelope);
+        match self.kind {
+            EffectType::Periodic { wave, period, magnitude, offset, phase, envelope } => {
+                effect._type = FF_PERIODIC;
+                unsafe {
+                    let mut periodic = effect.u.periodic();
+                    (*periodic).waveform = wave.into();
+                    (*periodic).period = period;
+                    (*periodic).magnitude = magnitude;
+                    (*periodic).offset = offset;
+                    (*periodic).phase = phase;
+                    (*periodic).envelope = mem::transmute(envelope);
+                }
+            }
+            EffectType::Rumble { strong, weak } => {
+                effect._type = FF_RUMBLE;
+                unsafe {
+                    let mut rumble = effect.u.rumble();
+                    (*rumble).strong_magnitude = strong;
+                    (*rumble).weak_magnitude = weak;
+                }
+            }
         }
         effect
     }
@@ -121,6 +134,7 @@ impl Into<ioctl::ff_trigger> for Trigger {
 
 const EV_FF: u16 = 0x15;
 
+const FF_RUMBLE: u16 = 0x50;
 const FF_PERIODIC: u16 = 0x51;
 const FF_SQUARE: u16 = 0x58;
 const FF_TRIANGLE: u16 = 0x59;

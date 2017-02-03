@@ -318,20 +318,29 @@ impl Gamepad {
     /// effect's index.
     ///
     /// ```rust,no_run
-    /// use gilrs::ff::EffectData;
     /// use gilrs::Gilrs;
+    /// use gilrs::ff::{EffectData, EffectType, Waveform, Envelope};
     ///
     /// let mut gilrs = Gilrs::new();
+    /// let effect = EffectData {
+    ///     kind: EffectType::Periodic {
+    ///         wave: Waveform::Sine,
+    ///         period: 1000,
+    ///         magnitude: 30_000,
+    ///         offset: 0,
+    ///         phase: 0,
+    ///         envelope: Envelope {
+    ///             attack_length: 1000,
+    ///             attack_level: 0,
+    ///             fade_length: 1000,
+    ///             fade_level: 0,
+    ///         }
+    ///     },
+    ///     .. Default::default()
+    /// };
     ///
-    /// let mut effect = EffectData::default();
-    /// effect.period = 1000;
-    /// effect.magnitude = 20000;
-    /// effect.replay.length = 5000;
-    /// effect.envelope.attack_length = 1000;
-    /// effect.envelope.fade_length = 1000;
-    ///
-    /// let effect_idx = gilrs.gamepad_mut(0).add_ff_effect(effect).unwrap();
-    /// gilrs.gamepad_mut(0).ff_effect(effect_idx).unwrap().play(1);
+    /// let effect_idx = gilrs[0].add_ff_effect(effect).unwrap();
+    /// gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
     /// ```
     pub fn add_ff_effect(&mut self, data: EffectData) -> Result<usize, ff::Error> {
         if let Some(pos) = self.ff_effects.iter().position(|effect| effect.is_none()) {
