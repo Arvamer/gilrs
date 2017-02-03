@@ -1,11 +1,13 @@
 image: "registry.gitlab.com/arvamer/gilrs"
 
+variables:
+    GIT_SUBMODULE_STRATEGY: normal
+
 before_script:
-- git submodule init
-- git submodule update
 - rustc --version && cargo --version
 
 cache:
+  key: "$CI_BUILD_REF"
   paths:
     - $HOME/.cargo
     - target
@@ -29,6 +31,9 @@ pages:
   stage: deploy
   script:
   - cargo doc
+  # Remove libc from documentation to speed up deploy
+  - rm -r target/doc/libc
+  - rm -r target/doc/src/libc
   - mkdir public
   - mkdir public/img
   - mv target/doc public
