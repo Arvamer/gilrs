@@ -66,8 +66,8 @@ Supported features
 |------------------|:-----:|:-----------:|:--------:|:--------------:|
 | Linux            |   ✓   |      ✓      |     ✓    |        ✓       |
 | Windows (XInput) |   ✓   |      ✓      |    n/a   |        ✕       |
-| Windows (DInput) |   ✕   |      ✕      |     ✕    |        ✕       |
 | OS X             |   ✕   |      ✕      |     ✕    |        ✕       |
+| Emscripten       |   ✕   |      ✕      |     ✕    |       n/a      |
 | Android          |   ✕   |      ✕      |     ✕    |        ✕       |
 
 Platform specific notes
