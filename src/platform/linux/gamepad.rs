@@ -9,6 +9,7 @@ use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
               Deadzones, MappingSource};
+use utils::test_bit;
 use std::ffi::CStr;
 use std::mem;
 use std::str;
@@ -923,10 +924,6 @@ impl Axis {
             Axis::Unknown
         }
     }
-}
-
-fn test_bit(n: u16, array: &[u8]) -> bool {
-    (array[(n / 8) as usize] >> (n % 8)) & 1 != 0
 }
 
 unsafe fn cstr_new(bytes: &[u8]) -> &CStr {
