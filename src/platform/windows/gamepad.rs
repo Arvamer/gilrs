@@ -6,8 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones,
-              MappingSource};
+use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
 use uuid::Uuid;
 use std::thread;
@@ -21,8 +20,8 @@ use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
                      XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_START,
                      XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB,
-                     XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER,
-                     XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
+                     XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_A,
+                     XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
                      XINPUT_GAMEPAD as XGamepad, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
                      self as xi};
 
@@ -78,42 +77,37 @@ impl Gilrs {
     }
 
     fn spawn_thread(tx: Sender<(usize, Event)>, connected: [bool; 4]) {
-        thread::spawn(move || {
-            unsafe {
-                let mut prev_state = mem::zeroed::<XState>();
-                let mut state = mem::zeroed::<XState>();
-                let mut connected = connected;
-                let mut counter = 0;
+        thread::spawn(move || unsafe {
+            let mut prev_state = mem::zeroed::<XState>();
+            let mut state = mem::zeroed::<XState>();
+            let mut connected = connected;
+            let mut counter = 0;
 
-                loop {
-                    for id in 0..4 {
-                        if *connected.get_unchecked(id) ||
-                           counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0 {
-                            let val = xinput::XInputGetState(id as u32, &mut state);
-                            if val == ERROR_SUCCESS {
-                                if !connected.get_unchecked(id) {
-                                    *connected.get_unchecked_mut(id) = true;
-                                    let _ = tx.send((id, Event::Connected));
-                                }
-
-                                if state.dwPacketNumber != prev_state.dwPacketNumber {
-                                    Self::compare_state(id,
-                                                        &state.Gamepad,
-                                                        &prev_state.Gamepad,
-                                                        &tx);
-                                    prev_state = state;
-                                }
-                            } else if val == ERROR_DEVICE_NOT_CONNECTED &&
-                                      *connected.get_unchecked(id) {
-                                *connected.get_unchecked_mut(id) = false;
-                                let _ = tx.send((id, Event::Disconnected));
+            loop {
+                for id in 0..4 {
+                    if *connected.get_unchecked(id) ||
+                       counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0 {
+                        let val = xinput::XInputGetState(id as u32, &mut state);
+                        if val == ERROR_SUCCESS {
+                            if !connected.get_unchecked(id) {
+                                *connected.get_unchecked_mut(id) = true;
+                                let _ = tx.send((id, Event::Connected));
                             }
+
+                            if state.dwPacketNumber != prev_state.dwPacketNumber {
+                                Self::compare_state(id, &state.Gamepad, &prev_state.Gamepad, &tx);
+                                prev_state = state;
+                            }
+                        } else if val == ERROR_DEVICE_NOT_CONNECTED &&
+                                  *connected.get_unchecked(id) {
+                            *connected.get_unchecked_mut(id) = false;
+                            let _ = tx.send((id, Event::Disconnected));
                         }
                     }
-
-                    counter = counter.wrapping_add(1);
-                    thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
                 }
+
+                counter = counter.wrapping_add(1);
+                thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
             }
         });
     }

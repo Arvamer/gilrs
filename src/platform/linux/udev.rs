@@ -191,8 +191,9 @@ impl Monitor {
                 None
             } else {
                 ud::udev_monitor_filter_add_match_subsystem_devtype(monitor,
-                                                            b"input\0".as_ptr() as *const i8,
-                                                            ptr::null());
+                                                                    b"input\0".as_ptr() as
+                                                                    *const i8,
+                                                                    ptr::null());
                 ud::udev_monitor_enable_receiving(monitor);
                 Some(Monitor(monitor))
             }

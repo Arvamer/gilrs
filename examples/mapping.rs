@@ -56,35 +56,27 @@ fn main() {
     get_btn_nevc(&mut gilrs, id, skip_btn).map(|nevc| mapping[Button::RightThumb] = nevc);
 
     println!("Press first left trigger (LB on XBox gamepad layout)");
-    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| {
-        match el {
-            ButtonOrAxis::Button => mapping[Button::LeftTrigger] = nevc,
-            ButtonOrAxis::Axis => mapping[Axis::LeftTrigger] = nevc,
-        }
+    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| match el {
+        ButtonOrAxis::Button => mapping[Button::LeftTrigger] = nevc,
+        ButtonOrAxis::Axis => mapping[Axis::LeftTrigger] = nevc,
     });
 
     println!("Press second left trigger (LT on XBox gamepad layout)");
-    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| {
-        match el {
-            ButtonOrAxis::Button => mapping[Button::LeftTrigger2] = nevc,
-            ButtonOrAxis::Axis => mapping[Axis::LeftTrigger2] = nevc,
-        }
+    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| match el {
+        ButtonOrAxis::Button => mapping[Button::LeftTrigger2] = nevc,
+        ButtonOrAxis::Axis => mapping[Axis::LeftTrigger2] = nevc,
     });
 
     println!("Press first right trigger (RB on XBox gamepad layout)");
-    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| {
-        match el {
-            ButtonOrAxis::Button => mapping[Button::RightTrigger] = nevc,
-            ButtonOrAxis::Axis => mapping[Axis::RightTrigger] = nevc,
-        }
+    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| match el {
+        ButtonOrAxis::Button => mapping[Button::RightTrigger] = nevc,
+        ButtonOrAxis::Axis => mapping[Axis::RightTrigger] = nevc,
     });
 
     println!("Press second right trigger (RT on XBox gamepad layout)");
-    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| {
-        match el {
-            ButtonOrAxis::Button => mapping[Button::RightTrigger2] = nevc,
-            ButtonOrAxis::Axis => mapping[Axis::RightTrigger2] = nevc,
-        }
+    get_axis_or_btn_nevc(&mut gilrs, id, skip_btn).map(|(el, nevc)| match el {
+        ButtonOrAxis::Button => mapping[Button::RightTrigger2] = nevc,
+        ButtonOrAxis::Axis => mapping[Axis::RightTrigger2] = nevc,
     });
 
     println!("Move left stick in X axis");
