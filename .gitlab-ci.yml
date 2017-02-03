@@ -1,10 +1,9 @@
 image: "registry.gitlab.com/arvamer/gilrs"
 
-variables:
-    GIT_SUBMODULE_STRATEGY: normal
-
 before_script:
-- rustc --version && cargo --version
+  - git submodule init
+  - git submodule update
+  - rustc --version && cargo --version
 
 cache:
   key: "$CI_BUILD_REF"
