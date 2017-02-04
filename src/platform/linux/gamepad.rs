@@ -9,6 +9,7 @@ use super::udev::*;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
               Deadzones, MappingSource};
+use ff::Error;
 use utils::test_bit;
 use std::ffi::CStr;
 use std::mem;
@@ -840,7 +841,7 @@ impl Gamepad {
         self.ff_supported
     }
 
-    pub fn set_ff_gain(&mut self, gain: u16) {
+    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
         let ev = ioctl::input_event {
             _type: EV_FF,
             code: FF_GAIN,
@@ -848,7 +849,11 @@ impl Gamepad {
             time: unsafe { mem::uninitialized() },
         };
         unsafe {
-            c::write(self.fd, mem::transmute(&ev), 24);
+            if c::write(self.fd, mem::transmute(&ev), 24) == -1 {
+                Err(Error::Other)
+            } else {
+                Ok(())
+            }
         }
     }
 

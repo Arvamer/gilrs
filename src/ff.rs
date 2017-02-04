@@ -179,7 +179,7 @@ pub struct Envelope {
     pub fade_level: u16,
 }
 
-/// Defines scheduling of the force-feedback effect
+/// Defines scheduling of the force feedback effect
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 #[repr(C)]
 pub struct Replay {
@@ -187,7 +187,7 @@ pub struct Replay {
     pub delay: u16,
 }
 
-/// Defines what triggers the force-feedback effect
+/// Defines what triggers the force feedback effect
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 #[repr(C)]
 pub struct Trigger {
@@ -201,10 +201,16 @@ pub enum Error {
     NotEnoughSpace,
     /// Force feedback is not supported by device
     FfNotSupported,
-    /// Requested effect is not supported by device
-    EffectNotSupported,
+    /// Requested effect or action is not supported by device/driver
+    NotSupported,
     /// Can not play effect
     FailedToPlay,
+    /// Device is not connected
+    Disconnected,
+    /// Effect with requested ID doesn't exist
+    InvalidId,
+    /// Unexpected error has occurred
+    Other,
 }
 
 impl Error {
@@ -212,8 +218,11 @@ impl Error {
         match self {
             Error::NotEnoughSpace => "not enough space for new effect",
             Error::FfNotSupported => "force feedback is not supported",
-            Error::EffectNotSupported => "effect is not supported by device",
+            Error::NotSupported => "effect or action is not supported by device",
             Error::FailedToPlay => "can't play effect",
+            Error::Disconnected => "device is not connected",
+            Error::InvalidId => "effect with requested ID doesn't exist",
+            Error::Other => "unexpected error has occurred",
         }
     }
 }

@@ -24,7 +24,7 @@ impl Effect {
         let mut data: ff_effect = data.into();
         let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data) };
         if res == -1 {
-            Err(Error::EffectNotSupported)
+            Err(Error::NotSupported)
         } else {
             Ok(Effect {
                 id: data.id,
@@ -37,7 +37,7 @@ impl Effect {
         let mut data: ff_effect = data.into();
         data.id = self.id;
         let res = unsafe { ioctl::eviocsff(self.fd, &mut data) };
-        if res == -1 { Err(Error::EffectNotSupported) } else { Ok(()) }
+        if res == -1 { Err(Error::NotSupported) } else { Ok(()) }
     }
 
     pub fn play(&mut self, n: u16) -> Result<(), Error> {

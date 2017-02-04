@@ -343,6 +343,9 @@ impl Gamepad {
     /// gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
     /// ```
     pub fn add_ff_effect(&mut self, data: EffectData) -> Result<usize, ff::Error> {
+        if !self.is_connected() {
+            return Err(ff::Error::Disconnected)
+        }
         if let Some(pos) = self.ff_effects.iter().position(|effect| effect.is_none()) {
             if self.is_ff_supported() {
                 Effect::new(self, data).map(|effect| {
@@ -359,9 +362,15 @@ impl Gamepad {
         }
     }
 
-    /// Drop effect stopping it. Use this function to make space for new effects.
-    pub fn drop_ff_effect(&mut self, idx: usize) {
-        self.ff_effects.get_mut(idx).map(|effect| effect.take());
+    /// Drop effect stopping it. Use this function to make space for new effects. This function
+    /// fails if gamepad is disconnected or there is no effect with requested ID.
+    pub fn drop_ff_effect(&mut self, idx: usize) -> Result<(), ff::Error> {
+        if self.is_connected() {
+            self.ff_effects.get_mut(idx).map(|effect| effect.take()).ok_or(ff::Error::InvalidId)?;
+            Ok(())
+        } else {
+            Err(ff::Error::Disconnected)
+        }
     }
 
     /// Borrows mutable `Effect`.
@@ -369,9 +378,14 @@ impl Gamepad {
         self.ff_effects.get_mut(idx).and_then(|effect| effect.as_mut())
     }
 
-    /// Returns how many force feedback effects device can have.
-    pub fn max_ff_effects(&self) -> usize {
-        self.inner.max_ff_effects()
+    /// Returns how many force feedback effects device can have. This function fails if gamepad is
+    /// disconnected.
+    pub fn max_ff_effects(&self) -> Result<usize, ff::Error> {
+        if self.is_connected() {
+            Ok(self.inner.max_ff_effects())
+        } else {
+            Err(ff::Error::Disconnected)
+        }
     }
 
     /// Returns true if force feedback is supported by device.
@@ -379,9 +393,17 @@ impl Gamepad {
         self.inner.is_ff_supported()
     }
 
-    /// Sets master gain for device.
-    pub fn set_ff_gain(&mut self, gain: u16) {
-        self.inner.set_ff_gain(gain)
+    /// Sets master gain for device. Gain can be in range [0, u16::MAX].
+    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), ff::Error> {
+        if self.is_connected() {
+            if self.is_ff_supported() {
+                self.inner.set_ff_gain(gain)
+            } else {
+                Err(ff::Error::FfNotSupported)
+            }
+        } else {
+            Err(ff::Error::Disconnected)
+        }
     }
 }
 

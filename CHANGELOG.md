@@ -1,6 +1,21 @@
 Change Log
 ==========
 
+v0.5.0 - unreleased
+-------------------
+
+### Added
+
+- New type of force feedback effect—rumble (see `ff::EffectType::Rumble`).
+- New variants in `ff::Error` enum—`ff::Error::{Disconnected, InvalidId, Other}`.
+
+### Changed
+
+- Redesigned `ff::EffectData` to allow other effect types.
+- Renamed `ff::Error::EffectNotSupported` to `ff::Error::NotSupported`.
+- Improved error handling in force feedback related functions.
+  `Gamepad::{drop_ff_effect, set_ff_gain, max_ff_effects}` now return `Result`
+
 v0.4.2 - 2017-01-15
 -------------------
 

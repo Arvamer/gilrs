@@ -8,6 +8,7 @@
 
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
+use ff::Error;
 use uuid::Uuid;
 use std::thread;
 use std::mem;
@@ -351,7 +352,9 @@ impl Gamepad {
         false
     }
 
-    pub fn set_ff_gain(&mut self, gain: u16) {}
+    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
+        Err(Error::FfNotSupported)
+    }
 }
 
 #[inline(always)]

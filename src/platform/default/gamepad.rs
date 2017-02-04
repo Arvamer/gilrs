@@ -7,6 +7,7 @@
 #![allow(unused_variables)]
 
 use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt, MappingSource};
+use ff::Error;
 use mapping::{MappingData, MappingError};
 use uuid::Uuid;
 
@@ -89,7 +90,9 @@ impl Gamepad {
         false
     }
 
-    pub fn set_ff_gain(&mut self, gain: u16) {}
+    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
+        Err(Error::FfNotSupported)
+    }
 }
 
 pub struct EventIterator<'a>(&'a mut Gilrs);
