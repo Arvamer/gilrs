@@ -113,7 +113,7 @@ impl Gilrs {
 
                 fn play_effect(&self, id: u8) {
                     let (left, right) = match self.data.kind {
-                        EffectType::Rumble { strong, weak } => (weak, strong),
+                        EffectType::Rumble { strong, weak } => (strong, weak),
                         _ => unreachable!(),
                     };
 
@@ -128,7 +128,14 @@ impl Gilrs {
                 }
 
                 fn stop_effect(&self, id: u8) {
-                    unimplemented!()
+                    let mut effect = XInputVibration {
+                        wLeftMotorSpeed: 0,
+                        wRightMotorSpeed: 0,
+                    };
+
+                    unsafe {
+                        xinput::XInputSetState(id as u32, &mut effect);
+                    }
                 }
             }
 
