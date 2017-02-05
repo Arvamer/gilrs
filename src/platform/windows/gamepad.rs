@@ -8,7 +8,7 @@
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
 use ff::Error;
-use super::ff::{FfMessage, FfMessageType, Device};
+use super::ff::{FfMessage, FfMessageType, Device, self};
 use uuid::Uuid;
 use std::time::Duration;
 use std::{thread, mem, u32, i16, u8, u16};
@@ -382,7 +382,7 @@ impl Gamepad {
     }
 
     pub fn max_ff_effects(&self) -> usize {
-        1
+        ff::MAX_EFFECTS
     }
 
     pub fn is_ff_supported(&self) -> bool {

@@ -14,7 +14,7 @@ use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use xinput;
 
 // Same as in Linux memless ff driver
-const MAX_EFFECTS: usize = 16;
+pub const MAX_EFFECTS: usize = 16;
 
 #[derive(Debug)]
 pub struct Effect {
