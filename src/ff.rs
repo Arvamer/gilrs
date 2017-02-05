@@ -103,6 +103,24 @@ pub enum EffectType {
     },
 }
 
+impl EffectType {
+    /// Returns true if effect is periodic.
+    pub fn is_periodic(&self) -> bool {
+        match self {
+            &EffectType::Periodic { .. } => true,
+            _ => false
+        }
+    }
+
+    /// Returns true if effect is rumble.
+    pub fn is_rumble(&self) -> bool {
+        match self {
+            &EffectType::Rumble { .. } => true,
+            _ => false
+        }
+    }
+}
+
 impl Default for EffectType {
     fn default() -> Self {
         EffectType::Rumble {

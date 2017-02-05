@@ -8,11 +8,13 @@
 
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
-use ff::Error;
+use ff::{Error, EffectData, EffectType};
+use super::ff::{FfMessage, FfMessageType};
 use uuid::Uuid;
 use std::thread;
 use std::mem;
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::time::Instant;
+use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use std::time::Duration;
 use std::u32::MAX as U32_MAX;
 use std::i16::MAX as I16_MAX;
@@ -24,7 +26,7 @@ use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAME
                      XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_A,
                      XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
                      XINPUT_GAMEPAD as XGamepad, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
-                     self as xi};
+                     XINPUT_VIBRATION as XInputVibration, self as xi};
 
 use xinput;
 
@@ -40,14 +42,18 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub fn new() -> Self {
-        let gamepads = [gamepad_new(0), gamepad_new(1), gamepad_new(2), gamepad_new(3)];
+        let (fftx, ffrx) = mpsc::sync_channel(4);
+        let gamepads = [gamepad_new(0, fftx.clone()),
+                        gamepad_new(1, fftx.clone()),
+                        gamepad_new(2, fftx.clone()),
+                        gamepad_new(3, fftx)];
         let connected = [gamepads[0].is_connected(),
                          gamepads[1].is_connected(),
                          gamepads[2].is_connected(),
                          gamepads[3].is_connected()];
         unsafe { xinput::XInputEnable(1) };
         let (tx, rx) = mpsc::channel();
-        Self::spawn_thread(tx, connected);
+        Self::spawn_thread(tx, ffrx, connected);
         Gilrs {
             gamepads: gamepads,
             rx: rx,
@@ -77,12 +83,67 @@ impl Gilrs {
         self.gamepads.len()
     }
 
-    fn spawn_thread(tx: Sender<(usize, Event)>, connected: [bool; 4]) {
+    fn spawn_thread(tx: Sender<(usize, Event)>, ffrx: Receiver<FfMessage>, connected: [bool; 4]) {
         thread::spawn(move || unsafe {
             let mut prev_state = mem::zeroed::<XState>();
             let mut state = mem::zeroed::<XState>();
             let mut connected = connected;
             let mut counter = 0;
+
+            struct Effect {
+                data: EffectData,
+                repeat: u16,
+                waiting: bool,
+                time: Instant,
+            }
+
+            impl Effect {
+                fn play(&mut self, n: u16, id: u8) {
+                    self.repeat = n.saturating_add(1);
+                    if self.data.replay.delay != 0 {
+                        self.waiting = true;
+                    } else {
+                        self.play_effect(id);
+                    }
+                }
+
+                fn stop(&mut self) {
+                    self.repeat = 0;
+                }
+
+                fn play_effect(&self, id: u8) {
+                    let (left, right) = match self.data.kind {
+                        EffectType::Rumble { strong, weak } => (weak, strong),
+                        _ => unreachable!(),
+                    };
+
+                    let mut effect = XInputVibration {
+                        wLeftMotorSpeed: left,
+                        wRightMotorSpeed: right,
+                    };
+
+                    unsafe {
+                        xinput::XInputSetState(id as u32, &mut effect);
+                    }
+                }
+
+                fn stop_effect(&self, id: u8) {
+                    unimplemented!()
+                }
+            }
+
+            impl From<EffectData> for Effect {
+                fn from(f: EffectData) -> Self {
+                    Effect {
+                        data: f,
+                        repeat: 0,
+                        waiting: false,
+                        time: Instant::now(),
+                    }
+                }
+            }
+
+            let mut effects: [Option<Effect>; 4] = [None, None, None, None];
 
             loop {
                 for id in 0..4 {
@@ -104,6 +165,50 @@ impl Gilrs {
                             *connected.get_unchecked_mut(id) = false;
                             let _ = tx.send((id, Event::Disconnected));
                         }
+                    }
+                }
+
+                while let Ok(msg) = ffrx.try_recv() {
+                    match msg.kind {
+                        FfMessageType::Create(data) => effects[msg.id as usize] = Some(data.into()),
+                        FfMessageType::Play(n) => { effects[msg.id as usize].as_mut().map(|e| e.play(n, msg.id)); }
+                        FfMessageType::Stop =>{ effects[msg.id as usize].as_mut().map(|e| e.stop()); }
+                        FfMessageType::Drop => effects[msg.id as usize] = None,
+                    }
+                }
+
+                fn ms(dur: Duration) -> u16 {
+                    dur.as_secs() as u16 + (dur.subsec_nanos() as f64 / 1_000_000.0) as u16
+                }
+
+                for (effect, id) in effects.iter_mut().zip(0..) {
+                    let effect = match effect.as_mut() {
+                        Some(e) => e,
+                        None => continue,
+                    };
+
+                    let dur = ms(Instant::now().duration_since(effect.time));
+                    if effect.repeat == 0 {
+                        continue;
+                    }
+
+                    if effect.data.replay.length + effect.data.replay.delay > dur  {
+                        effect.repeat -= 1;
+
+                        if effect.repeat == 0 {
+                            effect.stop_effect(id);
+                            continue;
+                        }
+
+                        if effect.data.replay.delay != 0 {
+                            effect.waiting = true;
+                            effect.stop_effect(id);
+                        }
+
+                        effect.time = Instant::now();
+                    } else if effect.data.replay.delay > dur && effect.waiting {
+                        effect.waiting = false;
+                        effect.play_effect(id);
                     }
                 }
 
@@ -286,6 +391,7 @@ pub struct Gamepad {
     name: String,
     uuid: Uuid,
     id: u32,
+    ff_sender: Option<SyncSender<FfMessage>>,
 }
 
 impl Gamepad {
@@ -294,6 +400,7 @@ impl Gamepad {
             name: String::new(),
             uuid: Uuid::nil(),
             id: U32_MAX,
+            ff_sender: None,
         }
     }
 
@@ -355,6 +462,20 @@ impl Gamepad {
     pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
         Err(Error::FfNotSupported)
     }
+
+    pub fn ff_sender(&self) -> &SyncSender<FfMessage> {
+        // This function should be only called on "real" gamepads with ff_sender. If this panic,
+        // pleas open an issue—it's bug in library.
+        self.ff_sender.as_ref().expect("Attempt to get ff_sender from fake gamepad.")
+    }
+
+    pub fn get_free_ff_idx(&self) -> Option<u8> {
+        Some(0)
+    }
+
+    pub fn id(&self) -> u8 {
+        self.id as u8
+    }
 }
 
 #[inline(always)]
@@ -362,11 +483,12 @@ fn is_mask_eq(l: u16, r: u16, mask: u16) -> bool {
     (l & mask != 0) == (r & mask != 0)
 }
 
-fn gamepad_new(id: u32) -> gamepad::Gamepad {
+fn gamepad_new(id: u32, ff_sender: SyncSender<FfMessage>) -> gamepad::Gamepad {
     let gamepad = Gamepad {
         name: format!("XInput Controller {}", id + 1),
         uuid: Uuid::nil(),
         id: id,
+        ff_sender: Some(ff_sender),
     };
 
     let status = unsafe {
