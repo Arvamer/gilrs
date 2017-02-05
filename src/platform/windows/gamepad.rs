@@ -452,11 +452,11 @@ impl Gamepad {
     }
 
     pub fn max_ff_effects(&self) -> usize {
-        0
+        1
     }
 
     pub fn is_ff_supported(&self) -> bool {
-        false
+        true
     }
 
     pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
