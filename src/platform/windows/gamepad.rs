@@ -8,8 +8,8 @@
 
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
-use ff::{Error, EffectData, EffectType};
-use super::ff::{FfMessage, FfMessageType};
+use ff::Error;
+use super::ff::{FfMessage, FfMessageType, EffectInternal as Effect};
 use uuid::Uuid;
 use std::thread;
 use std::mem;
@@ -26,7 +26,7 @@ use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAME
                      XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_A,
                      XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
                      XINPUT_GAMEPAD as XGamepad, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
-                     XINPUT_VIBRATION as XInputVibration, self as xi};
+                     self as xi};
 
 use xinput;
 
@@ -90,83 +90,7 @@ impl Gilrs {
             let mut connected = connected;
             let mut counter = 0;
 
-            struct Effect {
-                data: EffectData,
-                repeat: u16,
-                waiting: bool,
-                time: Instant,
-            }
-
-            impl Effect {
-                fn play(&mut self, n: u16, id: u8) {
-                    self.repeat = n.saturating_add(1);
-                    if self.data.replay.delay != 0 {
-                        self.waiting = true;
-                    } else {
-                        self.play_effect(id);
-                    }
-                }
-
-                fn stop(&mut self) {
-                    self.repeat = 0;
-                }
-
-                fn play_effect(&self, id: u8) {
-                    let (left, right) = match self.data.kind {
-                        EffectType::Rumble { strong, weak } => (strong, weak),
-                        _ => unreachable!(),
-                    };
-
-                    let mut effect = XInputVibration {
-                        wLeftMotorSpeed: left,
-                        wRightMotorSpeed: right,
-                    };
-
-                    Self::set_ff_state(id, &mut effect);
-                }
-
-                fn stop_effect(&self, id: u8) {
-                    let mut effect = XInputVibration {
-                        wLeftMotorSpeed: 0,
-                        wRightMotorSpeed: 0,
-                    };
-
-                    Self::set_ff_state(id, &mut effect);
-                }
-
-                fn set_ff_state(id: u8, effect: &mut XInputVibration) {
-                    unsafe {
-                        let err = xinput::XInputSetState(id as u32, effect);
-                        match err {
-                            ERROR_SUCCESS => (),
-                            ERROR_DEVICE_NOT_CONNECTED => {
-                                error!("Failed to change FF state – gamepad with id {} is no \
-                                        longer connected.",
-                                       id);
-                            }
-                            _ => {
-                                error!("Failed to change FF state – unknown error. ID = {}, \
-                                        error code = {}.",
-                                       id,
-                                       err);
-                            }
-                        }
-                    }
-                }
-            }
-
-            impl From<EffectData> for Effect {
-                fn from(f: EffectData) -> Self {
-                    Effect {
-                        data: f,
-                        repeat: 0,
-                        waiting: false,
-                        time: Instant::now(),
-                    }
-                }
-            }
-
-            let mut effects: [Option<Effect>; 4] = [None, None, None, None];
+            let mut effects: [Option<Effect>; 4] = [None; 4];
 
             loop {
                 for id in 0..4 {
@@ -195,10 +119,10 @@ impl Gilrs {
                     match msg.kind {
                         FfMessageType::Create(data) => effects[msg.id as usize] = Some(data.into()),
                         FfMessageType::Play(n) => {
-                            effects[msg.id as usize].as_mut().map(|e| e.play(n, msg.id));
+                            effects[msg.id as usize].map(|mut e| e.play(n, msg.id));
                         }
                         FfMessageType::Stop => {
-                            effects[msg.id as usize].as_mut().map(|e| e.stop());
+                            effects[msg.id as usize].map(|mut e| e.stop());
                         }
                         FfMessageType::Drop => effects[msg.id as usize] = None,
                     }
