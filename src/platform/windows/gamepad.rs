@@ -199,7 +199,7 @@ impl Gilrs {
                         continue;
                     }
 
-                    if effect.data.replay.length + effect.data.replay.delay > dur  {
+                    if effect.data.replay.length + effect.data.replay.delay < dur  {
                         effect.repeat -= 1;
 
                         if effect.repeat == 0 {
