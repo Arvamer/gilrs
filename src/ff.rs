@@ -108,7 +108,7 @@ impl EffectType {
     pub fn is_periodic(&self) -> bool {
         match self {
             &EffectType::Periodic { .. } => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -116,7 +116,7 @@ impl EffectType {
     pub fn is_rumble(&self) -> bool {
         match self {
             &EffectType::Rumble { .. } => true,
-            _ => false
+            _ => false,
         }
     }
 }

@@ -122,9 +122,7 @@ impl Gilrs {
                         wRightMotorSpeed: right,
                     };
 
-                    unsafe {
-                        xinput::XInputSetState(id as u32, &mut effect);
-                    }
+                    Self::set_ff_state(id, &mut effect);
                 }
 
                 fn stop_effect(&self, id: u8) {
@@ -133,8 +131,26 @@ impl Gilrs {
                         wRightMotorSpeed: 0,
                     };
 
+                    Self::set_ff_state(id, &mut effect);
+                }
+
+                fn set_ff_state(id: u8, effect: &mut XInputVibration) {
                     unsafe {
-                        xinput::XInputSetState(id as u32, &mut effect);
+                        let err = xinput::XInputSetState(id as u32, effect);
+                        match err {
+                            ERROR_SUCCESS => (),
+                            ERROR_DEVICE_NOT_CONNECTED => {
+                                error!("Failed to change FF state – gamepad with id {} is no \
+                                        longer connected.",
+                                       id);
+                            }
+                            _ => {
+                                error!("Failed to change FF state – unknown error. ID = {}, \
+                                        error code = {}.",
+                                       id,
+                                       err);
+                            }
+                        }
                     }
                 }
             }
@@ -178,8 +194,12 @@ impl Gilrs {
                 while let Ok(msg) = ffrx.try_recv() {
                     match msg.kind {
                         FfMessageType::Create(data) => effects[msg.id as usize] = Some(data.into()),
-                        FfMessageType::Play(n) => { effects[msg.id as usize].as_mut().map(|e| e.play(n, msg.id)); }
-                        FfMessageType::Stop =>{ effects[msg.id as usize].as_mut().map(|e| e.stop()); }
+                        FfMessageType::Play(n) => {
+                            effects[msg.id as usize].as_mut().map(|e| e.play(n, msg.id));
+                        }
+                        FfMessageType::Stop => {
+                            effects[msg.id as usize].as_mut().map(|e| e.stop());
+                        }
                         FfMessageType::Drop => effects[msg.id as usize] = None,
                     }
                 }
@@ -199,7 +219,7 @@ impl Gilrs {
                         continue;
                     }
 
-                    if effect.data.replay.length + effect.data.replay.delay < dur  {
+                    if effect.data.replay.length + effect.data.replay.delay < dur {
                         effect.repeat -= 1;
 
                         if effect.repeat == 0 {

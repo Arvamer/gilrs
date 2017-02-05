@@ -89,4 +89,3 @@ pub enum FfMessageType {
     Stop,
     Drop,
 }
-
