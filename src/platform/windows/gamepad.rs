@@ -91,6 +91,7 @@ impl Gilrs {
             let mut counter = 0;
 
             let mut effects: [Option<Effect>; 4] = [None; 4];
+            let mut master_gains = [1.0f32; 4];
 
             loop {
                 for id in 0..4 {
@@ -116,15 +117,17 @@ impl Gilrs {
                 }
 
                 while let Ok(msg) = ffrx.try_recv() {
+                    let id = msg.id as usize;
                     match msg.kind {
-                        FfMessageType::Create(data) => effects[msg.id as usize] = Some(data.into()),
+                        FfMessageType::Create(data) => effects[id] = Some(data.into()),
                         FfMessageType::Play(n) => {
-                            effects[msg.id as usize].map(|mut e| e.play(n, msg.id));
+                            effects[id].map(|mut e| e.play(n, id as u8, master_gains[id]));
                         }
                         FfMessageType::Stop => {
-                            effects[msg.id as usize].map(|mut e| e.stop());
+                            effects[id].map(|mut e| e.stop());
                         }
-                        FfMessageType::Drop => effects[msg.id as usize] = None,
+                        FfMessageType::Drop => effects[id] = None,
+                        FfMessageType::ChangeGain(new) => master_gains[id] = new,
                     }
                 }
 
@@ -159,7 +162,7 @@ impl Gilrs {
                         effect.time = Instant::now();
                     } else if dur > effect.data.replay.delay as u32 && effect.waiting {
                         effect.waiting = false;
-                        effect.play_effect(id);
+                        effect.play_effect(id, master_gains[id as usize]);
                     }
                 }
 
@@ -411,7 +414,16 @@ impl Gamepad {
     }
 
     pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
-        Err(Error::FfNotSupported)
+        let gain = gain as f32 / (-1i16 as u16) as f32;
+        let msg = FfMessage {
+            id: self.id as u8,
+            idx: 0,
+            kind: FfMessageType::ChangeGain(gain),
+        };
+
+        let _ =
+            self.ff_sender.as_ref().expect("Attempt to get ff_sender from fake gamepad.").send(msg);
+        Ok(())
     }
 
     pub fn ff_sender(&self) -> &SyncSender<FfMessage> {

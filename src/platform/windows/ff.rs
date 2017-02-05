@@ -92,6 +92,7 @@ pub enum FfMessageType {
     Play(u16),
     Stop,
     Drop,
+    ChangeGain(f32),
 }
 
 #[derive(Copy, Clone)]
@@ -103,12 +104,12 @@ pub struct EffectInternal {
 }
 
 impl EffectInternal {
-    pub fn play(&mut self, n: u16, id: u8) {
+    pub fn play(&mut self, n: u16, id: u8, gain: f32) {
         self.repeat = n.saturating_add(1);
         if self.data.replay.delay != 0 {
             self.waiting = true;
         } else {
-            self.play_effect(id);
+            self.play_effect(id, gain);
         }
     }
 
@@ -116,15 +117,15 @@ impl EffectInternal {
         self.repeat = 0;
     }
 
-    pub fn play_effect(&self, id: u8) {
+    pub fn play_effect(&self, id: u8, gain: f32) {
         let (left, right) = match self.data.kind {
-            EffectType::Rumble { strong, weak } => (strong, weak),
+            EffectType::Rumble { strong, weak } => (strong as f32 * gain, weak as f32 * gain),
             _ => unreachable!(),
         };
 
         let mut effect = XInputVibration {
-            wLeftMotorSpeed: left,
-            wRightMotorSpeed: right,
+            wLeftMotorSpeed: left as u16,
+            wRightMotorSpeed: right as u16,
         };
 
         Self::set_ff_state(id, &mut effect);
