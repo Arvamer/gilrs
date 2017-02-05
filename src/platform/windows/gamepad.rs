@@ -204,8 +204,8 @@ impl Gilrs {
                     }
                 }
 
-                fn ms(dur: Duration) -> u16 {
-                    dur.as_secs() as u16 + (dur.subsec_nanos() as f64 / 1_000_000.0) as u16
+                fn ms(dur: Duration) -> u32 {
+                    dur.as_secs() as u32 + (dur.subsec_nanos() as f64 / 1_000_000.0) as u32
                 }
 
                 for (effect, id) in effects.iter_mut().zip(0..) {
@@ -219,7 +219,7 @@ impl Gilrs {
                         continue;
                     }
 
-                    if effect.data.replay.length + effect.data.replay.delay < dur {
+                    if dur > effect.data.replay.length as u32 + effect.data.replay.delay as u32 {
                         effect.repeat -= 1;
 
                         if effect.repeat == 0 {
@@ -233,7 +233,7 @@ impl Gilrs {
                         }
 
                         effect.time = Instant::now();
-                    } else if effect.data.replay.delay > dur && effect.waiting {
+                    } else if dur > effect.data.replay.delay as u32 && effect.waiting {
                         effect.waiting = false;
                         effect.play_effect(id);
                     }
