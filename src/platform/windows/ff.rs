@@ -4,7 +4,6 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-#![allow(unused_variables)]
 
 use super::gamepad::Gamepad;
 use ff::{EffectData, Error, EffectType};
@@ -123,26 +122,26 @@ impl EffectInternal {
             _ => unreachable!(),
         };
 
-        let mut effect = XInputVibration {
+        let effect = XInputVibration {
             wLeftMotorSpeed: left as u16,
             wRightMotorSpeed: right as u16,
         };
 
-        Self::set_ff_state(id, &mut effect);
+        Self::set_ff_state(id, effect);
     }
 
     pub fn stop_effect(&self, id: u8) {
-        let mut effect = XInputVibration {
+        let effect = XInputVibration {
             wLeftMotorSpeed: 0,
             wRightMotorSpeed: 0,
         };
 
-        Self::set_ff_state(id, &mut effect);
+        Self::set_ff_state(id, effect);
     }
 
-    fn set_ff_state(id: u8, effect: &mut XInputVibration) {
+    fn set_ff_state(id: u8, mut effect: XInputVibration) {
         unsafe {
-            let err = xinput::XInputSetState(id as u32, effect);
+            let err = xinput::XInputSetState(id as u32, &mut effect);
             match err {
                 ERROR_SUCCESS => (),
                 ERROR_DEVICE_NOT_CONNECTED => {
