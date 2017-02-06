@@ -344,7 +344,7 @@ impl Gamepad {
     /// ```
     pub fn add_ff_effect(&mut self, data: EffectData) -> Result<usize, ff::Error> {
         if !self.is_connected() {
-            return Err(ff::Error::Disconnected)
+            return Err(ff::Error::Disconnected);
         }
         if let Some(pos) = self.ff_effects.iter().position(|effect| effect.is_none()) {
             if self.is_ff_supported() {
