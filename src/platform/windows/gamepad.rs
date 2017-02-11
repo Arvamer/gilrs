@@ -125,7 +125,10 @@ impl Gilrs {
                         FfMessageType::Stop => {
                             effects[id].map(|mut e| e.stop());
                         }
-                        FfMessageType::Drop => effects[id] = None,
+                        FfMessageType::Drop => {
+                            effects[id].map(|mut e| e.stop());
+                            effects[id] = None;
+                        }
                         FfMessageType::ChangeGain(new) => master_gains[id] = new,
                     }
                 }
@@ -420,8 +423,7 @@ impl Gamepad {
             kind: FfMessageType::ChangeGain(gain),
         };
 
-        let _ =
-            self.ff_sender.as_ref().expect("Attempt to get ff_sender from fake gamepad.").send(msg);
+        self.ff_sender.as_ref().expect("Attempt to get ff_sender from fake gamepad.").try_send(msg)?;
         Ok(())
     }
 

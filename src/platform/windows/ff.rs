@@ -7,7 +7,7 @@
 
 use super::gamepad::Gamepad;
 use ff::{EffectData, Error, EffectType};
-use std::sync::mpsc::SyncSender;
+use std::sync::mpsc::{SyncSender, TrySendError};
 use std::time::Instant;
 use winapi::xinput::XINPUT_VIBRATION as XInputVibration;
 use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
@@ -39,41 +39,48 @@ impl Effect {
             return Err(Error::NotSupported);
         }
 
-        let _ = self.tx.send(FfMessage {
+        self.tx.try_send(FfMessage {
             id: self.id,
             idx: self.idx,
             kind: FfMessageType::Create(data),
-        });
+        })?;
         Ok(())
     }
 
     pub fn play(&mut self, n: u16) -> Result<(), Error> {
-        let _ = self.tx.send(FfMessage {
+        self.tx.try_send(FfMessage {
             id: self.id,
             idx: self.idx,
             kind: FfMessageType::Play(n),
-        });
+        })?;
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<(), Error> {
-        let _ = self.tx.send(FfMessage {
+        self.tx.try_send(FfMessage {
             id: self.id,
             idx: self.idx,
             kind: FfMessageType::Stop,
-        });
+        })?;
         Ok(())
     }
 }
 
 impl Drop for Effect {
     fn drop(&mut self) {
-        self.stop();
-        let _ = self.tx.send(FfMessage {
+        let msg = FfMessage {
             id: self.id,
             idx: self.idx,
             kind: FfMessageType::Drop,
-        });
+        };
+        let r = self.tx.try_send(msg);
+        match r {
+            Err(TrySendError::Full(_)) => {
+                warn!("Dropping {:?} will block thread.", self);
+                let _ = self.tx.send(msg);
+            }
+            _ => (),
+        }
     }
 }
 

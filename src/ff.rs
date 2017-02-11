@@ -41,6 +41,7 @@ use std::u16::MAX as U16_MAX;
 use std::f32::consts::PI;
 use std::error::Error as StdError;
 use std::fmt;
+use std::sync::mpsc::TrySendError;
 
 pub use gamepad::Effect;
 
@@ -216,8 +217,13 @@ pub enum Error {
     Disconnected,
     /// Effect with requested ID doesn't exist
     InvalidId,
+    /// Sending force feedback command would block current thread. This can happen on Windows with
+    /// most force feedback functions.
+    WouldBlock,
     /// Unexpected error has occurred
     Other,
+    #[doc(hidden)]
+    __Nonexhaustive,
 }
 
 impl Error {
@@ -229,7 +235,9 @@ impl Error {
             Error::FailedToPlay => "can't play effect",
             Error::Disconnected => "device is not connected",
             Error::InvalidId => "effect with requested ID doesn't exist",
+            Error::WouldBlock => "this thread would be blocked by last ff operation",
             Error::Other => "unexpected error has occurred",
+            Error::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -243,5 +251,14 @@ impl StdError for Error {
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.write_str(self.to_str())
+    }
+}
+
+impl<T> From<TrySendError<T>> for Error {
+    fn from(f: TrySendError<T>) -> Self {
+        match f {
+            TrySendError::Full(_) => Error::WouldBlock,
+            _=> Error::Other,
+        }
     }
 }
