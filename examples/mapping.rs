@@ -1,8 +1,7 @@
 extern crate gilrs;
 use gilrs::{Gilrs, Mapping, Button, Axis, Event};
-use std::io;
+use std::{io, u16};
 use std::collections::HashMap;
-use std::u16::MAX as U16_MAX;
 
 fn main() {
     let mut gilrs = Gilrs::new();
@@ -28,7 +27,7 @@ fn main() {
 
     println!("Press east button on action pad (B on XBox gamepad layout). It will be used to \
               skip other mappings.");
-    get_btn_nevc(&mut gilrs, id, U16_MAX).map(|nevc| mapping[Button::East] = nevc);
+    get_btn_nevc(&mut gilrs, id, u16::MAX).map(|nevc| mapping[Button::East] = nevc);
     let skip_btn = mapping[Button::East];
 
     println!("Press south button on action pad (A on XBox gamepad layout)");

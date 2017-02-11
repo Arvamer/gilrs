@@ -37,7 +37,7 @@
 //! gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
 //! ```
 
-use std::u16::MAX as U16_MAX;
+use std::u16;
 use std::f32::consts::PI;
 use std::error::Error as StdError;
 use std::fmt;
@@ -167,7 +167,7 @@ impl Direction {
             ang = 2.0 * PI - ang
         };
         ang /= 2.0 * PI;
-        Direction { angle: (U16_MAX as f32 * ang) as u16 }
+        Direction { angle: (u16::MAX as f32 * ang) as u16 }
     }
 
     pub fn from_vector(vec: [f32; 2]) -> Self {

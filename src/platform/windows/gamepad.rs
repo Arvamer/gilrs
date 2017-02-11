@@ -10,14 +10,9 @@ use mapping::{MappingData, MappingError};
 use ff::Error;
 use super::ff::{FfMessage, FfMessageType, EffectInternal as Effect};
 use uuid::Uuid;
-use std::thread;
-use std::mem;
-use std::time::Instant;
+use std::{thread, mem, u32, i16, u8};
+use std::time::{Instant, Duration};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
-use std::time::Duration;
-use std::u32::MAX as U32_MAX;
-use std::i16::MAX as I16_MAX;
-use std::u8::MAX as U8_MAX;
 use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
                      XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_START,
@@ -178,37 +173,37 @@ impl Gilrs {
         if g.bLeftTrigger != pg.bLeftTrigger {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::LeftTrigger2,
-                                                g.bLeftTrigger as f32 / U8_MAX as f32,
+                                                g.bLeftTrigger as f32 / u8::MAX as f32,
                                                 4)));
         }
         if g.bRightTrigger != pg.bRightTrigger {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::RightTrigger2,
-                                                g.bRightTrigger as f32 / U8_MAX as f32,
+                                                g.bRightTrigger as f32 / u8::MAX as f32,
                                                 5)));
         }
         if g.sThumbLX != pg.sThumbLX {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::LeftStickX,
-                                                g.sThumbLX as f32 / I16_MAX as f32,
+                                                g.sThumbLX as f32 / i16::MAX as f32,
                                                 0)));
         }
         if g.sThumbLY != pg.sThumbLY {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::LeftStickY,
-                                                g.sThumbLY as f32 / I16_MAX as f32,
+                                                g.sThumbLY as f32 / i16::MAX as f32,
                                                 1)));
         }
         if g.sThumbRX != pg.sThumbRX {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::RightStickX,
-                                                g.sThumbRX as f32 / I16_MAX as f32,
+                                                g.sThumbRX as f32 / i16::MAX as f32,
                                                 2)));
         }
         if g.sThumbRY != pg.sThumbRY {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::RightStickY,
-                                                g.sThumbRY as f32 / I16_MAX as f32,
+                                                g.sThumbRY as f32 / i16::MAX as f32,
                                                 3)));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
@@ -355,7 +350,7 @@ impl Gamepad {
         Gamepad {
             name: String::new(),
             uuid: Uuid::nil(),
-            id: U32_MAX,
+            id: u32::MAX,
             ff_sender: None,
         }
     }
@@ -416,7 +411,7 @@ impl Gamepad {
     }
 
     pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
-        let gain = gain as f32 / (-1i16 as u16) as f32;
+        let gain = gain as f32 / u16::MAX as f32;
         let msg = FfMessage {
             id: self.id as u8,
             idx: 0,
