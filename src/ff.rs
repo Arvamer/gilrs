@@ -37,7 +37,6 @@
 //! gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
 //! ```
 
-use gamepad::Button;
 use std::u16::MAX as U16_MAX;
 use std::f32::consts::PI;
 use std::error::Error as StdError;
@@ -52,8 +51,6 @@ pub struct EffectData {
     pub direction: Direction,
     /// Scheduling of the effect
     pub replay: Replay,
-    /// Trigger conditions
-    pub trigger: Trigger,
     /// Type of effect
     pub kind: EffectType,
 }
@@ -203,14 +200,6 @@ pub struct Envelope {
 pub struct Replay {
     pub length: u16,
     pub delay: u16,
-}
-
-/// Defines what triggers the force feedback effect
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
-#[repr(C)]
-pub struct Trigger {
-    pub button: Button,
-    pub interval: u16,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

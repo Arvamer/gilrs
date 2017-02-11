@@ -4,13 +4,12 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use ff::{EffectData, Waveform, Trigger, Error, EffectType};
+use ff::{EffectData, Waveform, Error, EffectType};
 use super::gamepad::Gamepad;
 use ioctl::{ff_effect, input_event};
 use ioctl;
 use libc as c;
 use std::mem;
-use constants;
 use super::ioctl_def;
 
 #[derive(Debug)]
@@ -75,7 +74,7 @@ impl Into<ff_effect> for EffectData {
             _type: 0,
             id: -1,
             direction: self.direction.angle,
-            trigger: self.trigger.into(),
+            trigger: Default::default(),
             replay: unsafe { mem::transmute(self.replay) },
             u: unsafe { mem::uninitialized() },
         };
@@ -115,23 +114,6 @@ impl Into<u16> for Waveform {
     }
 }
 
-impl Into<ioctl::ff_trigger> for Trigger {
-    fn into(self) -> ioctl::ff_trigger {
-        let mut val = self.button as u16;
-        if val >= constants::BTN_SOUTH && val <= constants::BTN_RTHUMB {
-            val += BTN_GAMEPAD;
-        } else if val >= constants::BTN_DPAD_UP && val <= constants::BTN_DPAD_RIGHT {
-            val += BTN_DPAD_UP - constants::BTN_DPAD_UP;
-        } else {
-            val = 0;
-        };
-        ioctl::ff_trigger {
-            button: val,
-            interval: self.interval,
-        }
-    }
-}
-
 const EV_FF: u16 = 0x15;
 
 const FF_RUMBLE: u16 = 0x50;
@@ -139,5 +121,3 @@ const FF_PERIODIC: u16 = 0x51;
 const FF_SQUARE: u16 = 0x58;
 const FF_TRIANGLE: u16 = 0x59;
 const FF_SINE: u16 = 0x5a;
-const BTN_GAMEPAD: u16 = 0x130;
-const BTN_DPAD_UP: u16 = 0x220;

@@ -15,6 +15,12 @@ v0.5.0 - unreleased
 - Renamed `ff::Error::EffectNotSupported` to `ff::Error::NotSupported`.
 - Improved error handling in force feedback related functions.
   `Gamepad::{drop_ff_effect, set_ff_gain, max_ff_effects}` now return `Result`
+  
+### Removed
+
+- Removed `ff:Trigger`—usually you want to play force feedback effect when some event happen in game,
+  not when button is pressed. Additionally XInput  does not support it natively. If you used this
+  feature, pleas open an issue.
 
 v0.4.2 - 2017-01-15
 -------------------
