@@ -56,12 +56,13 @@ impl Effect {
         Ok(())
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Result<(), Error> {
         let _ = self.tx.send(FfMessage {
             id: self.id,
             idx: self.idx,
             kind: FfMessageType::Stop,
         });
+        Ok(())
     }
 }
 

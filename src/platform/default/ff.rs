@@ -25,5 +25,7 @@ impl Effect {
         Err(Error::FfNotSupported)
     }
 
-    pub fn stop(&mut self) {}
+    pub fn stop(&mut self) -> Result<(), Error> {
+        Err(Error::FfNotSupported)
+    }
 }

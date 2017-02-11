@@ -54,8 +54,9 @@ impl Effect {
         }
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Result<(), Error> {
         let _ = self.play(0);
+        Ok(())
     }
 }
 

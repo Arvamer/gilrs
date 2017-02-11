@@ -450,7 +450,7 @@ impl Effect {
     }
 
     /// Stop playing effect.
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Result<(), ff::Error> {
         self.inner.stop()
     }
 }

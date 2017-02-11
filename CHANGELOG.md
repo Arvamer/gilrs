@@ -14,7 +14,8 @@ v0.5.0 - unreleased
 - Redesigned `ff::EffectData` to allow other effect types.
 - Renamed `ff::Error::EffectNotSupported` to `ff::Error::NotSupported`.
 - Improved error handling in force feedback related functions.
-  `Gamepad::{drop_ff_effect, set_ff_gain, max_ff_effects}` now return `Result`
+  `Gamepad::{drop_ff_effect, set_ff_gain, max_ff_effects}` and
+  `ff::Effect::stop` now return `Result`
   
 ### Removed
 
