@@ -10,7 +10,7 @@ use mapping::{MappingData, MappingError};
 use ff::Error;
 use super::ff::{FfMessage, FfMessageType, EffectInternal as Effect};
 use uuid::Uuid;
-use std::{thread, mem, u32, i16, u8};
+use std::{thread, mem, u32, i16, u8, u16};
 use std::time::{Instant, Duration};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
