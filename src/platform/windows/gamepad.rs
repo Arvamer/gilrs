@@ -8,10 +8,10 @@
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
 use ff::Error;
-use super::ff::{FfMessage, FfMessageType, EffectInternal as Effect};
+use super::ff::{FfMessage, FfMessageType, Device};
 use uuid::Uuid;
+use std::time::Duration;
 use std::{thread, mem, u32, i16, u8, u16};
-use std::time::{Instant, Duration};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
@@ -24,6 +24,7 @@ use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAME
 
 use xinput;
 
+// Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
 const ITERATIONS_TO_CHECK_IF_CONNECTED: u64 = 100;
 
@@ -84,17 +85,23 @@ impl Gilrs {
             let mut connected = connected;
             let mut counter = 0;
 
-            let mut effects: [Option<Effect>; 4] = [None; 4];
-            let mut master_gains = [1.0f32; 4];
+            let mut ff = [None; 4];
+            for (cn, i) in connected.iter().zip(0..) {
+                if *cn {
+                    ff[i as usize] = Some(Device::new(i));
+                }
+            }
 
             loop {
                 for id in 0..4 {
                     if *connected.get_unchecked(id) ||
                        counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0 {
                         let val = xinput::XInputGetState(id as u32, &mut state);
+
                         if val == ERROR_SUCCESS {
                             if !connected.get_unchecked(id) {
                                 *connected.get_unchecked_mut(id) = true;
+                                *ff.get_unchecked_mut(id) = Some(Device::new(id as u8));
                                 let _ = tx.send((id, Event::Connected));
                             }
 
@@ -105,61 +112,17 @@ impl Gilrs {
                         } else if val == ERROR_DEVICE_NOT_CONNECTED &&
                                   *connected.get_unchecked(id) {
                             *connected.get_unchecked_mut(id) = false;
+                            *ff.get_unchecked_mut(id) = None;
                             let _ = tx.send((id, Event::Disconnected));
                         }
                     }
                 }
 
-                while let Ok(msg) = ffrx.try_recv() {
-                    let id = msg.id as usize;
-                    match msg.kind {
-                        FfMessageType::Create(data) => effects[id] = Some(data.into()),
-                        FfMessageType::Play(n) => {
-                            effects[id].map(|mut e| e.play(n, id as u8, master_gains[id]));
-                        }
-                        FfMessageType::Stop => {
-                            effects[id].map(|mut e| e.stop());
-                        }
-                        FfMessageType::Drop => {
-                            effects[id].map(|mut e| e.stop());
-                            effects[id] = None;
-                        }
-                        FfMessageType::ChangeGain(new) => master_gains[id] = new,
-                    }
-                }
+                Self::recv_ff_events(&ffrx, &mut ff);
 
-                fn ms(dur: Duration) -> u32 {
-                    dur.as_secs() as u32 + (dur.subsec_nanos() as f64 / 1_000_000.0) as u32
-                }
-
-                for (effect, id) in effects.iter_mut().zip(0..) {
-                    let effect = match effect.as_mut() {
-                        Some(e) => e,
-                        None => continue,
-                    };
-
-                    let dur = ms(Instant::now().duration_since(effect.time));
-                    if effect.repeat == 0 {
-                        continue;
-                    }
-
-                    if dur > effect.data.replay.length as u32 + effect.data.replay.delay as u32 {
-                        effect.repeat -= 1;
-
-                        if effect.repeat == 0 {
-                            effect.stop_effect(id);
-                            continue;
-                        }
-
-                        if effect.data.replay.delay != 0 {
-                            effect.waiting = true;
-                            effect.stop_effect(id);
-                        }
-
-                        effect.time = Instant::now();
-                    } else if dur > effect.data.replay.delay as u32 && effect.waiting {
-                        effect.waiting = false;
-                        effect.play_effect(id, master_gains[id as usize]);
+                for dev in ff.iter_mut() {
+                    if let Some(dev) = dev.as_mut() {
+                        dev.combine_and_play();
                     }
                 }
 
@@ -167,6 +130,22 @@ impl Gilrs {
                 thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
             }
         });
+    }
+
+    fn recv_ff_events(rx: &Receiver<FfMessage>, ff: &mut [Option<Device>]) {
+        while let Ok(msg) = rx.try_recv() {
+            if let Some(dev) = ff[msg.id as usize].as_mut() {
+                match msg.kind {
+                    FfMessageType::Create(data) => dev.create(msg.idx, data),
+                    FfMessageType::Play(n) => dev.play(msg.idx, n),
+                    FfMessageType::Stop => dev.stop(msg.idx),
+                    FfMessageType::Drop => dev.drop(msg.idx),
+                    FfMessageType::ChangeGain(new) => dev.set_gain(new),
+                }
+            } else {
+                error!("Received force feedback message for disconnected gamepad.")
+            }
+        }
     }
 
     fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<(usize, Event)>) {
