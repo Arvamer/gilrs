@@ -23,15 +23,19 @@ pub struct Effect {
     /// Index of force feedback effect
     idx: u8,
     tx: SyncSender<FfMessage>,
+    // Use it only for effect indices. Effects are always stored in same struct as platform::Gamepad
+    // (see Gamepad in src/gamepad.rs).
+    gamepad: *const Gamepad,
 }
 
 impl Effect {
     pub fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, Error> {
-        let idx = gamepad.get_free_ff_idx().ok_or(Error::NotEnoughSpace)?;
+        let idx = gamepad.next_ff_idx().ok_or(Error::NotEnoughSpace)?;
         let mut effect = Effect {
             id: gamepad.id(),
             idx: idx,
             tx: gamepad.ff_sender().clone(),
+            gamepad: gamepad,
         };
         effect.upload(data)?;
         Ok(effect)
@@ -71,6 +75,9 @@ impl Effect {
 
 impl Drop for Effect {
     fn drop(&mut self) {
+        unsafe {
+            (*self.gamepad).free_ff_idx(self.idx);
+        }
         let msg = FfMessage {
             id: self.id,
             idx: self.idx,

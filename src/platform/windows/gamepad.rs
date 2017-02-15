@@ -13,6 +13,7 @@ use uuid::Uuid;
 use std::time::Duration;
 use std::{thread, mem, u32, i16, u8, u16};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
+use std::cell::Cell;
 use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
                      XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_START,
@@ -322,6 +323,7 @@ pub struct Gamepad {
     uuid: Uuid,
     id: u32,
     ff_sender: Option<SyncSender<FfMessage>>,
+    ff_effect_idxs: Cell<u16>,
 }
 
 impl Gamepad {
@@ -331,6 +333,7 @@ impl Gamepad {
             uuid: Uuid::nil(),
             id: u32::MAX,
             ff_sender: None,
+            ff_effect_idxs: Cell::new(0),
         }
     }
 
@@ -407,8 +410,22 @@ impl Gamepad {
         self.ff_sender.as_ref().expect("Attempt to get ff_sender from fake gamepad.")
     }
 
-    pub fn get_free_ff_idx(&self) -> Option<u8> {
-        Some(0)
+    pub fn next_ff_idx(&self) -> Option<u8> {
+        let mut idxs = self.ff_effect_idxs.get();
+        for i in 0..ff::MAX_EFFECTS {
+            if (idxs >> i) & 1 == 0 {
+                idxs |= 1 << i;
+                self.ff_effect_idxs.set(idxs);
+                return Some(i as u8);
+            }
+        }
+        None
+    }
+
+    pub fn free_ff_idx(&self, idx: u8) {
+        let mut idxs = self.ff_effect_idxs.get();
+        idxs &= !(1 << idx);
+        self.ff_effect_idxs.set(idxs);
     }
 
     pub fn id(&self) -> u8 {
@@ -427,6 +444,7 @@ fn gamepad_new(id: u32, ff_sender: SyncSender<FfMessage>) -> gamepad::Gamepad {
         uuid: Uuid::nil(),
         id: id,
         ff_sender: Some(ff_sender),
+        ff_effect_idxs: Cell::new(0),
     };
 
     let status = unsafe {
