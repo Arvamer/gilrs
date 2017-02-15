@@ -8,6 +8,8 @@ v0.5.0 - unreleased
 
 - New type of force feedback effect—rumble (see `ff::EffectType::Rumble`).
 - New variants in `ff::Error` enum—`ff::Error::{Disconnected, InvalidId, Other}`.
+- You can now iterate over mutable references to connected gamepads using
+  `Gilrs::gamepads_mut()`.
 
 ### Changed
 
