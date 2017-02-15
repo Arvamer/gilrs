@@ -116,16 +116,13 @@ pub enum FfMessageType {
 struct EffectInternal {
     pub data: EffectData,
     pub repeat: u16,
-    pub waiting: bool,
     pub time: Instant,
 }
 
 impl EffectInternal {
     pub fn play(&mut self, n: u16) {
         self.repeat = n.saturating_add(1);
-        if self.data.replay.delay != 0 {
-            self.waiting = true;
-        }
+	self.time = Instant::now();
     }
 
     pub fn stop(&mut self) {
@@ -158,7 +155,6 @@ impl From<EffectData> for EffectInternal {
         EffectInternal {
             data: f,
             repeat: 0,
-            waiting: false,
             time: Instant::now(),
         }
     }
@@ -182,11 +178,11 @@ impl Device {
     }
 
     pub fn play(&mut self, idx: u8, n: u16) {
-        self.effects[idx as usize].map(|mut e| e.play(n));
+        self.effects[idx as usize].as_mut().map(|e| e.play(n));
     }
 
     pub fn stop(&mut self, idx: u8) {
-        self.effects[idx as usize].map(|mut e| e.stop());
+        self.effects[idx as usize].as_mut().map(|e| e.stop());
     }
 
     pub fn set_gain(&mut self, gain: f32) {
