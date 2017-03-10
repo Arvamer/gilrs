@@ -66,7 +66,7 @@ pub struct input_absinfo {
     pub resolution: i32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct ff_replay {
     pub length: u16,
