@@ -12,6 +12,11 @@ pub fn test_bit(n: u16, array: &[u8]) -> bool {
     (array[(n / 8) as usize] >> (n % 8)) & 1 != 0
 }
 
+/// Like `(a: f32 / b).ceil()` but for integers.
+pub fn ceil_div(a: u32, b: u32) -> u32 {
+    if a == 0 { 0 } else { 1 + ((a - 1) / b) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

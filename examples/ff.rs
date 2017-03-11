@@ -2,7 +2,7 @@ extern crate gilrs;
 extern crate env_logger;
 
 use gilrs::Gilrs;
-use gilrs::ff::{EffectBuilder, Envelope, Replay, BaseEffect, BaseEffectType};
+use gilrs::ff::{EffectBuilder, Envelope, Replay, BaseEffect, BaseEffectType, Ticks};
 use std::time::Duration;
 use std::{thread, env};
 
@@ -14,7 +14,7 @@ fn main() {
     let effect = EffectBuilder::new()
         .add_effect(BaseEffect {
             kind: BaseEffectType::Strong { magnitude: 60_000 },
-            scheduling: Replay { play_for: 300 / 50, with_delay: 1000 / 50, ..Default::default() },
+            scheduling: Replay { play_for: Ticks::from_ms(300), with_delay: Ticks::from_ms(1000), ..Default::default() },
             envelope: Default::default(),
         })
         .add_effect(BaseEffect {

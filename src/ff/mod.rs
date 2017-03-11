@@ -39,18 +39,71 @@
 
 pub(crate) mod server;
 
-use std::{fmt, u16};
+use std::{fmt, u16, u32};
 use std::error::Error as StdError;
 use std::sync::mpsc::{Sender, TrySendError};
-use std::ops::{Mul, AddAssign};
+use std::ops::{Mul, AddAssign, Add, Rem, Sub, SubAssign};
 
 use gamepad::Gilrs;
 use ff::server::Message;
+use utils;
 
 use vec_map::VecMap;
 
-pub const TICK_DURATION: u64 = 50;
-pub type Ticks = u32;
+pub(crate) const TICK_DURATION: u32 = 50;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct Ticks(u32);
+
+impl Ticks {
+    pub fn from_ms(dur: u32) -> Self {
+        Ticks(utils::ceil_div(dur, TICK_DURATION))
+    }
+
+    fn inc(&mut self) {
+        self.0 += 1
+    }
+
+    fn checked_sub(self, rhs: Ticks) -> Option<Ticks> {
+        self.0.checked_sub(rhs.0).map(|t| Ticks(t))
+    }
+}
+
+impl Add for Ticks {
+    type Output = Ticks;
+
+    fn add(self, rhs: Ticks) -> Self::Output {
+        Ticks(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Ticks {
+    fn add_assign(&mut self, rhs: Ticks) {
+        self.0 += rhs.0
+    }
+}
+
+impl Sub for Ticks {
+    type Output = Ticks;
+
+    fn sub(self, rhs: Ticks) -> Self::Output {
+        Ticks(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Ticks {
+    fn sub_assign(&mut self, rhs: Ticks) {
+        self.0 -= rhs.0
+    }
+}
+
+impl Rem for Ticks {
+    type Output = Ticks;
+
+    fn rem(self, rhs: Ticks) -> Self::Output {
+        Ticks(self.0 % rhs.0)
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum BaseEffectType {
@@ -96,8 +149,12 @@ pub struct BaseEffect {
 impl BaseEffect {
     /// Returns `Weak` or `Strong` after applying envelope.
     fn magnitude_at(&self, ticks: Ticks) -> BaseEffectType {
-        let att = self.scheduling.at(ticks) * self.envelope.at(ticks, self.scheduling.play_for);
-        self.kind.weaken(att)
+        if let Some(wrapped) = self.scheduling.wrap(ticks) {
+            let att = self.scheduling.at(wrapped) * self.envelope.at(wrapped, self.scheduling.play_for);
+            self.kind.weaken(att)
+        } else {
+            self.kind.weaken(0.0)
+        }
     }
 }
 
@@ -115,10 +172,11 @@ impl Envelope {
     fn at(&self, ticks: Ticks, dur: Ticks) -> f32 {
         debug_assert!(self.fade_length < dur);
         debug_assert!(self.attack_length + self.fade_length < dur);
+
         if ticks < self.attack_length {
-            self.attack_level + ticks as f32 * (1.0 - self.attack_level) / self.attack_length as f32
+            self.attack_level + ticks.0 as f32 * (1.0 - self.attack_level) / self.attack_length.0 as f32
         } else if ticks + self.fade_length > dur {
-            1.0 + (ticks + self.fade_length - dur) as f32 * (self.fade_level - 1.0) / self.fade_length as f32
+            1.0 + (ticks + self.fade_length - dur).0 as f32 * (self.fade_level - 1.0) / self.fade_length.0 as f32
         } else {
             1.0
         }
@@ -137,10 +195,7 @@ impl Replay {
     fn at(&self, ticks: Ticks) -> f32 {
         match ticks.checked_sub(self.after) {
             Some(ticks) => {
-                let total_len = self.play_for + self.with_delay;
-                let wrapped = ticks % total_len;
-
-                if wrapped >= self.play_for {
+                if ticks.0 >= self.play_for.0 {
                     0.0
                 } else {
                     1.0
@@ -149,14 +204,24 @@ impl Replay {
             None => 0.0,
         }
     }
+
+    /// Returns duration of effect calculated as `play_for + with_delay`.
+    pub fn dur(&self) -> Ticks {
+        self.play_for + self.with_delay
+    }
+
+    /// Returns `None` if effect hasn't started or wrapped value
+    fn wrap(&self, ticks: Ticks) -> Option<Ticks> {
+        ticks.checked_sub(self.after).map(|t| t % self.dur())
+    }
 }
 
 impl Default for Replay {
     fn default() -> Self {
         Replay {
-            after: 0,
-            play_for: 1,
-            with_delay: 0,
+            after: Ticks(0),
+            play_for: Ticks(1),
+            with_delay: Ticks(0),
         }
     }
 }
@@ -452,61 +517,47 @@ mod tests {
     #[test]
     fn envelope() {
         let env = Envelope {
-            attack_length: 10,
+            attack_length: Ticks(10),
             attack_level: 0.2,
-            fade_length: 10,
+            fade_length: Ticks(10),
             fade_level: 0.2,
         };
-        let dur = 40;
+        let dur = Ticks(40);
 
-        assert_eq!(env.at(0, dur), 0.2);
-        assert_eq!(env.at(5, dur), 0.6);
-        assert_eq!(env.at(10, dur), 1.0);
-        assert_eq!(env.at(20, dur), 1.0);
-        assert_eq!(env.at(30, dur), 1.0);
-        assert_eq!(env.at(35, dur), 0.6);
-        assert_eq!(env.at(40, dur), 0.19999999);
+        assert_eq!(env.at(Ticks(0), dur), 0.2);
+        assert_eq!(env.at(Ticks(5), dur), 0.6);
+        assert_eq!(env.at(Ticks(10), dur), 1.0);
+        assert_eq!(env.at(Ticks(20), dur), 1.0);
+        assert_eq!(env.at(Ticks(30), dur), 1.0);
+        assert_eq!(env.at(Ticks(35), dur), 0.6);
+        assert_eq!(env.at(Ticks(40), dur), 0.19999999);
     }
 
     #[test]
     fn envelope_default() {
         let env = Envelope::default();
-        let dur = 40;
+        let dur = Ticks(40);
 
-        assert_eq!(env.at(0, dur), 1.0);
-        assert_eq!(env.at(20, dur), 1.0);
-        assert_eq!(env.at(40, dur), 1.0);
+        assert_eq!(env.at(Ticks(0), dur), 1.0);
+        assert_eq!(env.at(Ticks(20), dur), 1.0);
+        assert_eq!(env.at(Ticks(40), dur), 1.0);
     }
 
     #[test]
     fn replay() {
         let replay = Replay {
-            after: 10,
-            play_for: 50,
-            with_delay: 20,
+            after: Ticks(10),
+            play_for: Ticks(50),
+            with_delay: Ticks(20),
         };
 
-        assert_eq!(replay.at(0), 0.0);
-        assert_eq!(replay.at(9), 0.0);
-        assert_eq!(replay.at(10), 1.0);
-        assert_eq!(replay.at(30), 1.0);
-        assert_eq!(replay.at(59), 1.0);
-        assert_eq!(replay.at(60), 0.0);
-        assert_eq!(replay.at(70), 0.0);
-        assert_eq!(replay.at(79), 0.0);
-        assert_eq!(replay.at(80), 1.0);
-        assert_eq!(replay.at(129), 1.0);
-        assert_eq!(replay.at(130), 0.0);
-    }
-
-    #[test]
-    fn replay_default() {
-        let replay = Replay::default();
-
-        assert_eq!(replay.at(0), 1.0);
-        assert_eq!(replay.at(1), 1.0);
-        assert_eq!(replay.at(2), 1.0);
-        assert_eq!(replay.at(100), 1.0);
-        assert_eq!(replay.at(u32::MAX), 1.0);
+        assert_eq!(replay.at(Ticks(0)), 0.0);
+        assert_eq!(replay.at(Ticks(9)), 0.0);
+        assert_eq!(replay.at(Ticks(10)), 1.0);
+        assert_eq!(replay.at(Ticks(30)), 1.0);
+        assert_eq!(replay.at(Ticks(59)), 1.0);
+        assert_eq!(replay.at(Ticks(60)), 0.0);
+        assert_eq!(replay.at(Ticks(70)), 0.0);
+        assert_eq!(replay.at(Ticks(79)), 0.0);
     }
 }

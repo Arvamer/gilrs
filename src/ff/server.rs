@@ -1,4 +1,4 @@
-use super::{EffectSource, EffectState, Magnitude, TICK_DURATION};
+use super::{EffectSource, EffectState, Magnitude, TICK_DURATION, Ticks};
 
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
@@ -37,8 +37,8 @@ impl From<FfDevice> for Device {
 pub(crate) fn run(rx: Receiver<Message>) {
     let mut effects = VecMap::new();
     let mut devices = VecMap::new();
-    let sleep_dur = Duration::from_millis(TICK_DURATION);
-    let mut tick = 0u32;
+    let sleep_dur = Duration::from_millis(TICK_DURATION.into());
+    let mut tick = Ticks(0);
 
     loop {
         let t1 = Instant::now();
@@ -72,7 +72,7 @@ pub(crate) fn run(rx: Receiver<Message>) {
         } else {
             thread::sleep(sleep_dur - dur);
         }
-        tick += 1;
+        tick.inc();
     }
 }
 
@@ -82,7 +82,7 @@ pub(crate) fn init() -> Sender<Message> {
     tx
 }
 
-fn combine_and_play(effects: &VecMap<EffectSource>, devices: &mut VecMap<Device>, tick: u32) {
+fn combine_and_play(effects: &VecMap<EffectSource>, devices: &mut VecMap<Device>, tick: Ticks) {
     for (dev_id, dev) in devices {
         let mut magnitude = Magnitude::zero();
         for (_, effect) in effects {
