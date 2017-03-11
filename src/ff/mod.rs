@@ -121,12 +121,16 @@ impl BaseEffectType {
             BaseEffectType::__Nonexhaustive => unreachable!(),
         }
     }
+}
 
-    fn weaken(self, att: f32) -> Self {
-        let mg = (self.magnitude() as f32 * att) as u16;
+impl Mul<f32> for BaseEffectType {
+    type Output = BaseEffectType;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        let mg = (self.magnitude() as f32 * rhs) as u16;
         match self {
             BaseEffectType::Weak { .. } => BaseEffectType::Weak { magnitude: mg },
-            BaseEffectType::Strong { .. } => BaseEffectType::Weak { magnitude: mg },
+            BaseEffectType::Strong { .. } => BaseEffectType::Strong { magnitude: mg },
             BaseEffectType::__Nonexhaustive => unreachable!(),
         }
     }
@@ -151,9 +155,9 @@ impl BaseEffect {
     fn magnitude_at(&self, ticks: Ticks) -> BaseEffectType {
         if let Some(wrapped) = self.scheduling.wrap(ticks) {
             let att = self.scheduling.at(wrapped) * self.envelope.at(wrapped, self.scheduling.play_for);
-            self.kind.weaken(att)
+            self.kind * att
         } else {
-            self.kind.weaken(0.0)
+            self.kind * 0.0
         }
     }
 }
