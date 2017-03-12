@@ -15,7 +15,7 @@ use std::mem;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 use std::u32::MAX as U32_MAX;
-use std::i16::MAX as I16_MAX;
+use std::i16;
 use std::u8::MAX as U8_MAX;
 use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
@@ -119,6 +119,10 @@ impl Gilrs {
     }
 
     fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<(usize, Event)>) {
+        fn normalize(val: i16) -> f32 {
+            val as f32 / if val < 0 { -(i16::MIN as i32) } else { i16::MAX as i32 } as f32
+        }
+
         if g.bLeftTrigger != pg.bLeftTrigger {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::LeftTrigger2,
@@ -132,28 +136,16 @@ impl Gilrs {
                                                 5)));
         }
         if g.sThumbLX != pg.sThumbLX {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::LeftStickX,
-                                                g.sThumbLX as f32 / I16_MAX as f32,
-                                                0)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::LeftStickX, normalize(g.sThumbLX), 0)));
         }
         if g.sThumbLY != pg.sThumbLY {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::LeftStickY,
-                                                g.sThumbLY as f32 / I16_MAX as f32,
-                                                1)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::LeftStickY, normalize(g.sThumbLY), 1)));
         }
         if g.sThumbRX != pg.sThumbRX {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::RightStickX,
-                                                g.sThumbRX as f32 / I16_MAX as f32,
-                                                2)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::RightStickX, normalize(g.sThumbRX), 2)));
         }
         if g.sThumbRY != pg.sThumbRY {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::RightStickY,
-                                                g.sThumbRY as f32 / I16_MAX as f32,
-                                                3)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::RightStickY, normalize(g.sThumbRY), 3)));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
