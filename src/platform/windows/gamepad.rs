@@ -8,7 +8,7 @@
 use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
 use mapping::{MappingData, MappingError};
 use ff::Error;
-use super::ff::{FfMessage, FfMessageType, Device, self};
+use super::ff::{self, FfMessage, FfMessageType, Device};
 use uuid::Uuid;
 use std::time::Duration;
 use std::{thread, mem, u32, i16, u8, u16};
@@ -149,6 +149,10 @@ impl Gilrs {
     }
 
     fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<(usize, Event)>) {
+        fn normalize(val: i16) -> f32 {
+            val as f32 / if val < 0 { -(i16::MIN as i32) } else { i16::MAX as i32 } as f32
+        }
+
         if g.bLeftTrigger != pg.bLeftTrigger {
             let _ = tx.send((id,
                              Event::AxisChanged(Axis::LeftTrigger2,
@@ -162,28 +166,16 @@ impl Gilrs {
                                                 5)));
         }
         if g.sThumbLX != pg.sThumbLX {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::LeftStickX,
-                                                g.sThumbLX as f32 / i16::MAX as f32,
-                                                0)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::LeftStickX, normalize(g.sThumbLX), 0)));
         }
         if g.sThumbLY != pg.sThumbLY {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::LeftStickY,
-                                                g.sThumbLY as f32 / i16::MAX as f32,
-                                                1)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::LeftStickY, normalize(g.sThumbLY), 1)));
         }
         if g.sThumbRX != pg.sThumbRX {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::RightStickX,
-                                                g.sThumbRX as f32 / i16::MAX as f32,
-                                                2)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::RightStickX, normalize(g.sThumbRX), 2)));
         }
         if g.sThumbRY != pg.sThumbRY {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::RightStickY,
-                                                g.sThumbRY as f32 / i16::MAX as f32,
-                                                3)));
+            let _ = tx.send((id, Event::AxisChanged(Axis::RightStickY, normalize(g.sThumbRY), 3)));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
@@ -399,7 +391,10 @@ impl Gamepad {
             kind: FfMessageType::ChangeGain(gain),
         };
 
-        self.ff_sender.as_ref().expect("Attempt to get ff_sender from fake gamepad.").try_send(msg)?;
+        self.ff_sender
+            .as_ref()
+            .expect("Attempt to get ff_sender from fake gamepad.")
+            .try_send(msg)?;
         Ok(())
     }
 
