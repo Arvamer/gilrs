@@ -645,12 +645,13 @@ impl Gamepad {
         } else {
             unsafe {
                 let mut event = mem::uninitialized::<ioctl::input_event>();
-                let n = c::read(self.fd, mem::transmute(&mut event), 24);
+                let size = mem::size_of::<ioctl::input_event>();
+                let n = c::read(self.fd, mem::transmute(&mut event), size);
 
                 if n == -1 || n == 0 {
                     // Nothing to read (non-blocking IO)
                     return None;
-                } else if n != 24 {
+                } else if n != size as isize {
                     unreachable!()
                 }
 
