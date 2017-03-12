@@ -16,8 +16,11 @@ fn main() {
     effect.envelope.attack_length = 1000;
     effect.envelope.fade_length = 1000;
 
-    let effect_idx = gil[0].add_ff_effect(effect).unwrap();
-    let _ = gil[0].ff_effect(effect_idx).unwrap().play(1);
+    for (_, gp) in gil.gamepads_mut().filter(|&(_, ref gp)| gp.is_ff_supported()) {
+        // In real game don't do this — play ff effect only on gamepads which are used.
+        let effect_idx = gp.add_ff_effect(effect).unwrap();
+        let _ = gp.ff_effect(effect_idx).unwrap().play(1);
+    }
 
     thread::sleep(Duration::from_secs(5));
 }
