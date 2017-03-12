@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+v0.4.3 — 2017-03-12
+-------------------
+
+### Added
+
+- You can now iterate over mutable references to connected gamepads using
+  `Gilrs::gamepads_mut()`.
+
+### Fixed
+
+- Fixed `unreachable!()` panic on 32bit Linux
+- Improved converting axes values to `f32` when using XInput
+
 v0.4.2 - 2017-01-15
 -------------------
 
