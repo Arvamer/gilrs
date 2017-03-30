@@ -8,8 +8,6 @@ v0.5.0 - unreleased
 
 - New type of force feedback effect—rumble (see `ff::EffectType::Rumble`).
 - New variants in `ff::Error` enum—`ff::Error::{Disconnected, InvalidId, Other}`.
-- You can now iterate over mutable references to connected gamepads using
-  `Gilrs::gamepads_mut()`.
 
 ### Changed
 
@@ -24,6 +22,19 @@ v0.5.0 - unreleased
 - Removed `ff:Trigger`—usually you want to play force feedback effect when some event happen in game,
   not when button is pressed. Additionally XInput  does not support it natively. If you used this
   feature, pleas open an issue.
+
+v0.4.3 — 2017-03-12
+-------------------
+
+### Added
+
+- You can now iterate over mutable references to connected gamepads using
+  `Gilrs::gamepads_mut()`.
+
+### Fixed
+
+- Fixed `unreachable!()` panic on 32bit Linux
+- Improved converting axes values to `f32` when using XInput
 
 v0.4.2 - 2017-01-15
 -------------------
