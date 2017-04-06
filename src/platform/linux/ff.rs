@@ -10,7 +10,7 @@ use std::io::{Write, Result as IoResult, Error as IoError, ErrorKind};
 use std::os::unix::io::AsRawFd;
 use std::{mem, slice};
 
-use ff::{TICK_DURATION, Magnitude};
+use ff::TICK_DURATION;
 use super::ioctl::{self, ff_effect, input_event, ff_replay, ff_rumble_effect};
 
 #[derive(Debug)]
@@ -41,8 +41,7 @@ impl Device {
         }
     }
 
-    pub(crate) fn set_ff_state(&mut self, magnitude: Magnitude) {
-        println!("{:?}", magnitude);
+    pub(crate) fn set_ff_state(&mut self, strong: u16, weak: u16) {
        let mut effect = ff_effect {
             type_: FF_RUMBLE,
             id: self.effect,
@@ -54,8 +53,8 @@ impl Device {
 
         let res = unsafe {
             let rumble = &mut effect.u as *mut _ as *mut ff_rumble_effect;
-            (*rumble).strong_magnitude = magnitude.strong;
-            (*rumble).weak_magnitude = magnitude.weak;
+            (*rumble).strong_magnitude = strong;
+            (*rumble).weak_magnitude = weak;
             ioctl::eviocsff(self.file.as_raw_fd(), &mut effect)
         };
 

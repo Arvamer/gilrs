@@ -87,8 +87,6 @@
 //! To build GilRs, you will need pkg-config and libudev .pc file. On some
 //! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
 
-#![feature(pub_restricted)]
-
 #[cfg(target_os = "linux")]
 extern crate libudev_sys;
 #[cfg(target_os = "linux")]

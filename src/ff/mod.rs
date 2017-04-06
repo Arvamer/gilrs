@@ -5,349 +5,25 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Force feedback module
-//!
-//! To use force feedback create `EffectData` struct, upload it to device using
-//! [`Gamepad::add_ff_effect`](../struct.Gamepad.html) and use `play()` function or wait for trigger
-//! event.
-//!
-//! ```rust,no_run
-//! use gilrs::Gilrs;
-//! use gilrs::ff::{EffectData, EffectType, Waveform, Envelope};
-//!
-//! let mut gilrs = Gilrs::new();
-//! let effect = EffectData {
-//!     kind: EffectType::Periodic {
-//!         wave: Waveform::Sine,
-//!         period: 1000,
-//!         magnitude: 30_000,
-//!         offset: 0,
-//!         phase: 0,
-//!         envelope: Envelope {
-//!             attack_length: 1000,
-//!             attack_level: 0,
-//!             fade_length: 1000,
-//!             fade_level: 0,
-//!         }
-//!     },
-//!     .. Default::default()
-//! };
-//!
-//! let effect_idx = gilrs[0].add_ff_effect(effect).unwrap();
-//! gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
-//! ```
-
 pub(crate) mod server;
+mod base_effect;
+mod effect_source;
+mod time;
 
-use std::{fmt, u16, u32};
+pub(crate) use self::time::TICK_DURATION;
+pub use self::time::{Ticks, Repeat};
+pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
+pub use self::effect_source::DistanceModel;
+
+use std::{fmt, u32};
 use std::error::Error as StdError;
 use std::sync::mpsc::{Sender, TrySendError};
-use std::ops::{Mul, AddAssign, Add, Rem, Sub, SubAssign};
 
+use self::effect_source::{EffectSource};
 use gamepad::Gilrs;
 use ff::server::Message;
-use utils;
 
 use vec_map::VecMap;
-
-pub(crate) const TICK_DURATION: u32 = 50;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct Ticks(u32);
-
-impl Ticks {
-    pub fn from_ms(dur: u32) -> Self {
-        Ticks(utils::ceil_div(dur, TICK_DURATION))
-    }
-
-    fn inc(&mut self) {
-        self.0 += 1
-    }
-
-    fn checked_sub(self, rhs: Ticks) -> Option<Ticks> {
-        self.0.checked_sub(rhs.0).map(|t| Ticks(t))
-    }
-}
-
-impl Add for Ticks {
-    type Output = Ticks;
-
-    fn add(self, rhs: Ticks) -> Self::Output {
-        Ticks(self.0 + rhs.0)
-    }
-}
-
-impl AddAssign for Ticks {
-    fn add_assign(&mut self, rhs: Ticks) {
-        self.0 += rhs.0
-    }
-}
-
-impl Sub for Ticks {
-    type Output = Ticks;
-
-    fn sub(self, rhs: Ticks) -> Self::Output {
-        Ticks(self.0 - rhs.0)
-    }
-}
-
-impl SubAssign for Ticks {
-    fn sub_assign(&mut self, rhs: Ticks) {
-        self.0 -= rhs.0
-    }
-}
-
-impl Rem for Ticks {
-    type Output = Ticks;
-
-    fn rem(self, rhs: Ticks) -> Self::Output {
-        Ticks(self.0 % rhs.0)
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum BaseEffectType {
-    Weak { magnitude: u16 },
-    Strong { magnitude: u16 },
-    #[doc(hidden)]
-    __Nonexhaustive,
-}
-
-impl BaseEffectType {
-    fn magnitude(&self) -> u16 {
-        match *self {
-            BaseEffectType::Weak { magnitude } => magnitude,
-            BaseEffectType::Strong { magnitude } => magnitude,
-            BaseEffectType::__Nonexhaustive => unreachable!(),
-        }
-    }
-}
-
-impl Mul<f32> for BaseEffectType {
-    type Output = BaseEffectType;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        let mg = (self.magnitude() as f32 * rhs) as u16;
-        match self {
-            BaseEffectType::Weak { .. } => BaseEffectType::Weak { magnitude: mg },
-            BaseEffectType::Strong { .. } => BaseEffectType::Strong { magnitude: mg },
-            BaseEffectType::__Nonexhaustive => unreachable!(),
-        }
-    }
-}
-
-impl Default for BaseEffectType {
-    fn default() -> Self {
-        BaseEffectType::Weak { magnitude: 0 }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub struct BaseEffect {
-    pub kind: BaseEffectType,
-    pub scheduling: Replay,
-    // TODO: maybe allow other f(t)?
-    pub envelope: Envelope,
-}
-
-impl BaseEffect {
-    /// Returns `Weak` or `Strong` after applying envelope.
-    fn magnitude_at(&self, ticks: Ticks) -> BaseEffectType {
-        if let Some(wrapped) = self.scheduling.wrap(ticks) {
-            let att = self.scheduling.at(wrapped) * self.envelope.at(wrapped, self.scheduling.play_for);
-            self.kind * att
-        } else {
-            self.kind * 0.0
-        }
-    }
-}
-
-// TODO: Image with "envelope"
-#[derive(Copy, Clone, PartialEq, Debug, Default)]
-/// Envelope shaped gain(time) function.
-pub struct Envelope {
-    pub attack_length: Ticks,
-    pub attack_level: f32,
-    pub fade_length: Ticks,
-    pub fade_level: f32,
-}
-
-impl Envelope {
-    fn at(&self, ticks: Ticks, dur: Ticks) -> f32 {
-        debug_assert!(self.fade_length < dur);
-        debug_assert!(self.attack_length + self.fade_length < dur);
-
-        if ticks < self.attack_length {
-            self.attack_level + ticks.0 as f32 * (1.0 - self.attack_level) / self.attack_length.0 as f32
-        } else if ticks + self.fade_length > dur {
-            1.0 + (ticks + self.fade_length - dur).0 as f32 * (self.fade_level - 1.0) / self.fade_length.0 as f32
-        } else {
-            1.0
-        }
-    }
-}
-
-/// Defines scheduling of the force feedback effect
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Replay {
-    pub after: Ticks,
-    pub play_for: Ticks,
-    pub with_delay: Ticks,
-}
-
-impl Replay {
-    fn at(&self, ticks: Ticks) -> f32 {
-        match ticks.checked_sub(self.after) {
-            Some(ticks) => {
-                if ticks.0 >= self.play_for.0 {
-                    0.0
-                } else {
-                    1.0
-                }
-            }
-            None => 0.0,
-        }
-    }
-
-    /// Returns duration of effect calculated as `play_for + with_delay`.
-    pub fn dur(&self) -> Ticks {
-        self.play_for + self.with_delay
-    }
-
-    /// Returns `None` if effect hasn't started or wrapped value
-    fn wrap(&self, ticks: Ticks) -> Option<Ticks> {
-        ticks.checked_sub(self.after).map(|t| t % self.dur())
-    }
-}
-
-impl Default for Replay {
-    fn default() -> Self {
-        Replay {
-            after: Ticks(0),
-            play_for: Ticks(1),
-            with_delay: Ticks(0),
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Repeat {
-    Infinitely,
-    For(Ticks),
-}
-
-impl Default for Repeat {
-    fn default() -> Self {
-        Repeat::Infinitely
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum DistanceModel {
-    Constant,
-    Linear { ref_distance: f32 },
-}
-
-impl DistanceModel {
-    fn attenuation(self, distance: f32) -> f32 {
-        match self {
-            DistanceModel::Linear { .. } => unimplemented!(),
-            DistanceModel::Constant => 1.0,
-        }
-    }
-}
-
-impl Default for DistanceModel {
-    fn default() -> Self {
-        DistanceModel::Constant
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-enum EffectState {
-    Playing { since: Ticks },
-    Stopped,
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub(crate) struct EffectSource {
-    base_effects: Vec<BaseEffect>,
-    devices: VecMap<()>,
-    repeat: Repeat,
-    dist_model: DistanceModel,
-    position: [f32; 3],
-    gain: f32,
-    state: EffectState,
-}
-
-impl EffectSource {
-    fn combine_base_effects(&self, ticks: Ticks, actor_pos: [f32; 3]) -> Magnitude {
-        let ticks = match self.state {
-            EffectState::Playing { since } =>{
-                debug_assert!(ticks >= since);
-                ticks - since
-            },
-            EffectState::Stopped => return Magnitude::zero(),
-        };
-
-        match self.repeat {
-            Repeat::For(max_dur) if max_dur > ticks => {
-                // TODO: Maybe change to new state, "Ended"?
-                // self.state = EffectState::Stopped;
-                return Magnitude::zero();
-            }
-            _ => ()
-        }
-
-        let attenuation = self.dist_model.attenuation(self.position.distance(actor_pos)) * self.gain;
-        if attenuation < 0.05 {
-            return Magnitude::zero()
-        }
-
-        let mut final_magnitude = Magnitude::zero();
-        for effect in &self.base_effects {
-            match effect.magnitude_at(ticks) {
-                BaseEffectType::Strong { magnitude } => final_magnitude.strong = final_magnitude.strong.saturating_add(magnitude),
-                BaseEffectType::Weak { magnitude } => final_magnitude.weak = final_magnitude.weak.saturating_add(magnitude),
-                BaseEffectType::__Nonexhaustive => (),
-            };
-        }
-        final_magnitude * attenuation
-    }
-}
-
-/// (strong, weak) pair.
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct Magnitude {
-    pub strong: u16,
-    pub weak: u16,
-}
-
-impl Magnitude {
-    pub fn zero() -> Self {
-        Magnitude { strong: 0, weak: 0 }
-    }
-}
-
-impl Mul<f32> for Magnitude {
-    type Output = Magnitude;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        debug_assert!(rhs >= 0.0);
-        let strong = self.strong as f32 * rhs;
-        let strong = if strong > u16::MAX as f32 { u16::MAX } else { strong as u16 };
-        let weak = self.weak as f32 * rhs;
-        let weak = if weak > u16::MAX as f32 { u16::MAX } else { weak as u16 };
-        Magnitude { strong: strong, weak: weak }
-    }
-}
-
-impl AddAssign for Magnitude {
-    fn add_assign(&mut self, rhs: Magnitude) {
-        self.strong = self.strong.saturating_add(rhs.strong);
-        self.weak = self.weak.saturating_add(rhs.weak);
-    }
-}
 
 pub struct Effect {
     id: usize,
@@ -422,16 +98,9 @@ impl EffectBuilder {
             }
         }
 
-        let effect =  EffectSource {
-            base_effects: self.base_effects.clone(),
-            devices: self.devices.clone(),
-            repeat: self.repeat,
-            dist_model: self.dist_model,
-            position: self.position,
-            gain: self.gain,
-            state: EffectState::Stopped,
-        };
-
+        let effect = EffectSource::new(self.base_effects.clone(), self.devices.clone(),
+                                       self.repeat, self.dist_model,
+                                       self.position, self.gain);
         let id = gilrs.next_ff_id();
         let tx = gilrs.ff_sender();
         tx.send(Message::Update { id, effect }).or(Err(Error::Other))?;
@@ -496,20 +165,6 @@ impl<T> From<TrySendError<T>> for Error {
             TrySendError::Full(_) => Error::WouldBlock,
             _=> Error::Other,
         }
-    }
-}
-
-trait SliceVecExt {
-    type Base;
-
-    fn distance(self, from: Self) -> Self::Base;
-}
-
-impl  SliceVecExt for [f32; 3] {
-    type Base = f32;
-
-    fn distance(self, from: Self) -> f32 {
-        ((from[0] - self[0]).powi(2) + (from[1] - self[1]).powi(2) + (from[2] - self[2]).powi(2)).sqrt()
     }
 }
 

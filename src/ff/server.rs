@@ -1,4 +1,5 @@
-use super::{EffectSource, EffectState, Magnitude, TICK_DURATION, Ticks};
+use super::effect_source::{EffectSource, EffectState, Magnitude};
+use super::time::{Ticks, TICK_DURATION};
 
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
@@ -90,6 +91,6 @@ fn combine_and_play(effects: &VecMap<EffectSource>, devices: &mut VecMap<Device>
                 magnitude += effect.combine_base_effects(tick, dev.position);
             }
         }
-        dev.inner.set_ff_state(magnitude);
+        dev.inner.set_ff_state(magnitude.strong, magnitude.weak);
     }
 }
