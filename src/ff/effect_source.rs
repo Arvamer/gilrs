@@ -8,22 +8,38 @@ use vec_map::VecMap;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DistanceModel {
-    Constant,
-    Linear { ref_distance: f32 },
+    None,
+    Linear { ref_distance: f32, max_distance: f32, rolloff_factor: f32 },
+    Inverse { ref_distance: f32, rolloff_factor: f32 }
 }
 
 impl DistanceModel {
-    fn attenuation(self, distance: f32) -> f32 {
+    fn attenuation(self, mut distance: f32) -> f32 {
+        // For now we will follow OpenAL[1] specification for distance models. See chapter 3.4 for
+        // more details.
+        //
+        // [1]: http://openal.org/documentation/openal-1.1-specification.pdf
         match self {
-            DistanceModel::Linear { .. } => unimplemented!(),
-            DistanceModel::Constant => 1.0,
+            DistanceModel::Linear { ref_distance, max_distance, rolloff_factor } => {
+                if max_distance == ref_distance {
+                    // Avoid dividing by 0
+                    0.0
+                } else {
+                    distance = distance.min(max_distance);
+                    (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
+                }
+            },
+            DistanceModel::Inverse { ref_distance, rolloff_factor } => {
+                ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance))
+            }
+            DistanceModel::None => 1.0,
         }
     }
 }
 
 impl Default for DistanceModel {
     fn default() -> Self {
-        DistanceModel::Constant
+        DistanceModel::None
     }
 }
 

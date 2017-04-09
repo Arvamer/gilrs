@@ -52,7 +52,7 @@ impl EffectBuilder {
             base_effects: Vec::new(),
             devices: VecMap::new(),
             repeat: Repeat::Infinitely,
-            dist_model: DistanceModel::Constant,
+            dist_model: DistanceModel::None,
             position: [0.0, 0.0, 0.0],
             gain: 1.0,
         }
