@@ -9,6 +9,7 @@ use constants::*;
 use mapping::{MappingData, MappingError};
 use AsInner;
 use ff::server::{self, Message};
+use ff::Error as FfError;
 
 use uuid::Uuid;
 
@@ -143,6 +144,15 @@ impl Gilrs {
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
         if gp.is_connected() { Some(gp) } else { None }
+    }
+
+    pub fn set_listener_position<Vec3: Into<[f32; 3]>>(&self, idx: usize, position: Vec3) -> Result<(), FfError> {
+        if !self.gamepad(idx).is_ff_supported() {
+            Err(FfError::FfNotSupported)
+        } else {
+            let _ = self.tx.send(Message::SetListenerPosition { id: idx, position: position.into() });
+            Ok(())
+        }
     }
 
     pub(crate) fn ff_sender(&self) -> &Sender<Message> {

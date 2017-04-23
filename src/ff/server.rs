@@ -15,6 +15,7 @@ pub(crate) enum Message {
     Play { id: usize },
     Open { id: usize, device: FfDevice },
     Close { id: usize },
+    SetListenerPosition { id: usize, position: [f32; 3] }
 }
 
 #[derive(Debug)]
@@ -37,7 +38,7 @@ impl From<FfDevice> for Device {
 
 pub(crate) fn run(rx: Receiver<Message>) {
     let mut effects = VecMap::new();
-    let mut devices = VecMap::new();
+    let mut devices = VecMap::<Device>::new();
     let sleep_dur = Duration::from_millis(TICK_DURATION.into());
     let mut tick = Ticks(0);
 
@@ -60,6 +61,13 @@ pub(crate) fn run(rx: Receiver<Message>) {
                 },
                 Message::Close { id } => {
                     devices.remove(id);
+                }
+                Message::SetListenerPosition { id, position } => {
+                    if let Some(device) = devices.get_mut(id) {
+                        device.position = position;
+                    } else {
+                        error!("{:?} with wrong ID", ev);
+                    }
                 }
             }
         }
