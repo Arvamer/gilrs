@@ -4,6 +4,7 @@ use super::time::{Ticks, TICK_DURATION};
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
 use std::time::{Duration, Instant};
+use std::ops::Deref;
 
 use platform::FfDevice;
 
@@ -12,6 +13,8 @@ use vec_map::VecMap;
 #[derive(Debug)]
 pub(crate) enum Message {
     Create { id: usize, effect: Box<EffectSource> },
+    HandleCloned { id: usize },
+    HandleDropped { id: usize },
     Play { id: usize },
     Open { id: usize, device: FfDevice },
     Close { id: usize },
@@ -25,6 +28,40 @@ struct Device {
     gain: f32,
 }
 
+struct Effect {
+    source: EffectSource,
+    /// Number of created effect's handles.
+    count: usize,
+}
+
+impl Effect {
+    fn inc(&mut self) -> usize {
+        self.count += 1;
+        self.count
+    }
+
+    fn dec(&mut self) -> usize {
+        self.count -= 1;
+        self.count
+    }
+}
+
+impl From<EffectSource> for Effect {
+    fn from(source: EffectSource) -> Self {
+        Effect {
+            source,
+            count: 1,
+        }
+    }
+}
+
+impl Deref for Effect {
+    type Target = EffectSource;
+
+    fn deref(&self) -> &Self::Target {
+        &self.source
+    }
+}
 
 impl From<FfDevice> for Device {
     fn from(inner: FfDevice) -> Self {
@@ -37,7 +74,7 @@ impl From<FfDevice> for Device {
 }
 
 pub(crate) fn run(rx: Receiver<Message>) {
-    let mut effects = VecMap::new();
+    let mut effects = VecMap::<Effect>::new();
     let mut devices = VecMap::<Device>::new();
     let sleep_dur = Duration::from_millis(TICK_DURATION.into());
     let mut tick = Ticks(0);
@@ -47,11 +84,11 @@ pub(crate) fn run(rx: Receiver<Message>) {
         while let Ok(ev) = rx.try_recv() {
             match ev {
                 Message::Create { id, effect } => {
-                    effects.insert(id, *effect);
+                    effects.insert(id, (*effect).into());
                 }
                 Message::Play { id } => {
                     if let Some(effect) = effects.get_mut(id) {
-                        effect.state = EffectState::Playing { since: tick }
+                        effect.source.state = EffectState::Playing { since: tick }
                     } else {
                         error!("{:?} with wrong ID", ev);
                     }
@@ -67,6 +104,27 @@ pub(crate) fn run(rx: Receiver<Message>) {
                         device.position = position;
                     } else {
                         error!("{:?} with wrong ID", ev);
+                    }
+                }
+                Message::HandleCloned { id } => {
+                    if let Some(effect) = effects.get_mut(id) {
+                        effect.inc();
+                    } else {
+                        error!("{:?} with wrong ID", ev);
+                    }
+                }
+                Message::HandleDropped { id } => {
+                    let mut drop = false;
+                    if let Some(effect) = effects.get_mut(id) {
+                        if effect.dec() == 0 {
+                            drop = true;
+                        }
+                    } else {
+                        error!("{:?} with wrong ID", ev);
+                    }
+
+                    if drop {
+                        effects.remove(id);
                     }
                 }
             }
@@ -91,7 +149,7 @@ pub(crate) fn init() -> Sender<Message> {
     tx
 }
 
-fn combine_and_play(effects: &VecMap<EffectSource>, devices: &mut VecMap<Device>, tick: Ticks) {
+fn combine_and_play(effects: &VecMap<Effect>, devices: &mut VecMap<Device>, tick: Ticks) {
     for (dev_id, dev) in devices {
         let mut magnitude = Magnitude::zero();
         for (_, effect) in effects {

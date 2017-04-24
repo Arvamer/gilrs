@@ -30,6 +30,22 @@ pub struct Effect {
     tx: Sender<Message>,
 }
 
+impl Clone for Effect {
+    fn clone(&self) -> Self {
+        let _ = self.tx.send(Message::HandleCloned { id: self.id });
+        Effect {
+            id: self.id,
+            tx: self.tx.clone(),
+        }
+    }
+}
+
+impl Drop for Effect {
+    fn drop(&mut self) {
+        let _ = self.tx.send(Message::HandleDropped { id: self.id });
+    }
+}
+
 impl Effect {
     pub fn play(&self) {
         let _ = self.tx.send(Message::Play { id: self.id });
