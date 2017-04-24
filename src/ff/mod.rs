@@ -103,7 +103,7 @@ impl EffectBuilder {
                                        self.position, self.gain);
         let id = gilrs.next_ff_id();
         let tx = gilrs.ff_sender();
-        tx.send(Message::Update { id, effect }).or(Err(Error::Other))?;
+        tx.send(Message::Create { id, effect: Box::new(effect) }).or(Err(Error::Other))?;
         Ok(Effect { id, tx: tx.clone() })
     }
 }

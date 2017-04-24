@@ -11,7 +11,7 @@ use vec_map::VecMap;
 
 #[derive(Debug)]
 pub(crate) enum Message {
-    Update { id: usize, effect: EffectSource },
+    Create { id: usize, effect: Box<EffectSource> },
     Play { id: usize },
     Open { id: usize, device: FfDevice },
     Close { id: usize },
@@ -46,8 +46,8 @@ pub(crate) fn run(rx: Receiver<Message>) {
         let t1 = Instant::now();
         while let Ok(ev) = rx.try_recv() {
             match ev {
-                Message::Update { id, effect } => {
-                    effects.insert(id, effect);
+                Message::Create { id, effect } => {
+                    effects.insert(id, *effect);
                 }
                 Message::Play { id } => {
                     if let Some(effect) = effects.get_mut(id) {
