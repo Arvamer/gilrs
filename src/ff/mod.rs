@@ -111,7 +111,7 @@ impl EffectBuilder {
         self
     }
 
-    pub fn dist_model(&mut self, model: DistanceModel) -> &mut Self {
+    pub fn distance_model(&mut self, model: DistanceModel) -> &mut Self {
         self.dist_model = model;
         self
     }

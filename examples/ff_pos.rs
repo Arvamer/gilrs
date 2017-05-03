@@ -40,7 +40,7 @@ fn main() {
             kind: BaseEffectType::Weak { magnitude: 45_000 },
             ..Default::default()
         })
-        .dist_model(DistanceModel::Inverse { ref_distance: 10.0, rolloff_factor: 0.5 })
+        .distance_model(DistanceModel::Inverse { ref_distance: 10.0, rolloff_factor: 0.5 })
         .gamepads(&support_ff)
         .clone();
 
