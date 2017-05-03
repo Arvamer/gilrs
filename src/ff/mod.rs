@@ -50,6 +50,26 @@ impl Effect {
     pub fn play(&self) {
         let _ = self.tx.send(Message::Play { id: self.id });
     }
+
+    pub fn set_gamepads(&self, ids: &[usize]) {
+        unimplemented!()
+    }
+
+    pub fn  set_repeat(&self, repeat: Repeat) {
+        unimplemented!()
+    }
+
+    pub fn set_distance_model(&self, model: DistanceModel) {
+        unimplemented!()
+    }
+
+    pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> &mut Self {
+        unimplemented!()
+    }
+
+    pub fn set_gain(&self, gain: f32) {
+        unimplemented!()
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
