@@ -148,7 +148,7 @@ impl Gilrs {
 
     pub fn set_listener_position<Vec3: Into<[f32; 3]>>(&self, idx: usize, position: Vec3) -> Result<(), FfError> {
         if !self.gamepad(idx).is_ff_supported() {
-            Err(FfError::FfNotSupported)
+            Err(FfError::FfNotSupported(idx))
         } else {
             let _ = self.tx.send(Message::SetListenerPosition { id: idx, position: position.into() });
             Ok(())

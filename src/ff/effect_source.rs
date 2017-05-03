@@ -1,5 +1,6 @@
 use std::ops::{Mul, AddAssign};
-use std::u16;
+use std::{u16, fmt};
+use std::error::Error;
 
 use super::time::{Ticks, Repeat};
 use super::base_effect::{BaseEffect, BaseEffectType};
@@ -35,11 +36,60 @@ impl DistanceModel {
             DistanceModel::None => 1.0,
         }
     }
+
+    pub(crate) fn validate(self) -> Result<(), DistanceModelError> {
+        let (ref_distance, rolloff_factor, max_distance) = match self {
+            DistanceModel::Inverse { ref_distance, rolloff_factor }
+                => (ref_distance, rolloff_factor, 0.0),
+            DistanceModel::Linear { ref_distance, max_distance, rolloff_factor }
+                => (ref_distance, rolloff_factor, max_distance),
+            DistanceModel::None => (0.0, 0.0, 0.0),
+        };
+
+        if ref_distance < 0.0 {
+            Err(DistanceModelError::InvalidReferenceDistance)
+        } else if rolloff_factor < 0.0 {
+            Err(DistanceModelError::InvalidRolloffFactor)
+        } else if max_distance < 0.0 {
+            Err(DistanceModelError::InvalidMaxDistance)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl Default for DistanceModel {
     fn default() -> Self {
         DistanceModel::None
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum DistanceModelError {
+    /// Reference distance is < 0.
+    InvalidReferenceDistance,
+    /// Rolloff factor is < 0.
+    InvalidRolloffFactor,
+    /// Max distance is < 0.
+    InvalidMaxDistance,
+    #[doc(hidden)]
+    __Nonexhaustive,
+}
+
+impl Error for DistanceModelError {
+    fn description(&self) -> &str {
+        match *self {
+            DistanceModelError::InvalidReferenceDistance => "reference distance is < 0",
+            DistanceModelError::InvalidRolloffFactor => "rolloff factor is < 0",
+            DistanceModelError::InvalidMaxDistance => "max distance is < 0",
+            DistanceModelError::__Nonexhaustive => unreachable!(),
+        }
+    }
+}
+
+impl fmt::Display for DistanceModelError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.description())
     }
 }
 

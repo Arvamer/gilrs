@@ -13,11 +13,11 @@ mod time;
 pub(crate) use self::time::TICK_DURATION;
 pub use self::time::{Ticks, Repeat};
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
-pub use self::effect_source::DistanceModel;
+pub use self::effect_source::{DistanceModel, DistanceModelError};
 
 use std::{fmt, u32};
 use std::error::Error as StdError;
-use std::sync::mpsc::{Sender, TrySendError};
+use std::sync::mpsc::{Sender, SendError};
 
 use self::effect_source::{EffectSource};
 use gamepad::Gilrs;
@@ -59,7 +59,8 @@ impl Effect {
         unimplemented!()
     }
 
-    pub fn set_distance_model(&self, model: DistanceModel) {
+    pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), DistanceModelError> {
+        model.validate()?;
         unimplemented!()
     }
 
@@ -129,78 +130,74 @@ impl EffectBuilder {
 
     pub fn finish(&mut self, gilrs: &mut Gilrs) -> Result<Effect, Error> {
         for (dev, _) in &self.devices {
-            if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected)?.is_ff_supported() {
-                return Err(Error::FfNotSupported);
+            if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected(dev))?.is_ff_supported() {
+                return Err(Error::FfNotSupported(dev));
             }
         }
+
+        self.dist_model.validate()?;
 
         let effect = EffectSource::new(self.base_effects.clone(), self.devices.clone(),
                                        self.repeat, self.dist_model,
                                        self.position, self.gain);
         let id = gilrs.next_ff_id();
         let tx = gilrs.ff_sender();
-        tx.send(Message::Create { id, effect: Box::new(effect) }).or(Err(Error::Other))?;
+        tx.send(Message::Create { id, effect: Box::new(effect) })?;
         Ok(Effect { id, tx: tx.clone() })
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Error {
-    /// There is not enough space in device for new effect
-    NotEnoughSpace,
-    /// Force feedback is not supported by device
-    FfNotSupported,
-    /// Requested effect or action is not supported by device/driver
-    NotSupported,
-    /// Can not play effect
-    FailedToPlay,
+    /// Force feedback is not supported by device with this ID
+    FfNotSupported(usize),
     /// Device is not connected
-    Disconnected,
-    /// Effect with requested ID doesn't exist
-    InvalidId,
-    /// Sending force feedback command would block current thread. This can happen on Windows with
-    /// most force feedback functions.
-    WouldBlock,
+    Disconnected(usize),
+    /// Distance model is invalid.
+    InvalidDistanceModel(DistanceModelError),
     /// Unexpected error has occurred
     Other,
     #[doc(hidden)]
     __Nonexhaustive,
 }
 
-impl Error {
-    pub fn to_str(self) -> &'static str {
-        match self {
-            Error::NotEnoughSpace => "not enough space for new effect",
-            Error::FfNotSupported => "force feedback is not supported",
-            Error::NotSupported => "effect or action is not supported by device",
-            Error::FailedToPlay => "can't play effect",
-            Error::Disconnected => "device is not connected",
-            Error::InvalidId => "effect with requested ID doesn't exist",
-            Error::WouldBlock => "this thread would be blocked by last ff operation",
+impl StdError for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::FfNotSupported(_) => "force feedback is not supported",
+            Error::Disconnected(_) => "device is not connected",
+            Error::InvalidDistanceModel(_) => "distance model is invalid",
             Error::Other => "unexpected error has occurred",
             Error::__Nonexhaustive => unreachable!(),
         }
     }
 }
 
-impl StdError for Error {
-    fn description(&self) -> &str {
-        self.to_str()
-    }
-}
-
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_str(self.to_str())
+        fmt.write_str(
+            &match *self {
+                Error::FfNotSupported(id) =>
+                    format!("Force feedback is not supported by device with id {}.", id),
+                Error::Disconnected(id) =>
+                    format!("Device with id {} is not connected.", id),
+                Error::InvalidDistanceModel(err)
+                    => format!("distance model is invalid: {}.", err.description()),
+                Error::Other => "Unexpected error has occurred.".to_owned(),
+                Error::__Nonexhaustive => unreachable!(),
+        })
     }
 }
 
-impl<T> From<TrySendError<T>> for Error {
-    fn from(f: TrySendError<T>) -> Self {
-        match f {
-            TrySendError::Full(_) => Error::WouldBlock,
-            _=> Error::Other,
-        }
+impl<T> From<SendError<T>> for Error {
+    fn from(_: SendError<T>) -> Self {
+        Error::Other
+    }
+}
+
+impl From<DistanceModelError> for Error {
+    fn from(f: DistanceModelError) -> Self {
+        Error::InvalidDistanceModel(f)
     }
 }
 
