@@ -2,6 +2,7 @@ GilRs - Game Input Library for Rust
 ===================================
 
 [![build status](https://gitlab.com/Arvamer/gilrs/badges/master/build.svg)](https://gitlab.com/Arvamer/gilrs/commits/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/h4o0w9jylejo4ea0/branch/master?svg=true)](https://ci.appveyor.com/project/Arvamer/gilrs/branch/master)
 [![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
 [![Crates.io](https://img.shields.io/crates/l/gilrs.svg)](https://gitlab.com/Arvamer/gilrs#license)
 [![Documentation](https://docs.rs/gilrs/badge.svg)](https://docs.rs/gilrs/)
