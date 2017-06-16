@@ -15,11 +15,10 @@ use std::str;
 use std::ops::Index;
 use uuid::Uuid;
 use libc as c;
-use ioctl;
+use super::ioctl;
 use constants;
 use mapping::{Mapping, Kind, MappingDb, MappingData, MappingError};
-use ioctl::{input_absinfo as AbsInfo, input_event as InputEvent};
-use super::ioctl_def;
+use super::ioctl::{input_event, input_absinfo};
 use vec_map::VecMap;
 
 
@@ -221,7 +220,7 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
 
 #[derive(Debug, Clone, PartialEq)]
 struct AxesInfo {
-    info: VecMap<AbsInfo>,
+    info: VecMap<input_absinfo>,
 }
 
 impl AxesInfo {
@@ -234,7 +233,7 @@ impl AxesInfo {
                              abs_bits.len() as i32,
                              abs_bits.as_mut_ptr());
             for axis in Gamepad::find_axes(&abs_bits) {
-                let mut info = AbsInfo::default();
+                let mut info = input_absinfo::default();
                 ioctl::eviocgabs(fd, axis as u32, &mut info);
                 map.insert(axis as usize, info);
             }
@@ -261,7 +260,7 @@ impl AxesInfo {
 }
 
 impl Index<u16> for AxesInfo {
-    type Output = AbsInfo;
+    type Output = input_absinfo;
 
     fn index(&self, i: u16) -> &Self::Output {
         &self.info[i as usize]
@@ -282,7 +281,7 @@ pub struct Gamepad {
     mapping_source: MappingSource,
     axes_values: VecMap<i32>,
     buttons_values: VecMap<bool>,
-    dropped_events: Vec<InputEvent>,
+    dropped_events: Vec<input_event>,
     axes: Vec<u16>,
     buttons: Vec<u16>,
 }
@@ -411,7 +410,7 @@ impl Gamepad {
         if mapping.name().is_empty() {
             unsafe {
                 let mut namebuff = mem::uninitialized::<[u8; 128]>();
-                if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()) < 0 {
+                if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()).is_err() {
                     None
                 } else {
                     Some(CStr::from_ptr(namebuff.as_ptr() as *const i8)
@@ -503,7 +502,7 @@ impl Gamepad {
         let mut iid;
         unsafe {
             iid = mem::uninitialized::<ioctl::input_id>();
-            if ioctl_def::eviocgid(fd, &mut iid) < 0 {
+            if ioctl::eviocgid(fd, &mut iid).is_err() {
                 return None;
             }
         }
@@ -586,14 +585,14 @@ impl Gamepad {
             };
 
             if skip {
-                if event._type == EV_SYN && event.code == SYN_REPORT {
+                if event.type_ == EV_SYN && event.code == SYN_REPORT {
                     skip = false;
                     self.compare_state();
                 }
                 continue;
             }
 
-            let ev = match event._type {
+            let ev = match event.type_ {
                 EV_SYN if event.code == SYN_DROPPED => {
                     skip = true;
                     None
@@ -637,7 +636,7 @@ impl Gamepad {
         }
     }
 
-    fn next_event(&mut self) -> Option<InputEvent> {
+    fn next_event(&mut self) -> Option<input_event> {
         if self.dropped_events.len() > 0 {
             self.dropped_events.pop()
         } else {
@@ -667,8 +666,8 @@ impl Gamepad {
             };
 
             if self.axes_values.get(axis as usize).cloned().unwrap_or(0) != value {
-                self.dropped_events.push(InputEvent {
-                    _type: EV_ABS,
+                self.dropped_events.push(input_event {
+                    type_: EV_ABS,
                     code: axis,
                     value: value,
                     ..Default::default()
@@ -678,14 +677,14 @@ impl Gamepad {
 
         let mut buf = [0u8; KEY_MAX as usize / 8 + 1];
         unsafe {
-            ioctl::eviocgkey(self.fd, buf.as_mut_ptr(), buf.len());
+            let _ = ioctl::eviocgkey(self.fd, buf.as_mut_ptr(), buf.len());
         }
 
         for btn in self.buttons.iter().cloned() {
             let val = test_bit(btn, &buf);
             if self.buttons_values.get(btn as usize).cloned().unwrap_or(false) != val {
-                self.dropped_events.push(InputEvent {
-                    _type: EV_KEY,
+                self.dropped_events.push(input_event {
+                    type_: EV_KEY,
                     code: btn,
                     value: val as i32,
                     ..Default::default()
@@ -694,7 +693,7 @@ impl Gamepad {
         }
     }
 
-    fn handle_abs_dpad(&mut self, code: u16, event: InputEvent) -> Option<Event> {
+    fn handle_abs_dpad(&mut self, code: u16, event: input_event) -> Option<Event> {
         let ev_code = event.code as usize;
         if event.value == 0 && self.axes_values.get(ev_code).cloned().unwrap_or(0) == 0 {
             return None;
@@ -720,7 +719,7 @@ impl Gamepad {
     }
 
 
-    fn axis_value(axes_info: AbsInfo, val: i32, kind: Axis) -> f32 {
+    fn axis_value(axes_info: input_absinfo, val: i32, kind: Axis) -> f32 {
         let mut val = val as f32 /
                       if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
         if kind.is_stick() && axes_info.minimum == 0 {
@@ -828,7 +827,7 @@ impl Gamepad {
         if self.ff_supported {
             let mut max_effects = 0;
             unsafe {
-                ioctl_def::eviocgeffects(self.fd, &mut max_effects);
+                let _ = ioctl::eviocgeffects(self.fd, &mut max_effects);
             }
             max_effects as usize
         } else {
@@ -842,7 +841,7 @@ impl Gamepad {
 
     pub fn set_ff_gain(&mut self, gain: u16) {
         let ev = ioctl::input_event {
-            _type: EV_FF,
+            type_: EV_FF,
             code: FF_GAIN,
             value: gain as i32,
             time: unsafe { mem::uninitialized() },
@@ -1036,7 +1035,7 @@ pub mod native_ev_codes {
 #[cfg(test)]
 mod tests {
     use uuid::Uuid;
-    use ioctl;
+    use super::ioctl;
     use super::create_uuid;
     use gamepad::{Button, Axis};
 

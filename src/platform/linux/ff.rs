@@ -6,12 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 use ff::{EffectData, Waveform, Trigger, Error};
 use super::gamepad::Gamepad;
-use ioctl::{ff_effect, input_event};
-use ioctl;
+use super::ioctl::{self, ff_effect, input_event, ff_periodic_effect};
 use libc as c;
 use std::mem;
 use constants;
-use super::ioctl_def;
 
 #[derive(Debug)]
 pub struct Effect {
@@ -23,7 +21,7 @@ impl Effect {
     pub fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, Error> {
         let mut data: ff_effect = data.into();
         let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data) };
-        if res == -1 {
+        if res.is_err() {
             Err(Error::EffectNotSupported)
         } else {
             Ok(Effect {
@@ -37,12 +35,12 @@ impl Effect {
         let mut data: ff_effect = data.into();
         data.id = self.id;
         let res = unsafe { ioctl::eviocsff(self.fd, &mut data) };
-        if res == -1 { Err(Error::EffectNotSupported) } else { Ok(()) }
+        if res.is_err() { Err(Error::EffectNotSupported) } else { Ok(()) }
     }
 
     pub fn play(&mut self, n: u16) -> Result<(), Error> {
         let ev = input_event {
-            _type: EV_FF,
+            type_: EV_FF,
             code: self.id as u16,
             value: n as i32,
             time: unsafe { mem::uninitialized() },
@@ -63,8 +61,7 @@ impl Effect {
 impl Drop for Effect {
     fn drop(&mut self) {
         unsafe {
-            // bug in ioctl crate, second argument is i32 not pointer to i32
-            ioctl_def::eviocrmff(self.fd, mem::transmute(self.id as isize));
+            let _ = ioctl::eviocrmff(self.fd, &(self.id as i32));
         }
     }
 }
@@ -72,7 +69,7 @@ impl Drop for Effect {
 impl Into<ff_effect> for EffectData {
     fn into(self) -> ff_effect {
         let mut effect = ff_effect {
-            _type: FF_PERIODIC,
+            type_: FF_PERIODIC,
             id: -1,
             direction: self.direction.angle,
             trigger: self.trigger.into(),
@@ -80,7 +77,7 @@ impl Into<ff_effect> for EffectData {
             u: unsafe { mem::uninitialized() },
         };
         unsafe {
-            let mut periodic = effect.u.periodic();
+            let mut periodic = effect.u.as_mut_ptr() as *mut ff_periodic_effect;
             (*periodic).waveform = self.wave.into();
             (*periodic).period = self.period;
             (*periodic).magnitude = self.magnitude;

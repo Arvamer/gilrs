@@ -22,7 +22,7 @@ env_logger = "0.3"
 [target.'cfg(target_os = "linux")'.dependencies]
 libudev-sys = "0.1"
 libc = "0.2"
-ioctl = "0.3"
+nix = "0.8.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = "0.2"

@@ -93,7 +93,7 @@ extern crate libudev_sys;
 extern crate libc;
 #[cfg(target_os = "linux")]
 #[macro_use]
-extern crate ioctl;
+extern crate nix;
 
 #[cfg(target_os = "windows")]
 extern crate winapi;
