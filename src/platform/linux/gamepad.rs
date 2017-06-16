@@ -1035,7 +1035,7 @@ pub mod native_ev_codes {
 #[cfg(test)]
 mod tests {
     use uuid::Uuid;
-    use super::ioctl;
+    use super::super::ioctl;
     use super::create_uuid;
     use gamepad::{Button, Axis};
 
