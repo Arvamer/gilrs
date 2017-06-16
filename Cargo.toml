@@ -1,6 +1,6 @@
 [package]
 name = "gilrs"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Arvamer <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 exclude = ["controller.svg", "ci_docker"]

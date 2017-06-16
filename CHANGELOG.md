@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+v0.4.4 — 2017-06-16
+-------------------
+
+### Changed
+
+- Gilrs no longer uses `ioctl` crate on Linux. Because `ioctl` was deprecated
+  and all versions yanked, it was causing problems for new builds that didn't
+  have `ioctl` crate listed in Cargo.lock.
+
 v0.4.3 — 2017-03-12
 -------------------
 
