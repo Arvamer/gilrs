@@ -16,12 +16,21 @@ v0.5.0 - unreleased
 - Improved error handling in force feedback related functions.
   `Gamepad::{drop_ff_effect, set_ff_gain, max_ff_effects}` and
   `ff::Effect::stop` now return `Result`
-  
+
 ### Removed
 
 - Removed `ff:Trigger`—usually you want to play force feedback effect when some event happen in game,
   not when button is pressed. Additionally XInput  does not support it natively. If you used this
   feature, pleas open an issue.
+
+v0.4.4 — 2017-06-16
+-------------------
+
+### Changed
+
+- Gilrs no longer uses `ioctl` crate on Linux. Because `ioctl` was deprecated
+  and all versions yanked, it was causing problems for new builds that didn't
+  have `ioctl` crate listed in Cargo.lock.
 
 v0.4.3 — 2017-03-12
 -------------------

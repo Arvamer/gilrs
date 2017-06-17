@@ -34,7 +34,7 @@ Example
 
 ```toml
 [dependencies]
-gilrs = "0.4.3"
+gilrs = "0.4.4"
 ```
 
 ```rust
