@@ -682,6 +682,8 @@ pub enum MappingError {
     DuplicatedEntry,
     /// `Mapping` with `Button::Unknown` or `Axis::Unknown`.
     UnknownElement,
+    /// `Mapping` have button or axis that are not present in SDL2.
+    NotSdl2Compatible,
 }
 
 impl MappingError {
@@ -700,6 +702,9 @@ impl MappingError {
             }
             MappingError::UnknownElement => {
                 "Button::Unknown and Axis::Unknown are not allowed"
+            }
+            MappingError::NotSdl2Compatible => {
+                "one of buttons or axes is not compatible with SDL2"
             }
         }
     }
