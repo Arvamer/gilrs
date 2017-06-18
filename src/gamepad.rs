@@ -814,7 +814,7 @@ pub enum Button {
     DPadLeft = BTN_DPAD_LEFT,
     DPadRight = BTN_DPAD_RIGHT,
 
-    Unknown,
+    Unknown = BTN_UNKNOWN,
 }
 
 impl Button {
@@ -881,8 +881,7 @@ pub enum Axis {
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,
     RightTrigger2 = AXIS_RT2,
-    Unknown = ::std::u16::MAX, /* some "random" value because rustc want to assign 11u16 which
-                                * already exists */
+    Unknown = AXIS_UNKNOWN,
 }
 
 impl Axis {
