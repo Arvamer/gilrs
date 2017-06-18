@@ -708,19 +708,40 @@ mod tests {
     fn from_data() {
         let uuid = Uuid::nil();
         let name = "Best Gamepad";
-        let buttons = [10, 11, 12, 13, 14, 15];
-        let axes = [0, 1, 2, 3];
+        let buttons = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+        let axes = [0, 1, 2, 3, 4, 5, 6, 7];
 
         let mut data = MappingData::new();
         data[Axis::LeftStickX] = 0;
         data[Axis::LeftStickY] = 1;
         data[Axis::LeftTrigger] = 2;
         data[Axis::LeftTrigger2] = 3;
-        data[Button::South] = 10;
-        data[Button::South] = 10;
-        data[Button::West] = 11;
-        data[Button::Start] = 15;
+        data[Axis::RightTrigger] = 4;
+        data[Axis::RightTrigger2] = 5;
+        data[Axis::RightStickX] = 6;
+        data[Axis::RightStickY] = 7;
 
+        data[Button::South] = 10;
+        data[Button::South] = 10;
+        data[Button::East] = 11;
+        data[Button::North] = 12;
+        data[Button::West] = 13;
+        data[Button::Select] = 14;
+        data[Button::Start] = 15;
+        data[Button::Mode] = 16;
+        data[Button::DPadUp] = 17;
+        data[Button::DPadDown] = 18;
+        data[Button::DPadLeft] = 19;
+        data[Button::DPadRight] = 20;
+        data[Button::LeftThumb] = 21;
+        data[Button::RightThumb] = 22;
+
+        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
+            .unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+        assert_eq!(mappings, sdl_mappings);
+
+        data[Button::North] = data.button(Button::South).unwrap();
         let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
             .unwrap();
         let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
@@ -729,14 +750,35 @@ mod tests {
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, "Inval,id name", uuid);
         assert_eq!(Err(MappingError::InvalidName), incorrect_mappings);
 
-        data[Button::South] = 22;
+        data[Button::South] = 32;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingError::InvalidCode(22)), incorrect_mappings);
+        assert_eq!(Err(MappingError::InvalidCode(32)), incorrect_mappings);
 
         data[Button::South] = 10;
         data[Button::LeftTrigger] = 11;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
         assert_eq!(Err(MappingError::DuplicatedEntry), incorrect_mappings);
+    }
+
+    #[test]
+    fn from_data_not_sdl2() {
+        let uuid = Uuid::nil();
+        let name = "Best Gamepad";
+        let buttons = [10, 11, 12, 13, 14, 15];
+        let axes = [0, 1, 2, 3];
+
+        let mut data = MappingData::new();
+        data[Axis::LeftZ] = 0;
+        data[Axis::RightZ] = 1;
+        data[Axis::Unknown] = 2;
+        data[Button::C] = 10;
+        data[Button::Z] = 11;
+        data[Button::Unknown] = 12;
+
+        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
+            .unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+        assert_eq!(mappings, sdl_mappings);
     }
 
     #[test]
