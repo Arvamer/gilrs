@@ -298,10 +298,15 @@ impl Gamepad {
     /// The `name` argument can be a string slice with custom gamepad name or `None`. If `None`,
     /// gamepad name reported by driver will be used.
     ///
+    /// # Errors
+    ///
     /// This function return error if `name` contains comma, `mapping` have axis and button entry
     /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
-    /// not have any element with `NativeEvCode` used in mapping. Error is also returned if this
-    /// function is not implemented or gamepad is not connected.
+    /// not have any element with `NativeEvCode` used in mapping. `Button::Unknown` and
+    /// `Axis::Unknown` are not allowd as keys to `mapping` – in this case,
+    /// `MappingError::UnknownElement` is returned.
+    ///
+    /// Error is also returned if this function is not implemented or gamepad is not connected.
     ///
     /// # Example
     ///
@@ -343,11 +348,23 @@ impl Gamepad {
 
     /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
     /// with SDL2.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MappingError::NotSdl2Compatible` if `mapping` have an entry for `Button::{C, Z}`
+    /// or `Axis::{LeftZ, RightZ}`.
     pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self,
                                                             mapping: &MappingData,
                                                             name: O)
                                                             -> Result<String, MappingError> {
-        self.inner.set_mapping(mapping, true, name.into())
+        if mapping.button(Button::C).is_some() ||
+            mapping.button(Button::Z).is_some() ||
+            mapping.axis(Axis::LeftZ).is_some() ||
+            mapping.axis(Axis::RightZ).is_some() {
+            Err(MappingError::NotSdl2Compatible)
+        } else {
+            self.inner.set_mapping(mapping, true, name.into())
+        }
     }
 
     /// Creates and uploads new force feedback effect using `data`. This function will fail if
@@ -814,7 +831,7 @@ pub enum Button {
     DPadLeft = BTN_DPAD_LEFT,
     DPadRight = BTN_DPAD_RIGHT,
 
-    Unknown,
+    Unknown = BTN_UNKNOWN,
 }
 
 impl Button {
@@ -881,8 +898,7 @@ pub enum Axis {
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,
     RightTrigger2 = AXIS_RT2,
-    Unknown = ::std::u16::MAX, /* some "random" value because rustc want to assign 11u16 which
-                                * already exists */
+    Unknown = AXIS_UNKNOWN,
 }
 
 impl Axis {

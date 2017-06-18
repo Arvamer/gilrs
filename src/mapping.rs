@@ -96,6 +96,9 @@ impl Mapping {
                     BTN_DPAD_DOWN => add_button("dpdown", ev_code, nec::BTN_DPAD_DOWN)?,
                     BTN_DPAD_LEFT => add_button("dpleft", ev_code, nec::BTN_DPAD_LEFT)?,
                     BTN_DPAD_RIGHT => add_button("dpright", ev_code, nec::BTN_DPAD_RIGHT)?,
+                    BTN_C => add_button("c", ev_code, nec::BTN_C)?,
+                    BTN_Z => add_button("z", ev_code, nec::BTN_Z)?,
+                    BTN_UNKNOWN => return Err(MappingError::UnknownElement),
                     _ => unreachable!(),
                 }
             }
@@ -121,6 +124,9 @@ impl Mapping {
                     AXIS_LT => add_axis("leftshoulder", ev_code, nec::AXIS_LT)?,
                     AXIS_RT2 => add_axis("righttrigger", ev_code, nec::AXIS_RT2)?,
                     AXIS_LT2 => add_axis("lefttrigger", ev_code, nec::AXIS_LT2)?,
+                    AXIS_LEFTZ => add_axis("leftz", ev_code, nec::AXIS_LEFTZ)?,
+                    AXIS_RIGHTZ => add_axis("rightz", ev_code, nec::AXIS_RIGHTZ)?,
+                    AXIS_UNKNOWN => return Err(MappingError::UnknownElement),
                     _ => unreachable!(),
                 }
             }
@@ -182,115 +188,127 @@ impl Mapping {
                     }
                 }
                 "x" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_WEST));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_WEST)?;
                 }
                 "a" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_SOUTH));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_SOUTH)?;
                 }
                 "b" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_EAST));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_EAST)?;
                 }
                 "y" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_NORTH));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_NORTH)?;
+                }
+                "c" => {
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_C)?;
+                }
+                "z" => {
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_Z)?;
                 }
                 "back" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_SELECT));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_SELECT)?;
                 }
                 "guide" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_MODE));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_MODE)?;
                 }
                 "start" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_START));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_START)?;
                 }
                 "leftstick" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_LTHUMB));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_LTHUMB)?;
                 }
                 "rightstick" => {
-                    try!(Mapping::insert_btn(val, buttons, m_btns, nec::BTN_RTHUMB));
+                    Mapping::insert_btn(val, buttons, m_btns, nec::BTN_RTHUMB)?;
                 }
                 "leftx" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LSTICKX));
+                    Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LSTICKX)?;
                 }
                 "lefty" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LSTICKY));
+                    Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LSTICKY)?;
                 }
                 "rightx" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RSTICKX));
+                    Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RSTICKX)?;
                 }
                 "righty" => {
-                    try!(Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RSTICKY));
+                    Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RSTICKY)?;
+                }
+                "leftz" => {
+                    Mapping::insert_axis(val, axes, m_axes, nec::AXIS_LEFTZ)?;
+                }
+                "rightz" => {
+                    Mapping::insert_axis(val, axes, m_axes, nec::AXIS_RIGHTZ)?;
                 }
                 "leftshoulder" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_LT,
-                                                     nec::AXIS_LT));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_LT,
+                                                nec::AXIS_LT)?;
                 }
                 "lefttrigger" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_LT2,
-                                                     nec::AXIS_LT2));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_LT2,
+                                                nec::AXIS_LT2)?;
                 }
                 "rightshoulder" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_RT,
-                                                     nec::AXIS_RT));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_RT,
+                                                nec::AXIS_RT)?;
                 }
                 "righttrigger" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_RT2,
-                                                     nec::AXIS_RT2));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_RT2,
+                                                nec::AXIS_RT2)?;
                 }
                 "dpleft" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_DPAD_LEFT,
-                                                     nec::AXIS_DPADX));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_DPAD_LEFT,
+                                                nec::AXIS_DPADX)?;
                 }
                 "dpright" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_DPAD_RIGHT,
-                                                     nec::AXIS_DPADX));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_DPAD_RIGHT,
+                                                nec::AXIS_DPADX)?;
                 }
                 "dpup" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_DPAD_UP,
-                                                     nec::AXIS_DPADY));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_DPAD_UP,
+                                                nec::AXIS_DPADY)?;
                 }
                 "dpdown" => {
-                    try!(Mapping::insert_btn_or_axis(val,
-                                                     buttons,
-                                                     axes,
-                                                     m_btns,
-                                                     m_axes,
-                                                     nec::BTN_DPAD_DOWN,
-                                                     nec::AXIS_DPADY));
+                    Mapping::insert_btn_or_axis(val,
+                                                buttons,
+                                                axes,
+                                                m_btns,
+                                                m_axes,
+                                                nec::BTN_DPAD_DOWN,
+                                                nec::AXIS_DPADY)?;
                 }
                 _ => (),
             }
@@ -609,6 +627,16 @@ impl MappingData {
     pub fn axis(&self, idx: Axis) -> Option<NativeEvCode> {
         self.axes.get(idx as usize).cloned()
     }
+
+    /// Removes button and returns associated `NativEvCode`.
+    pub fn remove_button(&mut self, idx: Button) -> Option<NativeEvCode> {
+        self.buttons.remove(idx as usize)
+    }
+
+    /// Removes axis and returns associated `NativEvCode`.
+    pub fn remove_axis(&mut self, idx: Axis) -> Option<NativeEvCode> {
+        self.axes.remove(idx as usize)
+    }
 }
 
 impl Index<Button> for MappingData {
@@ -652,6 +680,10 @@ pub enum MappingError {
     NotConnected,
     /// Same gamepad element is referenced by axis and button.
     DuplicatedEntry,
+    /// `Mapping` with `Button::Unknown` or `Axis::Unknown`.
+    UnknownElement,
+    /// `Mapping` have button or axis that are not present in SDL2.
+    NotSdl2Compatible,
 }
 
 impl MappingError {
@@ -667,6 +699,12 @@ impl MappingError {
             MappingError::NotConnected => "gamepad is not connected",
             MappingError::DuplicatedEntry => {
                 "same gamepad element is referenced by axis and button"
+            }
+            MappingError::UnknownElement => {
+                "Button::Unknown and Axis::Unknown are not allowed"
+            }
+            MappingError::NotSdl2Compatible => {
+                "one of buttons or axes is not compatible with SDL2"
             }
         }
     }
@@ -708,19 +746,40 @@ mod tests {
     fn from_data() {
         let uuid = Uuid::nil();
         let name = "Best Gamepad";
-        let buttons = [10, 11, 12, 13, 14, 15];
-        let axes = [0, 1, 2, 3];
+        let buttons = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+        let axes = [0, 1, 2, 3, 4, 5, 6, 7];
 
         let mut data = MappingData::new();
         data[Axis::LeftStickX] = 0;
         data[Axis::LeftStickY] = 1;
         data[Axis::LeftTrigger] = 2;
         data[Axis::LeftTrigger2] = 3;
-        data[Button::South] = 10;
-        data[Button::South] = 10;
-        data[Button::West] = 11;
-        data[Button::Start] = 15;
+        data[Axis::RightTrigger] = 4;
+        data[Axis::RightTrigger2] = 5;
+        data[Axis::RightStickX] = 6;
+        data[Axis::RightStickY] = 7;
 
+        data[Button::South] = 10;
+        data[Button::South] = 10;
+        data[Button::East] = 11;
+        data[Button::North] = 12;
+        data[Button::West] = 13;
+        data[Button::Select] = 14;
+        data[Button::Start] = 15;
+        data[Button::Mode] = 16;
+        data[Button::DPadUp] = 17;
+        data[Button::DPadDown] = 18;
+        data[Button::DPadLeft] = 19;
+        data[Button::DPadRight] = 20;
+        data[Button::LeftThumb] = 21;
+        data[Button::RightThumb] = 22;
+
+        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
+            .unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+        assert_eq!(mappings, sdl_mappings);
+
+        data[Button::North] = data.button(Button::South).unwrap();
         let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
             .unwrap();
         let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
@@ -729,14 +788,42 @@ mod tests {
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, "Inval,id name", uuid);
         assert_eq!(Err(MappingError::InvalidName), incorrect_mappings);
 
-        data[Button::South] = 22;
+        data[Button::South] = 32;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingError::InvalidCode(22)), incorrect_mappings);
+        assert_eq!(Err(MappingError::InvalidCode(32)), incorrect_mappings);
 
         data[Button::South] = 10;
         data[Button::LeftTrigger] = 11;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
         assert_eq!(Err(MappingError::DuplicatedEntry), incorrect_mappings);
+    }
+
+    #[test]
+    fn from_data_not_sdl2() {
+        let uuid = Uuid::nil();
+        let name = "Best Gamepad";
+        let buttons = [10, 11, 12, 13, 14, 15];
+        let axes = [0, 1, 2, 3];
+
+        let mut data = MappingData::new();
+        data[Axis::LeftZ] = 0;
+        data[Axis::RightZ] = 1;
+        data[Button::C] = 10;
+        data[Button::Z] = 11;
+
+        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
+            .unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+        assert_eq!(mappings, sdl_mappings);
+
+        data[Button::Unknown] = 13;
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
+
+        assert_eq!(data.remove_button(Button::Unknown), Some(13));
+        data[Axis::Unknown] = 3;
+        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
     }
 
     #[test]
