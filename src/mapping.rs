@@ -627,6 +627,16 @@ impl MappingData {
     pub fn axis(&self, idx: Axis) -> Option<NativeEvCode> {
         self.axes.get(idx as usize).cloned()
     }
+
+    /// Removes button and returns associated `NativEvCode`.
+    pub fn remove_button(&mut self, idx: Button) -> Option<NativeEvCode> {
+        self.buttons.remove(idx as usize)
+    }
+
+    /// Removes axis and returns associated `NativEvCode`.
+    pub fn remove_axis(&mut self, idx: Axis) -> Option<NativeEvCode> {
+        self.axes.remove(idx as usize)
+    }
 }
 
 impl Index<Button> for MappingData {
@@ -801,12 +811,11 @@ mod tests {
         let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
         assert_eq!(mappings, sdl_mappings);
 
-        let data_orig = data.clone();
         data[Button::Unknown] = 13;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
         assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
 
-        data = data_orig;
+        assert_eq!(data.remove_button(Button::Unknown), Some(13));
         data[Axis::Unknown] = 3;
         let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
         assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
