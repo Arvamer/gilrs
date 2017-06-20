@@ -1,30 +1,49 @@
-image: "registry.gitlab.com/arvamer/gilrs"
+image: "liuchong/rustup:1.18.0"
+
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/cargo
 
 before_script:
-  - git submodule init
-  - git submodule update
-  - rustc --version && cargo --version
+  - dpkg --add-architecture i386
+  - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git gcc-multilib libudev1:i386 libudev-dev:i386
+  - git submodule sync
+  - git submodule update --init
+  - rustc -Vv && cargo -Vv
 
 cache:
-  key: "$CI_BUILD_REF"
   paths:
-    - $HOME/.cargo
+    - cargo
     - target
 
 build:x86_64-unknown-linux-gnu:
   stage: build
   script:
-    - cargo build --verbose
+    - cargo test --no-run --verbose
 
 test:x86_64-unknown-linux-gnu:
   stage: test
   script:
     - cargo test --verbose
 
-build:x86_64-pc-windows-gnu:
+build:i686-unknown-linux-gnu:
   stage: build
+  variables:
+    PKG_CONFIG_ALLOW_CROSS: 1
+  before_script: &i386_before
+    - dpkg --add-architecture i386
+    - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git gcc-multilib libudev1:i386 libudev-dev:i386
+    - git submodule sync
+    - git submodule update --init
+    - rustc -Vv && cargo -Vv
+    - rustup target add i686-unknown-linux-gnu
   script:
-    - cargo build --verbose --target=x86_64-pc-windows-gnu
+    - cargo test --no-run --verbose --target=i686-unknown-linux-gnu
+
+test:i686-unknown-linux-gnu:
+  stage: test
+  before_script: *i386_before
+  script:
+    - cargo test --verbose --target=i686-unknown-linux-gnu
 
 pages:
   stage: deploy
