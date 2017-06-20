@@ -70,7 +70,7 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    fn at(&self, ticks: Ticks, dur: Ticks) -> f32 {
+    pub(super) fn at(&self, ticks: Ticks, dur: Ticks) -> f32 {
         debug_assert!(self.fade_length < dur);
         debug_assert!(self.attack_length + self.fade_length < dur);
 
@@ -93,7 +93,7 @@ pub struct Replay {
 }
 
 impl Replay {
-    fn at(&self, ticks: Ticks) -> f32 {
+    pub(super) fn at(&self, ticks: Ticks) -> f32 {
         match ticks.checked_sub(self.after) {
             Some(ticks) => {
                 if ticks.0 >= self.play_for.0 {
