@@ -31,6 +31,7 @@ impl Device {
             u: Default::default(),
         };
         let res = unsafe { ioctl::eviocsff(file.as_raw_fd(), &mut effect) };
+
         if res.is_err() {
             Err(IoError::new(ErrorKind::Other, "Failed to create effect"))
         } else {
@@ -51,29 +52,34 @@ impl Device {
             u: Default::default(),
         };
 
-        let res = unsafe {
+        unsafe {
             let rumble = &mut effect.u as *mut _ as *mut ff_rumble_effect;
             (*rumble).strong_magnitude = strong;
             (*rumble).weak_magnitude = weak;
-            ioctl::eviocsff(self.file.as_raw_fd(), &mut effect)
+
+            match ioctl::eviocsff(self.file.as_raw_fd(), &mut effect) {
+                Err(err) => {
+                    error!("Failed to modify effect of gamepad {:?}, error: {}", self.file, err);
+                    return;
+                }
+                Ok(_) => (),
+            }
         };
 
-        if res.is_err() {
-            unimplemented!();
-        } else {
-            let ev = input_event {
-                type_: EV_FF,
-                code: self.effect as u16,
-                value: 1,
-                time: unsafe { mem::uninitialized() },
-            };
-            let size = mem::size_of::<input_event>();
-            let s = unsafe { slice::from_raw_parts(&ev as *const _ as *const u8, size) };
-            match self.file.write(s) {
-                Ok(s) if s == size => (),
-                Ok(_) => unreachable!(),
-                Err(e) => error!("Failed to set ff state: {}", e),
-            }
+        let ev = input_event {
+            type_: EV_FF,
+            code: self.effect as u16,
+            value: 1,
+            time: unsafe { mem::uninitialized() },
+        };
+
+        let size = mem::size_of::<input_event>();
+        let s = unsafe { slice::from_raw_parts(&ev as *const _ as *const u8, size) };
+
+        match self.file.write(s) {
+            Ok(s) if s == size => (),
+            Ok(_) => unreachable!(),
+            Err(e) => error!("Failed to set ff state: {}", e),
         }
     }
 }
