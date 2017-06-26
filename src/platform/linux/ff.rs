@@ -84,5 +84,14 @@ impl Device {
     }
 }
 
+impl Drop for Device {
+    fn drop(&mut self) {
+        match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), &(self.effect as i32)) } {
+            Err(err) => error!("Failed to remove effect of gamepad {:?}: {}", self.file, err),
+            Ok(_) => (),
+        };
+    }
+}
+
 const EV_FF: u16 = 0x15;
 const FF_RUMBLE: u16 = 0x50;
