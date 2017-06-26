@@ -102,11 +102,12 @@ pub(super) enum EffectState {
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct EffectSource {
     base_effects: Vec<BaseEffect>,
+    // TODO: Use bitset
     pub(super) devices: VecMap<()>,
-    repeat: Repeat,
-    dist_model: DistanceModel,
-    position: [f32; 3],
-    gain: f32,
+    pub(super) repeat: Repeat,
+    pub(super) distance_model: DistanceModel,
+    pub(super) position: [f32; 3],
+    pub(super) gain: f32,
     pub(super) state: EffectState,
 }
 
@@ -123,7 +124,7 @@ impl EffectSource {
             base_effects,
             devices,
             repeat,
-            dist_model,
+            distance_model: dist_model,
             position,
             gain,
             state: EffectState::Stopped,
@@ -148,7 +149,7 @@ impl EffectSource {
             _ => ()
         }
 
-        let attenuation = self.dist_model.attenuation(self.position.distance(actor_pos)) * self.gain;
+        let attenuation = self.distance_model.attenuation(self.position.distance(actor_pos)) * self.gain;
         if attenuation < 0.05 {
             return Magnitude::zero()
         }

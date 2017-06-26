@@ -1,5 +1,5 @@
-use super::effect_source::{EffectSource, EffectState, Magnitude};
-use super::time::{Ticks, TICK_DURATION};
+use super::effect_source::{EffectSource, EffectState, Magnitude, DistanceModel};
+use super::time::{Repeat, Ticks, TICK_DURATION};
 
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::thread;
@@ -18,7 +18,12 @@ pub(crate) enum Message {
     Play { id: usize },
     Open { id: usize, device: FfDevice },
     Close { id: usize },
-    SetListenerPosition { id: usize, position: [f32; 3] }
+    SetListenerPosition { id: usize, position: [f32; 3] },
+    SetGamepads { id: usize, gamepads: VecMap<()> },
+    SetRepeat { id: usize, repeat: Repeat },
+    SetDistanceModel { id: usize, model: DistanceModel },
+    SetPosition { id: usize, position: [f32; 3] },
+    SetGain { id: usize, gain: f32 },
 }
 
 #[derive(Debug)]
@@ -125,6 +130,41 @@ pub(crate) fn run(rx: Receiver<Message>) {
 
                     if drop {
                         effects.remove(id);
+                    }
+                }
+                Message::SetGamepads { id, gamepads } => {
+                    if let Some(eff) = effects.get_mut(id) {
+                        eff.source.devices = gamepads;
+                    } else {
+                        error!("Invalid effect id {} when changing gamepads.", id);
+                    }
+                }
+                Message::SetRepeat { id, repeat } => {
+                    if let Some(eff) = effects.get_mut(id) {
+                        eff.source.repeat = repeat;
+                    } else {
+                        error!("Invalid effect id {} when changing repeat mode.", id);
+                    }
+                }
+                Message::SetDistanceModel { id, model } => {
+                    if let Some(eff) = effects.get_mut(id) {
+                        eff.source.distance_model = model;
+                    } else {
+                        error!("Invalid effect id {} when changing distance model.", id);
+                    }
+                }
+                Message::SetPosition { id, position } => {
+                    if let Some(eff) = effects.get_mut(id) {
+                        eff.source.position = position;
+                    } else {
+                        error!("Invalid effect id {}.", id);
+                    }
+                }
+                Message::SetGain { id, gain } => {
+                    if let Some(eff) = effects.get_mut(id) {
+                        eff.source.gain = gain;
+                    } else {
+                        error!("Invalid effect id {} when changing effect gain.", id);
                     }
                 }
             }

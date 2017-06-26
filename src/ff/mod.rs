@@ -15,13 +15,14 @@ pub use self::time::{Ticks, Repeat};
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
 pub use self::effect_source::{DistanceModel, DistanceModelError};
 
-use std::{fmt, u32};
+use std::{fmt, u32, f32};
 use std::error::Error as StdError;
 use std::sync::mpsc::{Sender, SendError};
 
 use self::effect_source::{EffectSource};
 use gamepad::Gilrs;
 use ff::server::Message;
+use utils;
 
 use vec_map::VecMap;
 
@@ -51,25 +52,47 @@ impl Effect {
         let _ = self.tx.send(Message::Play { id: self.id });
     }
 
-    pub fn set_gamepads(&self, ids: &[usize]) {
-        unimplemented!()
+    pub fn set_gamepads(&self, ids: &[usize], gilrs: &Gilrs) -> Result<(), Error> {
+        let mut gamepads = VecMap::new();
+
+        for dev in ids.iter().cloned() {
+            if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected(dev))?.is_ff_supported() {
+                return Err(Error::FfNotSupported(dev));
+            } else {
+                gamepads.insert(dev, ());
+            }
+        }
+
+        self.tx.send(Message::SetGamepads { id: self.id, gamepads })?;
+
+        Ok(())
     }
 
-    pub fn  set_repeat(&self, repeat: Repeat) {
-        unimplemented!()
+    pub fn set_repeat(&self, repeat: Repeat) -> Result<(), Error> {
+        self.tx.send(Message::SetRepeat {id: self.id, repeat })?;
+
+        Ok(())
     }
 
-    pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), DistanceModelError> {
+    pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), Error> {
         model.validate()?;
-        unimplemented!()
+        self.tx.send(Message::SetDistanceModel { id: self.id, model })?;
+
+        Ok(())
     }
 
-    pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> &mut Self {
-        unimplemented!()
+    pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> Result<(), Error> {
+        let position = position.into();
+        self.tx.send(Message::SetPosition  { id: self.id, position })?;
+
+        Ok(())
     }
 
-    pub fn set_gain(&self, gain: f32) {
-        unimplemented!()
+    pub fn set_gain(&self, gain: f32) -> Result<(), Error> {
+        let gain = utils::clamp(gain, 0.0, f32::MAX);
+        self.tx.send(Message::SetGain  { id: self.id, gain })?;
+
+        Ok(())
     }
 }
 
@@ -123,8 +146,7 @@ impl EffectBuilder {
     }
 
     pub fn gain(&mut self, gain: f32) -> &mut Self {
-        assert!(gain >= 0.0);
-        self.gain = gain;
+        self.gain = utils::clamp(gain, 0.0, f32::MAX);
         self
     }
 
@@ -155,6 +177,8 @@ pub enum Error {
     Disconnected(usize),
     /// Distance model is invalid.
     InvalidDistanceModel(DistanceModelError),
+    /// The other end of channel was dropped.
+    SendError,
     /// Unexpected error has occurred
     Other,
     #[doc(hidden)]
@@ -167,6 +191,7 @@ impl StdError for Error {
             Error::FfNotSupported(_) => "force feedback is not supported",
             Error::Disconnected(_) => "device is not connected",
             Error::InvalidDistanceModel(_) => "distance model is invalid",
+            Error::SendError => "receiving end of a channel is disconnected",
             Error::Other => "unexpected error has occurred",
             Error::__Nonexhaustive => unreachable!(),
         }
@@ -182,7 +207,8 @@ impl fmt::Display for Error {
                 Error::Disconnected(id) =>
                     format!("Device with id {} is not connected.", id),
                 Error::InvalidDistanceModel(err)
-                    => format!("distance model is invalid: {}.", err.description()),
+                    => format!("Distance model is invalid: {}.", err.description()),
+                Error::SendError => "Receiving end of a channel is disconnected.".to_owned(),
                 Error::Other => "Unexpected error has occurred.".to_owned(),
                 Error::__Nonexhaustive => unreachable!(),
         })
@@ -191,7 +217,7 @@ impl fmt::Display for Error {
 
 impl<T> From<SendError<T>> for Error {
     fn from(_: SendError<T>) -> Self {
-        Error::Other
+        Error::SendError
     }
 }
 
