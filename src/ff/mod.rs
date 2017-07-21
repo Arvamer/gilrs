@@ -26,6 +26,13 @@ use utils;
 
 use vec_map::VecMap;
 
+/// Handle to force feedback effect.
+///
+/// `Effect` represents force feedback effect that can be played on one or more gamepads. It uses a
+/// form of reference counting, so it can be cheaply cloned. To create new `Effect` use
+/// [`EffectBuilder`](struct.EffectBuilder.html).
+///
+/// All methods on can return `Error::SendFailed` although it shouldn't normally happen.
 pub struct Effect {
     id: usize,
     tx: Sender<Message>,
@@ -48,10 +55,20 @@ impl Drop for Effect {
 }
 
 impl Effect {
-    pub fn play(&self) {
-        let _ = self.tx.send(Message::Play { id: self.id });
+    /// Play effect on all associated gamepads.
+    pub fn play(&self) -> Result<(), Error> {
+        self.tx.send(Message::Play { id: self.id })?;
+
+        Ok(())
     }
 
+    /// Change gamepads that are associated with effect. Effect will be only played on gamepads
+    /// from last call to this function.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Disconnected(id)` or `Error::FfNotSupported(id)` on first gamepad in `ids`
+    /// that is disconnected or doesn't support force feedback.
     pub fn set_gamepads(&self, ids: &[usize], gilrs: &Gilrs) -> Result<(), Error> {
         let mut gamepads = VecMap::new();
 
@@ -68,12 +85,19 @@ impl Effect {
         Ok(())
     }
 
+    /// Change what should happen to effect when it ends.
     pub fn set_repeat(&self, repeat: Repeat) -> Result<(), Error> {
         self.tx.send(Message::SetRepeat {id: self.id, repeat })?;
 
         Ok(())
     }
 
+    /// Change distance model associated with effect.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidDistanceModel` if `model` is not valid. See
+    /// [`DistanceModel`](enum.DistanceModel.html) for details.
     pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), Error> {
         model.validate()?;
         self.tx.send(Message::SetDistanceModel { id: self.id, model })?;
@@ -81,6 +105,7 @@ impl Effect {
         Ok(())
     }
 
+    /// Change position of the source of effect.
     pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> Result<(), Error> {
         let position = position.into();
         self.tx.send(Message::SetPosition  { id: self.id, position })?;
@@ -88,6 +113,7 @@ impl Effect {
         Ok(())
     }
 
+    /// Change gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
     pub fn set_gain(&self, gain: f32) -> Result<(), Error> {
         let gain = utils::clamp(gain, 0.0, f32::MAX);
         self.tx.send(Message::SetGain  { id: self.id, gain })?;
@@ -96,6 +122,7 @@ impl Effect {
     }
 }
 
+/// Creates new [`Effect`](struct.Effect.html).
 #[derive(Clone, PartialEq, Debug)]
 pub struct EffectBuilder {
     base_effects: Vec<BaseEffect>,
@@ -107,6 +134,9 @@ pub struct EffectBuilder {
 }
 
 impl EffectBuilder {
+    /// Creates new builder with following defaults: no gamepads, no base effects, repeat set to
+    /// infinitely, no distance model, position in (0.0, 0.0, 0.0) and gain 1.0. Use `finish()` to
+    /// create new effect.
     pub fn new() -> Self {
         EffectBuilder {
             base_effects: Vec::new(),
@@ -118,11 +148,14 @@ impl EffectBuilder {
         }
     }
 
+    /// Adds new [`BaseEffect`](struct.BaseEffect.html).
     pub fn add_effect(&mut self, effect: BaseEffect) -> &mut Self {
         self.base_effects.push(effect);
         self
     }
 
+    /// Change gamepads that are associated with effect. Effect will be only played on gamepads
+    /// from last call to this function.
     pub fn gamepads(&mut self, ids: &[usize]) -> &mut Self {
         for dev in ids {
             self.devices.insert(*dev, ());
@@ -130,26 +163,39 @@ impl EffectBuilder {
         self
     }
 
+    /// Change what should happen to effect when it ends.
     pub fn repeat(&mut self, repeat: Repeat) -> &mut Self {
         self.repeat = repeat;
         self
     }
 
+    /// Change distance model associated with effect.
     pub fn distance_model(&mut self, model: DistanceModel) -> &mut Self {
         self.dist_model = model;
         self
     }
 
+    /// Change position of the source of effect.
     pub fn position<Vec3f: Into<[f32; 3]>>(&mut self, position: Vec3f) -> &mut Self {
         self.position = position.into();
         self
     }
 
+    /// Change gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
     pub fn gain(&mut self, gain: f32) -> &mut Self {
         self.gain = utils::clamp(gain, 0.0, f32::MAX);
         self
     }
 
+    /// Validates all parameters and creates new effect.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Disconnected(id)` or `Error::FfNotSupported(id)` on first gamepad in `ids`
+    /// that is disconnected or doesn't support force feedback.
+    ///
+    /// Returns `Error::InvalidDistanceModel` if `model` is not valid. See
+    /// [`DistanceModel`](enum.DistanceModel.html) for details.
     pub fn finish(&mut self, gilrs: &mut Gilrs) -> Result<Effect, Error> {
         for (dev, _) in &self.devices {
             if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected(dev))?.is_ff_supported() {
@@ -178,7 +224,7 @@ pub enum Error {
     /// Distance model is invalid.
     InvalidDistanceModel(DistanceModelError),
     /// The other end of channel was dropped.
-    SendError,
+    SendFailed,
     /// Unexpected error has occurred
     Other,
     #[doc(hidden)]
@@ -191,7 +237,7 @@ impl StdError for Error {
             Error::FfNotSupported(_) => "force feedback is not supported",
             Error::Disconnected(_) => "device is not connected",
             Error::InvalidDistanceModel(_) => "distance model is invalid",
-            Error::SendError => "receiving end of a channel is disconnected",
+            Error::SendFailed => "receiving end of a channel is disconnected",
             Error::Other => "unexpected error has occurred",
             Error::__Nonexhaustive => unreachable!(),
         }
@@ -208,7 +254,7 @@ impl fmt::Display for Error {
                     format!("Device with id {} is not connected.", id),
                 Error::InvalidDistanceModel(err)
                     => format!("Distance model is invalid: {}.", err.description()),
-                Error::SendError => "Receiving end of a channel is disconnected.".to_owned(),
+                Error::SendFailed => "Receiving end of a channel is disconnected.".to_owned(),
                 Error::Other => "Unexpected error has occurred.".to_owned(),
                 Error::__Nonexhaustive => unreachable!(),
         })
@@ -217,7 +263,7 @@ impl fmt::Display for Error {
 
 impl<T> From<SendError<T>> for Error {
     fn from(_: SendError<T>) -> Self {
-        Error::SendError
+        Error::SendFailed
     }
 }
 
