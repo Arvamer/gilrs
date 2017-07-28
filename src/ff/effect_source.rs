@@ -64,6 +64,8 @@ impl Default for DistanceModel {
     }
 }
 
+/// Error that can be returned when passing [`DistanceModel`](struct.DistanceModel.html) with
+/// invalid vale.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DistanceModelError {
     /// Reference distance is < 0.

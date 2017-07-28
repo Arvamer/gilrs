@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Force feedback module.
+
 pub(crate) mod server;
 mod base_effect;
 mod effect_source;
@@ -18,6 +20,7 @@ pub use self::effect_source::{DistanceModel, DistanceModelError};
 use std::{fmt, u32, f32};
 use std::error::Error as StdError;
 use std::sync::mpsc::{Sender, SendError};
+use std::hash::{Hash, Hasher};
 
 use self::effect_source::{EffectSource};
 use gamepad::Gilrs;
@@ -36,6 +39,20 @@ use vec_map::VecMap;
 pub struct Effect {
     id: usize,
     tx: Sender<Message>,
+}
+
+impl PartialEq for Effect {
+    fn eq(&self, other: &Effect) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Effect {}
+
+impl Hash for Effect {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Clone for Effect {
@@ -97,7 +114,7 @@ impl Effect {
     /// # Errors
     ///
     /// Returns `Error::InvalidDistanceModel` if `model` is not valid. See
-    /// [`DistanceModel`](enum.DistanceModel.html) for details.
+    /// [`DistanceModel`](enum.DistanceModelError.html) for details.
     pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), Error> {
         model.validate()?;
         self.tx.send(Message::SetDistanceModel { id: self.id, model })?;
@@ -195,7 +212,7 @@ impl EffectBuilder {
     /// that is disconnected or doesn't support force feedback.
     ///
     /// Returns `Error::InvalidDistanceModel` if `model` is not valid. See
-    /// [`DistanceModel`](enum.DistanceModel.html) for details.
+    /// [`DistanceModel`](enum.DistanceModelError.html) for details.
     pub fn finish(&mut self, gilrs: &mut Gilrs) -> Result<Effect, Error> {
         for (dev, _) in &self.devices {
             if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected(dev))?.is_ff_supported() {
@@ -215,6 +232,7 @@ impl EffectBuilder {
     }
 }
 
+/// Basic error type in force feedback module.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Error {
     /// Force feedback is not supported by device with this ID

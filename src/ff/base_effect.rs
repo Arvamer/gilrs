@@ -2,6 +2,10 @@ use std::ops::Mul;
 
 use super::time::Ticks;
 
+/// Kind of [`BaseEffect`](struct.BaseEffect.html).
+///
+/// Currently base effect support only xinput model of force feedback, which means that  gamepad
+/// have weak and strong motor.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum BaseEffectType {
     Weak { magnitude: u16 },
@@ -39,11 +43,18 @@ impl Default for BaseEffectType {
     }
 }
 
+/// Basic building block used to create more complex force feedback effects.
+///
+/// For each base effect you can specify it's type, for how long should it be played and it's
+/// strength during playback.
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct BaseEffect {
+    /// Type of base effect.
     pub kind: BaseEffectType,
+    /// Defines playback duration and delays between each repetition.
     pub scheduling: Replay,
     // TODO: maybe allow other f(t)?
+    /// Basic attenuation function.
     pub envelope: Envelope,
 }
 
@@ -61,7 +72,7 @@ impl BaseEffect {
 
 // TODO: Image with "envelope"
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
-/// Envelope shaped gain(time) function.
+/// Envelope shaped attenuation(time) function.
 pub struct Envelope {
     pub attack_length: Ticks,
     pub attack_level: f32,
@@ -84,11 +95,21 @@ impl Envelope {
     }
 }
 
-/// Defines scheduling of the force feedback effect
+/// Defines scheduling of the basic force feedback effect.
+///
+/// ```text
+///        ____________            ____________            ____________
+///        |          |            |          |            |
+/// _______|          |____________|          |____________|
+///  after   play_for   with_delay   play_for   with_delay   play_for
+/// ```
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Replay {
+    /// Start playback `after` ticks after `Effect::play()` is called.
     pub after: Ticks,
+    /// Playback duration.
     pub play_for: Ticks,
+    /// If playback should be repeated delay it for `with_delay` ticks.
     pub with_delay: Ticks,
 }
 
