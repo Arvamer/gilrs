@@ -10,8 +10,12 @@ use vec_map::VecMap;
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DistanceModel {
     None,
-    Linear { ref_distance: f32, max_distance: f32, rolloff_factor: f32 },
-    Inverse { ref_distance: f32, rolloff_factor: f32 }
+    Linear { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    LinearClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    Inverse { ref_distance: f32, rolloff_factor: f32 },
+    InverseClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    Exponential { ref_distance: f32, rolloff_factor: f32 },
+    ExponentialClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
 }
 
 impl DistanceModel {
@@ -22,16 +26,33 @@ impl DistanceModel {
         // [1]: http://openal.org/documentation/openal-1.1-specification.pdf
         match self {
             DistanceModel::Linear { ref_distance, max_distance, rolloff_factor } => {
-                if max_distance == ref_distance {
-                    // Avoid dividing by 0
-                    0.0
-                } else {
-                    distance = distance.min(max_distance);
-                    (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
-                }
+                distance = distance.min(max_distance);
+
+                (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
             },
+            DistanceModel::LinearClamped { ref_distance, max_distance, rolloff_factor } => {
+                distance = distance.max(ref_distance);
+                distance = distance.min(max_distance);
+
+                (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
+            }
             DistanceModel::Inverse { ref_distance, rolloff_factor } => {
                 ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance))
+            }
+            DistanceModel::InverseClamped { ref_distance, max_distance, rolloff_factor } => {
+                distance = distance.max(ref_distance);
+                distance = distance.min(max_distance);
+
+                ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance))
+            }
+            DistanceModel::Exponential { ref_distance, rolloff_factor } => {
+                (distance / ref_distance).powf(-rolloff_factor)
+            }
+            DistanceModel::ExponentialClamped { ref_distance, max_distance, rolloff_factor } => {
+                distance = distance.max(ref_distance);
+                distance = distance.min(max_distance);
+
+                (distance / ref_distance).powf(-rolloff_factor)
             }
             DistanceModel::None => 1.0,
         }
@@ -39,10 +60,48 @@ impl DistanceModel {
 
     pub(crate) fn validate(self) -> Result<(), DistanceModelError> {
         let (ref_distance, rolloff_factor, max_distance) = match self {
-            DistanceModel::Inverse { ref_distance, rolloff_factor }
-                => (ref_distance, rolloff_factor, 0.0),
-            DistanceModel::Linear { ref_distance, max_distance, rolloff_factor }
-                => (ref_distance, rolloff_factor, max_distance),
+            DistanceModel::Inverse { ref_distance, rolloff_factor } => {
+                if ref_distance <= 0.0 {
+                    return Err(DistanceModelError::InvalidModelParameter);
+                }
+
+                (ref_distance, rolloff_factor, 0.0)
+            }
+            DistanceModel::InverseClamped { ref_distance, max_distance, rolloff_factor } => {
+                if ref_distance <= 0.0 {
+                    return Err(DistanceModelError::InvalidModelParameter);
+                }
+
+                (ref_distance, rolloff_factor, max_distance)
+            }
+            DistanceModel::Linear { ref_distance, max_distance, rolloff_factor } => {
+                if ref_distance == max_distance {
+                    return Err(DistanceModelError::InvalidModelParameter)
+                }
+
+                (ref_distance, rolloff_factor, max_distance)
+            }
+            DistanceModel::LinearClamped { ref_distance, max_distance, rolloff_factor } => {
+                if ref_distance == max_distance {
+                    return Err(DistanceModelError::InvalidModelParameter)
+                }
+
+                (ref_distance, rolloff_factor, max_distance)
+            }
+            DistanceModel::Exponential { ref_distance, rolloff_factor } => {
+                if ref_distance <= 0.0 {
+                    return Err(DistanceModelError::InvalidModelParameter);
+                }
+
+                (ref_distance, rolloff_factor, 0.0)
+            }
+            DistanceModel::ExponentialClamped { ref_distance, max_distance, rolloff_factor } => {
+                if ref_distance <= 0.0 {
+                    return Err(DistanceModelError::InvalidModelParameter);
+                }
+
+                (ref_distance, rolloff_factor, max_distance)
+            }
             DistanceModel::None => (0.0, 0.0, 0.0),
         };
 
@@ -74,6 +133,8 @@ pub enum DistanceModelError {
     InvalidRolloffFactor,
     /// Max distance is < 0.
     InvalidMaxDistance,
+    /// Possible divide by zero
+    InvalidModelParameter,
     #[doc(hidden)]
     __Nonexhaustive,
 }
@@ -84,6 +145,7 @@ impl Error for DistanceModelError {
             DistanceModelError::InvalidReferenceDistance => "reference distance is < 0",
             DistanceModelError::InvalidRolloffFactor => "rolloff factor is < 0",
             DistanceModelError::InvalidMaxDistance => "max distance is < 0",
+            DistanceModelError::InvalidModelParameter => "possible divide by zero",
             DistanceModelError::__Nonexhaustive => unreachable!(),
         }
     }
