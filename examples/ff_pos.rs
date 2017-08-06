@@ -2,12 +2,45 @@ extern crate gilrs;
 extern crate env_logger;
 
 use gilrs::{Gilrs, Event, Button, Axis};
-use gilrs::ff::{EffectBuilder, Envelope, Replay, BaseEffect, BaseEffectType, Ticks, DistanceModel};
+use gilrs::ff::{EffectBuilder, BaseEffect, BaseEffectType, DistanceModel};
 
 use std::time::Duration;
-use std::ops::IndexMut;
-use std::{thread, env};
+use std::{thread};
 use std::io::{self, Write};
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum Modify {
+    DistModel,
+    RefDistance,
+    RolloffFactor,
+    MaxDistance,
+}
+
+impl Modify {
+    fn next(&mut self) {
+        use Modify::*;
+        *self = match *self {
+            DistModel => RefDistance,
+            RefDistance => RolloffFactor,
+            RolloffFactor => MaxDistance,
+            MaxDistance => DistModel,
+        };
+        print!("\x1b[2K\r{:?}", self);
+        io::stdout().flush().unwrap();
+    }
+
+    fn prev(&mut self) {
+        use Modify::*;
+        *self = match *self {
+            DistModel => MaxDistance,
+            RefDistance => DistModel,
+            RolloffFactor => RefDistance,
+            MaxDistance => RolloffFactor,
+        };
+        print!("\x1b[2K\r{:?}", self);
+        io::stdout().flush().unwrap();
+    }
+}
 
 fn main() {
     env_logger::init().unwrap();
@@ -26,10 +59,10 @@ fn main() {
     }
 
     println!("----------------------------------------");
-    println!("Use sticks to move listener. Press east button on action pad to quit.");
+    println!("Use sticks to move listener. Triggers change properties of distance model. \
+    South/west button changes active property. Press east button on action pad to quit.");
 
     let pos1 = [-100.0, 0.0, 0.0];
-    let pos2 = [100.0, 50.0, 0.0];
 
     let effect_builder = EffectBuilder::new()
         .add_effect(BaseEffect {
@@ -40,32 +73,39 @@ fn main() {
             kind: BaseEffectType::Weak { magnitude: 45_000 },
             ..Default::default()
         })
-        .distance_model(DistanceModel::Inverse { ref_distance: 10.0, rolloff_factor: 0.5 })
+        .distance_model(DistanceModel::None)
         .gamepads(&support_ff)
         .clone();
 
     let left_effect = effect_builder.clone()
         .position(pos1)
         .finish(&mut gilrs).unwrap();
-    let right_effect = effect_builder.clone()
-        .position(pos2)
-        .finish(&mut gilrs).unwrap();
 
+    left_effect.play().unwrap();
 
-    left_effect.play();
-    right_effect.play();
-
-    println!("Playing two effects…");
-    println!("Position of effect sources: {:?}, {:?}", pos1, pos2);
+    println!("Playing one effects…");
+    println!("Position of effect sources: {:?}", pos1);
 
     let mut listeners = support_ff.iter()
         .map(|&idx| (idx, [0.0, 0.0, 0.0]))
         .collect::<Vec<_>>();
 
+    let mut ref_distance = 10.0;
+    let mut rolloff_factor = 0.5;
+    let mut max_distance = 100.0;
+    let mut modify = Modify::DistModel;
+    let mut model = 0usize;
+
     'main: loop {
         for (_, ev) in gilrs.poll_events() {
             match ev {
                 Event::ButtonReleased(Button::East, ..) => break 'main,
+                Event::ButtonReleased(Button::South, ..) => modify.next(),
+                Event::ButtonReleased(Button::West, ..) => modify.prev(),
+                Event::ButtonReleased(Button::LeftTrigger, ..) if modify == Modify::DistModel =>
+                    model = model.wrapping_sub(1),
+                Event::ButtonReleased(Button::RightTrigger, ..) if modify == Modify::DistModel =>
+                    model += 1,
                 _ => (),
             }
         }
@@ -85,10 +125,54 @@ fn main() {
                 }
 
                 gilrs.set_listener_position(idx, *pos).unwrap();
-                print!("\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}]",
-                       idx, pos[0], pos[1]);
+
+                let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
+                print!("\x1b[2K\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}].\
+                       Distance: {:.1}",
+                       idx, pos[0], pos[1], dist);
                 io::stdout().flush().unwrap();
             }
+
+            let x = if gp.is_pressed(Button::LeftTrigger) {
+                -1.0
+            } else if gp.is_pressed(Button::RightTrigger) {
+                1.0
+            } else {
+                continue;
+            };
+
+            match modify {
+                Modify::RolloffFactor => rolloff_factor += x * velocity * 0.1,
+                Modify::RefDistance => ref_distance += x * velocity * 0.1,
+                Modify::MaxDistance => max_distance += x * velocity * 1.0,
+                Modify::DistModel => () // DistanceModel handled in event loop
+            }
+
+            let model = match model % 4 {
+                0 => DistanceModel::None,
+                1 => DistanceModel::LinearClamped {
+                    ref_distance,
+                    rolloff_factor,
+                    max_distance,
+                },
+                2 => DistanceModel::InverseClamped {
+                    ref_distance,
+                    rolloff_factor,
+                    max_distance,
+                },
+                3 => DistanceModel::ExponentialClamped {
+                    ref_distance,
+                    rolloff_factor,
+                    max_distance,
+                },
+                _ => unreachable!()
+            };
+
+            match left_effect.set_distance_model(model) {
+                Ok(()) => print!("\x1b[2K\r{:?}", model),
+                Err(e) => print!("\x1b[2K\r{}", e),
+            }
+            io::stdout().flush().unwrap();
         }
 
         thread::sleep(Duration::from_millis(16));
