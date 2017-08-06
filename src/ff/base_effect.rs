@@ -114,16 +114,11 @@ pub struct Replay {
 }
 
 impl Replay {
-    pub(super) fn at(&self, ticks: Ticks) -> f32 {
-        match ticks.checked_sub(self.after) {
-            Some(ticks) => {
-                if ticks.0 >= self.play_for.0 {
-                    0.0
-                } else {
-                    1.0
-                }
-            }
-            None => 0.0,
+    pub (super) fn at(&self, ticks: Ticks) -> f32 {
+        if ticks >= self.play_for {
+            0.0
+        } else {
+            1.0
         }
     }
 
@@ -132,7 +127,7 @@ impl Replay {
         self.play_for + self.with_delay
     }
 
-    /// Returns `None` if effect hasn't started or wrapped value
+    /// Returns `None` if effect hasn't started; or wrapped value
     fn wrap(&self, ticks: Ticks) -> Option<Ticks> {
         ticks.checked_sub(self.after).map(|t| t % self.dur())
     }

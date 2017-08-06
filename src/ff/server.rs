@@ -197,6 +197,7 @@ fn combine_and_play(effects: &VecMap<Effect>, devices: &mut VecMap<Device>, tick
                 magnitude += effect.combine_base_effects(tick, dev.position);
             }
         }
+        debug!("{:?} {:?} {:?}", tick, dev, magnitude);
         dev.inner.set_ff_state(magnitude.strong, magnitude.weak);
     }
 }
