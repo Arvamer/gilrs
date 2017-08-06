@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign, Rem};
+use std::ops::{Add, AddAssign, Sub, SubAssign, Rem, Mul, MulAssign};
 use std::time::Duration;
 
 use utils;
@@ -71,6 +71,20 @@ impl Sub for Ticks {
 impl SubAssign for Ticks {
     fn sub_assign(&mut self, rhs: Ticks) {
         self.0 -= rhs.0
+    }
+}
+
+impl Mul<u32> for Ticks {
+    type Output = Ticks;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        Ticks(self.0 * rhs)
+    }
+}
+
+impl MulAssign<u32> for Ticks {
+    fn mul_assign(&mut self, rhs: u32) {
+        self.0 *= rhs;
     }
 }
 
