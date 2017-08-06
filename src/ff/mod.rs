@@ -333,13 +333,12 @@ mod tests {
             with_delay: Ticks(20),
         };
 
-        assert_eq!(replay.at(Ticks(0)), 0.0);
-        assert_eq!(replay.at(Ticks(9)), 0.0);
+        assert_eq!(replay.at(Ticks(0)), 1.0);
+        assert_eq!(replay.at(Ticks(9)), 1.0);
         assert_eq!(replay.at(Ticks(10)), 1.0);
         assert_eq!(replay.at(Ticks(30)), 1.0);
-        assert_eq!(replay.at(Ticks(59)), 1.0);
+        assert_eq!(replay.at(Ticks(59)), 0.0);
         assert_eq!(replay.at(Ticks(60)), 0.0);
         assert_eq!(replay.at(Ticks(70)), 0.0);
-        assert_eq!(replay.at(Ticks(79)), 0.0);
     }
 }
