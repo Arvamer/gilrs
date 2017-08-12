@@ -146,7 +146,7 @@ impl Gilrs {
 
     /// Returns a mutable reference to connected gamepad or `None`.
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
-        let mut gp = self.inner.gamepad_mut(id);
+        let gp = self.inner.gamepad_mut(id);
         if gp.is_connected() { Some(gp) } else { None }
     }
 

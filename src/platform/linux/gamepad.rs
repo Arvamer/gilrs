@@ -113,7 +113,7 @@ impl Gilrs {
         }
 
         loop {
-            let mut gamepad = match self.gamepads.get_mut(self.event_counter) {
+            let gamepad = match self.gamepads.get_mut(self.event_counter) {
                 Some(gp) => gp,
                 None => {
                     self.event_counter = 0;
