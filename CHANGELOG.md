@@ -6,17 +6,13 @@ v0.5.0 - unreleased
 
 ### Added
 
-- New type of force feedback effect—rumble (see `ff::EffectType::Rumble`).
-- New variants in `ff::Error` enum—`ff::Error::{Disconnected, InvalidId, Other}`.
 - `Mapping::remove_button()` and `Mapping::remove_axis()`.
 
 ### Changed
 
-- Redesigned `ff::EffectData` to allow other effect types.
+- New force feedback module, including support for Windows. There are to many
+  changes to list them all here, so pleas check documentation and examples.
 - Renamed `ff::Error::EffectNotSupported` to `ff::Error::NotSupported`.
-- Improved error handling in force feedback related functions.
-  `Gamepad::{drop_ff_effect, set_ff_gain, max_ff_effects}` and
-  `ff::Effect::stop` now return `Result`
 - `Button::Unknown` and `Axis::Unknown` have now vale of 0x100.
 - `Gamepad::set_mapping()` (and `_strict` variant) now returns error when
   creating mapping with `Button::Unknown` or `Axis::Unknown`. Additionally
@@ -26,12 +22,6 @@ v0.5.0 - unreleased
 
 - Panic on `unreachable!()` when creating mapping with `Button::{C, Z,
   Unknown}` or `Axis::{LeftZ, RightZ}`.
-
-### Removed
-
-- Removed `ff:Trigger`—usually you want to play force feedback effect when some event happen in game,
-  not when button is pressed. Additionally XInput  does not support it natively. If you used this
-  feature, pleas open an issue.
 
 v0.4.4 — 2017-06-16
 -------------------
