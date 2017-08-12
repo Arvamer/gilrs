@@ -7,14 +7,29 @@ use super::base_effect::{BaseEffect, BaseEffectType};
 
 use vec_map::VecMap;
 
+/// Specifies how distance between effect source and listener attenuates effect.
+///
+/// They are based on
+/// [OpenAL Specification](http://openal.org/documentation/openal-1.1-specification.pdf) (chapter
+/// 3.4), but the best way to see how they differ is to run `ff_pos` example.
+///
+/// Make sure that all parameters are ≥ 0. Additionally `Linear` and `LinearClamped` models don't
+/// like if `ref_distance == max_distance` while others would prefer `ref_distance > 0`.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DistanceModel {
+    /// Effect is not attenuated by distance.
     None,
+    /// Linear distance model.
     Linear { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    /// Linear distance clamped model.
     LinearClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    /// Inverse distance model.
     Inverse { ref_distance: f32, rolloff_factor: f32 },
+    /// Inverse distance clamped model.
     InverseClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    /// Exponential distance model.
     Exponential { ref_distance: f32, rolloff_factor: f32 },
+    /// Exponential distance clamped model.
     ExponentialClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
 }
 
@@ -124,7 +139,7 @@ impl Default for DistanceModel {
 }
 
 /// Error that can be returned when passing [`DistanceModel`](struct.DistanceModel.html) with
-/// invalid vale.
+/// invalid value.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DistanceModelError {
     /// Reference distance is < 0.

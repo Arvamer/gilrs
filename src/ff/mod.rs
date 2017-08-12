@@ -6,7 +6,49 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Force feedback module.
-
+//!
+//! To use force feedback, you have to create one or more [`Effect`s](struct.Effect.html). Each
+//! `Effect` contains one or more [`BasicEffect`s](struct.BasicEffect.html) and parameters that
+//! describe effect's source, like it's position, gain or used
+//! [`DistanceModel`](enum.DistanceModel.html). Final strength of effect is based on saturating sum
+//! (to `u16::MAX`) of all base effects and time from the start of playback, attenuation from
+//! distance between effect source and listener (represented by gamepad) and effect's gain.
+//!
+//! See also [`Gilrs::set_listener_position()`](../struct.Gilrs.html#method.set_listener_position)
+//! and [`Gamepad::is_ff_supported()`](../struct.Gamepad.html#method.is_ff_supported).
+//!
+//! # Example
+//!
+//! ```rust
+//! use gilrs::Gilrs;
+//! use gilrs::ff::{EffectBuilder, Replay, BaseEffect, BaseEffectType, Ticks};
+//!
+//! let mut gilrs = Gilrs::new();
+//! let support_ff = gilrs
+//!     .gamepads()
+//!     .filter_map(|(id, gp)| if gp.is_ff_supported() { Some(id) } else { None })
+//!     .collect::<Vec<_>>();
+//!
+//! let duration = Ticks::from_ms(150);
+//! let effect = EffectBuilder::new()
+//!     .add_effect(BaseEffect {
+//!         kind: BaseEffectType::Strong { magnitude: 60_000 },
+//!         scheduling: Replay { play_for: duration, with_delay: duration * 3, ..Default::default() },
+//!         envelope: Default::default(),
+//!     })
+//!     .add_effect(BaseEffect {
+//!         kind: BaseEffectType::Weak { magnitude: 60_000 },
+//!         scheduling: Replay { after: duration * 2, play_for: duration, with_delay: duration * 3 },
+//!         ..Default::default()
+//!     })
+//!     .gamepads(&support_ff)
+//!     .finish(&mut gilrs).unwrap();
+//!
+//! effect.play().unwrap();
+//! ```
+//!
+//! See [`examples/ff_pos.rs`](https://gitlab.com/Arvamer/gilrs/blob/v0.5.0/examples/ff_pos.rs) for
+//! more advanced example.
 pub(crate) mod server;
 mod base_effect;
 mod effect_source;
@@ -72,14 +114,14 @@ impl Drop for Effect {
 }
 
 impl Effect {
-    /// Play effect on all associated gamepads.
+    /// Plays effect on all associated gamepads.
     pub fn play(&self) -> Result<(), Error> {
         self.tx.send(Message::Play { id: self.id })?;
 
         Ok(())
     }
 
-    /// Change gamepads that are associated with effect. Effect will be only played on gamepads
+    /// Changes gamepads that are associated with effect. Effect will be only played on gamepads
     /// from last call to this function.
     ///
     /// # Errors
@@ -102,14 +144,14 @@ impl Effect {
         Ok(())
     }
 
-    /// Change what should happen to effect when it ends.
+    /// Changes what should happen to effect when it ends.
     pub fn set_repeat(&self, repeat: Repeat) -> Result<(), Error> {
         self.tx.send(Message::SetRepeat {id: self.id, repeat })?;
 
         Ok(())
     }
 
-    /// Change distance model associated with effect.
+    /// Changes distance model associated with effect.
     ///
     /// # Errors
     ///
@@ -122,7 +164,7 @@ impl Effect {
         Ok(())
     }
 
-    /// Change position of the source of effect.
+    /// Changes position of the source of effect.
     pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> Result<(), Error> {
         let position = position.into();
         self.tx.send(Message::SetPosition  { id: self.id, position })?;
@@ -130,7 +172,7 @@ impl Effect {
         Ok(())
     }
 
-    /// Change gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
+    /// Changes gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
     pub fn set_gain(&self, gain: f32) -> Result<(), Error> {
         let gain = utils::clamp(gain, 0.0, f32::MAX);
         self.tx.send(Message::SetGain  { id: self.id, gain })?;
@@ -171,7 +213,7 @@ impl EffectBuilder {
         self
     }
 
-    /// Change gamepads that are associated with effect. Effect will be only played on gamepads
+    /// Changes gamepads that are associated with effect. Effect will be only played on gamepads
     /// from last call to this function.
     pub fn gamepads(&mut self, ids: &[usize]) -> &mut Self {
         for dev in ids {
@@ -180,25 +222,25 @@ impl EffectBuilder {
         self
     }
 
-    /// Change what should happen to effect when it ends.
+    /// Changes what should happen to effect when it ends.
     pub fn repeat(&mut self, repeat: Repeat) -> &mut Self {
         self.repeat = repeat;
         self
     }
 
-    /// Change distance model associated with effect.
+    /// Changes distance model associated with effect.
     pub fn distance_model(&mut self, model: DistanceModel) -> &mut Self {
         self.dist_model = model;
         self
     }
 
-    /// Change position of the source of effect.
+    /// Changes position of the source of effect.
     pub fn position<Vec3f: Into<[f32; 3]>>(&mut self, position: Vec3f) -> &mut Self {
         self.position = position.into();
         self
     }
 
-    /// Change gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
+    /// Changes gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
     pub fn gain(&mut self, gain: f32) -> &mut Self {
         self.gain = utils::clamp(gain, 0.0, f32::MAX);
         self
