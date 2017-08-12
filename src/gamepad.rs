@@ -7,11 +7,15 @@
 use platform;
 use constants::*;
 use mapping::{MappingData, MappingError};
-use ff::{self, EffectData};
-use uuid::Uuid;
 use AsInner;
+use ff::server::{self, Message};
+use ff::Error as FfError;
+
+use uuid::Uuid;
+
 use std::ops::{Index, IndexMut};
 use std::f32::NAN;
+use std::sync::mpsc::Sender;
 
 /// Main object responsible of managing gamepads.
 ///
@@ -48,12 +52,20 @@ use std::f32::NAN;
 #[derive(Debug)]
 pub struct Gilrs {
     inner: platform::Gilrs,
+    next_id: usize,
+    tx: Sender<Message>,
 }
 
 impl Gilrs {
     /// Creates new `Gilrs`.
     pub fn new() -> Self {
-        Gilrs { inner: platform::Gilrs::new() }
+        let gilrs = Gilrs {
+            inner: platform::Gilrs::new(),
+            next_id: 0,
+            tx: server::init(),
+        };
+        gilrs.create_ff_devices();
+        gilrs
     }
 
     /// Creates new `Gilrs` and add content of `sdl_mapping` to internal database. Each mapping
@@ -61,12 +73,24 @@ impl Gilrs {
     ///
     /// This function does not check validity of mappings.
     pub fn with_mappings(sdl_mapping: &str) -> Self {
-        Gilrs { inner: platform::Gilrs::with_mappings(sdl_mapping) }
+        Gilrs {
+            inner: platform::Gilrs::with_mappings(sdl_mapping),
+            next_id: 0,
+            tx: server::init(),
+        }
+    }
+
+    fn create_ff_devices(&self) {
+        for (id, gp) in self.gamepads().filter(|&(_, g)| g.is_ff_supported()).map(|(id, g)| (id, g.inner.ff_device())) {
+            if let Some(device) = gp {
+                let _ = self.tx.send(Message::Open { id: id, device: device });
+            }
+        }
     }
 
     /// Creates iterator over available events. See [`Event`](enum.Event.html) for more information.
     pub fn poll_events(&mut self) -> EventIterator {
-        EventIterator { gilrs: &mut self.inner }
+        EventIterator { gilrs: self }
     }
 
     /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
@@ -120,6 +144,29 @@ impl Gilrs {
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let mut gp = self.inner.gamepad_mut(id);
         if gp.is_connected() { Some(gp) } else { None }
+    }
+
+    pub fn set_listener_position<Vec3: Into<[f32; 3]>>(&self, idx: usize, position: Vec3) -> Result<(), FfError> {
+        if !self.gamepad(idx).is_ff_supported() {
+            Err(FfError::FfNotSupported(idx))
+        } else {
+            let _ = self.tx.send(Message::SetListenerPosition { id: idx, position: position.into() });
+            Ok(())
+        }
+    }
+
+    pub(crate) fn ff_sender(&self) -> &Sender<Message> {
+        &self.tx
+    }
+
+    pub(crate) fn next_ff_id(&mut self) -> usize {
+        // TODO: reuse free ids
+        let id = self.next_id;
+        self.next_id = match self.next_id.checked_add(1) {
+            Some(x) => x,
+            None => panic!("Failed to assign ID to new effect"),
+        };
+        id
     }
 }
 
@@ -193,19 +240,16 @@ pub struct Gamepad {
     inner: platform::Gamepad,
     state: GamepadState,
     status: Status,
-    ff_effects: Vec<Option<Effect>>,
     threshold: Deadzones,
 }
 
 impl Gamepad {
     fn new(gamepad: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
-        let max_effects = gamepad.max_ff_effects();
         Gamepad {
             inner: gamepad,
             state: GamepadState::new(),
             status: status,
             // Effect doesn't implement Clone so we can't use vec! macro.
-            ff_effects: (0..max_effects).map(|_| None).collect(),
             threshold: threshold,
         }
     }
@@ -367,97 +411,9 @@ impl Gamepad {
         }
     }
 
-    /// Creates and uploads new force feedback effect using `data`. This function will fail if
-    /// device doesn't have space for new effect or doesn't support requested effect. Returns
-    /// effect's index.
-    ///
-    /// ```rust,no_run
-    /// use gilrs::Gilrs;
-    /// use gilrs::ff::{EffectData, EffectType, Waveform, Envelope};
-    ///
-    /// let mut gilrs = Gilrs::new();
-    /// let effect = EffectData {
-    ///     kind: EffectType::Periodic {
-    ///         wave: Waveform::Sine,
-    ///         period: 1000,
-    ///         magnitude: 30_000,
-    ///         offset: 0,
-    ///         phase: 0,
-    ///         envelope: Envelope {
-    ///             attack_length: 1000,
-    ///             attack_level: 0,
-    ///             fade_length: 1000,
-    ///             fade_level: 0,
-    ///         }
-    ///     },
-    ///     .. Default::default()
-    /// };
-    ///
-    /// let effect_idx = gilrs[0].add_ff_effect(effect).unwrap();
-    /// gilrs[0].ff_effect(effect_idx).unwrap().play(1).unwrap();
-    /// ```
-    pub fn add_ff_effect(&mut self, data: EffectData) -> Result<usize, ff::Error> {
-        if !self.is_connected() {
-            return Err(ff::Error::Disconnected);
-        }
-        if let Some(pos) = self.ff_effects.iter().position(|effect| effect.is_none()) {
-            if self.is_ff_supported() {
-                Effect::new(self, data).map(|effect| {
-                    unsafe {
-                        *self.ff_effects.get_unchecked_mut(pos) = Some(effect);
-                    }
-                    pos
-                })
-            } else {
-                Err(ff::Error::FfNotSupported)
-            }
-        } else {
-            Err(ff::Error::NotEnoughSpace)
-        }
-    }
-
-    /// Drop effect stopping it. Use this function to make space for new effects. This function
-    /// fails if gamepad is disconnected or there is no effect with requested ID.
-    pub fn drop_ff_effect(&mut self, idx: usize) -> Result<(), ff::Error> {
-        if self.is_connected() {
-            self.ff_effects.get_mut(idx).map(|effect| effect.take()).ok_or(ff::Error::InvalidId)?;
-            Ok(())
-        } else {
-            Err(ff::Error::Disconnected)
-        }
-    }
-
-    /// Borrows mutable `Effect`.
-    pub fn ff_effect(&mut self, idx: usize) -> Option<&mut Effect> {
-        self.ff_effects.get_mut(idx).and_then(|effect| effect.as_mut())
-    }
-
-    /// Returns how many force feedback effects device can have. This function fails if gamepad is
-    /// disconnected.
-    pub fn max_ff_effects(&self) -> Result<usize, ff::Error> {
-        if self.is_connected() {
-            Ok(self.inner.max_ff_effects())
-        } else {
-            Err(ff::Error::Disconnected)
-        }
-    }
-
     /// Returns true if force feedback is supported by device.
     pub fn is_ff_supported(&self) -> bool {
         self.inner.is_ff_supported()
-    }
-
-    /// Sets master gain for device. Gain can be in range [0, u16::MAX].
-    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), ff::Error> {
-        if self.is_connected() {
-            if self.is_ff_supported() {
-                self.inner.set_ff_gain(gain)
-            } else {
-                Err(ff::Error::FfNotSupported)
-            }
-        } else {
-            Err(ff::Error::Disconnected)
-        }
     }
 }
 
@@ -478,34 +434,6 @@ pub trait GamepadImplExt {
 impl GamepadImplExt for Gamepad {
     fn from_inner_status(inner: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
         Self::new(inner, status, threshold)
-    }
-}
-
-/// Represents effect uploaded to device
-#[derive(Debug)]
-pub struct Effect {
-    inner: platform::Effect,
-}
-
-impl Effect {
-    fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, ff::Error> {
-        platform::Effect::new(&gamepad.inner, data).map(|effect| Effect { inner: effect })
-    }
-
-    /// Upload new data to effect. Depending on platform and device, this function may stop effect
-    /// and start playing it from beginning.
-    pub fn upload(&mut self, data: EffectData) -> Result<(), ff::Error> {
-        self.inner.upload(data)
-    }
-
-    /// Play effect.
-    pub fn play(&mut self, n: u16) -> Result<(), ff::Error> {
-        self.inner.play(n)
-    }
-
-    /// Stop playing effect.
-    pub fn stop(&mut self) -> Result<(), ff::Error> {
-        self.inner.stop()
     }
 }
 
@@ -720,62 +648,66 @@ pub type NativeEvCode = u16;
 
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
-    gilrs: &'a mut platform::Gilrs,
+    gilrs: &'a mut Gilrs,
 }
 
 impl<'a> Iterator for EventIterator<'a> {
     type Item = (usize, Event);
 
     fn next(&mut self) -> Option<(usize, Event)> {
-        match self.gilrs.next_event() {
+        match self.gilrs.inner.next_event() {
             Some((id, ev)) => {
-                let gamepad = self.gilrs.gamepad_mut(id);
-                match ev {
-                    Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
-                    Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
-                    Event::AxisChanged(axis, val, native_ev_code) => {
-                        let val = match axis {
-                            Axis::LeftStickX => {
-                                apply_deadzone(val,
-                                               gamepad.value(Axis::LeftStickY),
-                                               gamepad.threshold.left_stick)
-                                    .0
+                let mut maybe_disconnected = None;
+                {
+                    let gamepad = self.gilrs.gamepad_mut(id);
+                    match ev {
+                        Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
+                        Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
+                        Event::AxisChanged(axis, val, native_ev_code) => {
+                            let val = match axis {
+                                Axis::LeftStickX => {
+                                    apply_deadzone(val,
+                                                   gamepad.value(Axis::LeftStickY),
+                                                   gamepad.threshold.left_stick)
+                                        .0
+                                }
+                                Axis::LeftStickY => {
+                                    apply_deadzone(val,
+                                                   gamepad.value(Axis::LeftStickX),
+                                                   gamepad.threshold.left_stick)
+                                        .0
+                                }
+                                Axis::RightStickX => {
+                                    apply_deadzone(val,
+                                                   gamepad.value(Axis::RightStickY),
+                                                   gamepad.threshold.right_stick)
+                                        .0
+                                }
+                                Axis::RightStickY => {
+                                    apply_deadzone(val,
+                                                   gamepad.value(Axis::RightStickX),
+                                                   gamepad.threshold.right_stick)
+                                        .0
+                                }
+                                axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
+                            };
+                            if gamepad.value(axis) != val {
+                                gamepad.state.set_axis(axis, val);
+                                return Some((id, Event::AxisChanged(axis, val, native_ev_code)));
+                            } else {
+                                return None;
                             }
-                            Axis::LeftStickY => {
-                                apply_deadzone(val,
-                                               gamepad.value(Axis::LeftStickX),
-                                               gamepad.threshold.left_stick)
-                                    .0
-                            }
-                            Axis::RightStickX => {
-                                apply_deadzone(val,
-                                               gamepad.value(Axis::RightStickY),
-                                               gamepad.threshold.right_stick)
-                                    .0
-                            }
-                            Axis::RightStickY => {
-                                apply_deadzone(val,
-                                               gamepad.value(Axis::RightStickX),
-                                               gamepad.threshold.right_stick)
-                                    .0
-                            }
-                            axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
-                        };
-                        if gamepad.value(axis) != val {
-                            gamepad.state.set_axis(axis, val);
-                            return Some((id, Event::AxisChanged(axis, val, native_ev_code)));
-                        } else {
-                            return None;
                         }
-                    }
-                    Event::Connected => gamepad.status = Status::Connected,
-                    Event::Disconnected => {
-                        gamepad.status = Status::Disconnected;
-                        for effect in &mut gamepad.ff_effects {
-                            effect.take();
+                        Event::Connected => gamepad.status = Status::Connected,
+                        Event::Disconnected => {
+                            gamepad.status = Status::Disconnected;
+                            maybe_disconnected = Some(id);
                         }
-                    }
-                };
+                    };
+                }
+                if let Some(id) = maybe_disconnected {
+                    let _ = self.gilrs.tx.send(Message::Close { id });
+                }
                 Some((id, ev))
             }
             None => None,

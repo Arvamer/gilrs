@@ -12,7 +12,6 @@
 use libc;
 
 ioctl!(read eviocgid with b'E', 0x02; /*struct*/ input_id);
-ioctl!(read eviocgeffects with b'E', 0x84; libc::c_int);
 ioctl!(write eviocrmff with b'E', 0x81; libc::c_int);
 ioctl!(write eviocsff with b'E', 0x80; ff_effect);
 ioctl!(read buf eviocgname with b'E', 0x06; u8);
@@ -66,7 +65,7 @@ pub struct input_absinfo {
     pub resolution: i32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct ff_replay {
     pub length: u16,

@@ -6,10 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::udev::*;
+use super::ff::Device as FfDevice;
 use AsInner;
 use gamepad::{Event, Button, Axis, Status, Gamepad as MainGamepad, PowerInfo, GamepadImplExt,
               Deadzones, MappingSource};
-use ff::Error;
 use utils::test_bit;
 use std::ffi::CStr;
 use std::mem;
@@ -307,10 +307,6 @@ impl Gamepad {
             axes: Vec::new(),
             buttons: Vec::new(),
         }
-    }
-
-    pub fn fd(&self) -> i32 {
-        self.fd
     }
 
     fn open(dev: &Device, mapping_db: &MappingDb) -> Option<Gamepad> {
@@ -825,36 +821,8 @@ impl Gamepad {
         Ok(s)
     }
 
-    pub fn max_ff_effects(&self) -> usize {
-        if self.ff_supported {
-            let mut max_effects = 0;
-            unsafe {
-                let _ = ioctl::eviocgeffects(self.fd, &mut max_effects);
-            }
-            max_effects as usize
-        } else {
-            0
-        }
-    }
-
     pub fn is_ff_supported(&self) -> bool {
         self.ff_supported
-    }
-
-    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
-        let ev = ioctl::input_event {
-            type_: EV_FF,
-            code: FF_GAIN,
-            value: gain as i32,
-            time: unsafe { mem::uninitialized() },
-        };
-        unsafe {
-            if c::write(self.fd, mem::transmute(&ev), 24) == -1 {
-                Err(Error::Other)
-            } else {
-                Ok(())
-            }
-        }
     }
 
     pub fn name(&self) -> &str {
@@ -863,6 +831,11 @@ impl Gamepad {
 
     pub fn uuid(&self) -> Uuid {
         self.uuid
+    }
+
+    pub fn ff_device(&self) -> Option<FfDevice> {
+        // TODO
+        FfDevice::new(&self.devpath).ok()
     }
 }
 

@@ -7,7 +7,7 @@
 #![allow(unused_variables)]
 
 use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt, MappingSource};
-use ff::Error;
+use super::FfDevice;
 use mapping::{MappingData, MappingError};
 use uuid::Uuid;
 
@@ -82,16 +82,13 @@ impl Gamepad {
         Err(MappingError::NotImplemented)
     }
 
-    pub fn max_ff_effects(&self) -> usize {
-        0
-    }
-
     pub fn is_ff_supported(&self) -> bool {
         false
     }
 
-    pub fn set_ff_gain(&mut self, gain: u16) -> Result<(), Error> {
-        Err(Error::FfNotSupported)
+    /// Creates Ffdevice corresponding to this gamepad.
+    pub fn ff_device(&self) -> Option<FfDevice> {
+        Some(FfDevice)
     }
 }
 

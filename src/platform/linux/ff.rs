@@ -4,118 +4,94 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use ff::{EffectData, Waveform, Error, EffectType};
-use super::gamepad::Gamepad;
-use super::ioctl::{self, ff_effect, input_event, ff_periodic_effect, ff_rumble_effect, };
-use libc as c;
-use std::mem;
+
+use std::fs::File;
+use std::io::{Write, Result as IoResult, Error as IoError, ErrorKind};
+use std::os::unix::io::AsRawFd;
+use std::{mem, slice};
+
+use ff::TICK_DURATION;
+use super::ioctl::{self, ff_effect, input_event, ff_replay, ff_rumble_effect};
 
 #[derive(Debug)]
-pub struct Effect {
-    id: i16,
-    fd: i32,
+pub struct Device {
+    effect: i16,
+    file: File,
 }
 
-impl Effect {
-    pub fn new(gamepad: &Gamepad, data: EffectData) -> Result<Self, Error> {
-        let mut data: ff_effect = data.into();
-        let res = unsafe { ioctl::eviocsff(gamepad.fd(), &mut data) };
+impl Device {
+    pub fn new(path: &str) -> IoResult<Self>  {
+        let file = File::create(path)?;
+        let mut effect = ff_effect {
+            type_: FF_RUMBLE,
+            id: -1,
+            direction: 0,
+            trigger: Default::default(),
+            replay: Default::default(),
+            u: Default::default(),
+        };
+        let res = unsafe { ioctl::eviocsff(file.as_raw_fd(), &mut effect) };
+
         if res.is_err() {
-            Err(Error::NotSupported)
+            Err(IoError::new(ErrorKind::Other, "Failed to create effect"))
         } else {
-            Ok(Effect {
-                id: data.id,
-                fd: gamepad.fd(),
+            Ok(Device {
+                effect: effect.id,
+                file: file,
             })
         }
     }
 
-    pub fn upload(&mut self, data: EffectData) -> Result<(), Error> {
-        let mut data: ff_effect = data.into();
-        data.id = self.id;
-        let res = unsafe { ioctl::eviocsff(self.fd, &mut data) };
-        if res.is_err() { Err(Error::NotSupported) } else { Ok(()) }
-    }
+    pub(crate) fn set_ff_state(&mut self, strong: u16, weak: u16) {
+       let mut effect = ff_effect {
+            type_: FF_RUMBLE,
+            id: self.effect,
+            direction: 0,
+            trigger: Default::default(),
+            replay: ff_replay { delay: 0, length: TICK_DURATION as u16 * 2 },
+            u: Default::default(),
+        };
 
-    pub fn play(&mut self, n: u16) -> Result<(), Error> {
+        unsafe {
+            let rumble = &mut effect.u as *mut _ as *mut ff_rumble_effect;
+            (*rumble).strong_magnitude = strong;
+            (*rumble).weak_magnitude = weak;
+
+            match ioctl::eviocsff(self.file.as_raw_fd(), &mut effect) {
+                Err(err) => {
+                    error!("Failed to modify effect of gamepad {:?}, error: {}", self.file, err);
+                    return;
+                }
+                Ok(_) => (),
+            }
+        };
+
         let ev = input_event {
             type_: EV_FF,
-            code: self.id as u16,
-            value: n as i32,
+            code: self.effect as u16,
+            value: 1,
             time: unsafe { mem::uninitialized() },
         };
 
-        if unsafe { c::write(self.fd, mem::transmute(&ev), 24) } == -1 {
-            Err(Error::FailedToPlay)
-        } else {
-            Ok(())
-        }
-    }
+        let size = mem::size_of::<input_event>();
+        let s = unsafe { slice::from_raw_parts(&ev as *const _ as *const u8, size) };
 
-    pub fn stop(&mut self) -> Result<(), Error> {
-        let _ = self.play(0);
-        Ok(())
+        match self.file.write(s) {
+            Ok(s) if s == size => (),
+            Ok(_) => unreachable!(),
+            Err(e) => error!("Failed to set ff state: {}", e),
+        }
     }
 }
 
-impl Drop for Effect {
+impl Drop for Device {
     fn drop(&mut self) {
-        unsafe {
-            let _ = ioctl::eviocrmff(self.fd, &(self.id as i32));
-        }
-    }
-}
-
-impl Into<ff_effect> for EffectData {
-    fn into(self) -> ff_effect {
-        let mut effect = ff_effect {
-            type_: 0,
-            id: -1,
-            direction: self.direction.angle,
-            trigger: Default::default(),
-            replay: unsafe { mem::transmute(self.replay) },
-            u: unsafe { mem::uninitialized() },
+        match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), &(self.effect as i32)) } {
+            Err(err) => error!("Failed to remove effect of gamepad {:?}: {}", self.file, err),
+            Ok(_) => (),
         };
-        match self.kind {
-            EffectType::Periodic { wave, period, magnitude, offset, phase, envelope } => {
-                effect.type_ = FF_PERIODIC;
-                unsafe {
-                    let mut periodic = effect.u.as_mut_ptr() as *mut ff_periodic_effect;
-                    (*periodic).waveform = wave.into();
-                    (*periodic).period = period;
-                    (*periodic).magnitude = magnitude;
-                    (*periodic).offset = offset;
-                    (*periodic).phase = phase;
-                    (*periodic).envelope = mem::transmute(envelope);
-                }
-            }
-            EffectType::Rumble { strong, weak } => {
-                effect.type_ = FF_RUMBLE;
-                unsafe {
-                    let mut rumble = effect.u.as_mut_ptr() as *mut ff_rumble_effect;
-                    (*rumble).strong_magnitude = strong;
-                    (*rumble).weak_magnitude = weak;
-                }
-            }
-        }
-        effect
-    }
-}
-
-impl Into<u16> for Waveform {
-    fn into(self) -> u16 {
-        match self {
-            Waveform::Square => FF_SQUARE,
-            Waveform::Triangle => FF_TRIANGLE,
-            Waveform::Sine => FF_SINE,
-        }
     }
 }
 
 const EV_FF: u16 = 0x15;
-
 const FF_RUMBLE: u16 = 0x50;
-const FF_PERIODIC: u16 = 0x51;
-const FF_SQUARE: u16 = 0x58;
-const FF_TRIANGLE: u16 = 0x59;
-const FF_SINE: u16 = 0x5a;

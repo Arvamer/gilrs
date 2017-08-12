@@ -12,6 +12,15 @@ pub fn test_bit(n: u16, array: &[u8]) -> bool {
     (array[(n / 8) as usize] >> (n % 8)) & 1 != 0
 }
 
+/// Like `(a: f32 / b).ceil()` but for integers.
+pub fn ceil_div(a: u32, b: u32) -> u32 {
+    if a == 0 { 0 } else { 1 + ((a - 1) / b) }
+}
+
+pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
+    x.max(min).min(max)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -24,5 +33,12 @@ mod tests {
         assert_eq!(test_bit(7, &buf), true);
         assert_eq!(test_bit(8, &buf), true);
         assert_eq!(test_bit(15, &buf), false);
+    }
+
+    #[test]
+    fn t_clamp() {
+        assert_eq!(clamp(-1.0, 0.0, 1.0), 0.0);
+        assert_eq!(clamp(0.5, 0.0, 1.0), 0.5);
+        assert_eq!(clamp(2.0, 0.0, 1.0), 1.0);
     }
 }
