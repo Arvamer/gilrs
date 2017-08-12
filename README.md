@@ -65,10 +65,12 @@ Supported features
 |                  | Input | Hotplugging | Mappings | Force feedback |
 |------------------|:-----:|:-----------:|:--------:|:--------------:|
 | Linux            |   ✓   |      ✓      |     ✓    |        ✓       |
-| Windows (XInput) |   ✓   |      ✓      |    n/a   |        ✕       |
+| Windows (XInput) |   ✓   |      ✓      |    n/a   |        ✓*      |
 | OS X             |   ✕   |      ✕      |     ✕    |        ✕       |
 | Emscripten       |   ✕   |      ✕      |     ✕    |       n/a      |
 | Android          |   ✕   |      ✕      |     ✕    |        ✕       |
+
+*since 0.5.0
 
 Platform specific notes
 ======================
