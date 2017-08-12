@@ -4,10 +4,11 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
+use libc as c;
 use libudev_sys as ud;
 use std::ffi::{CStr, CString};
 use std::ptr;
-use libc as c;
 
 #[derive(Debug)]
 pub struct Udev(*mut ud::udev);
@@ -185,15 +186,16 @@ pub struct Monitor(*mut ud::udev_monitor);
 impl Monitor {
     pub fn new(udev: &Udev) -> Option<Self> {
         unsafe {
-            let monitor = ud::udev_monitor_new_from_netlink(udev.0,
-                                                            b"udev\0".as_ptr() as *const i8);
+            let monitor =
+                ud::udev_monitor_new_from_netlink(udev.0, b"udev\0".as_ptr() as *const i8);
             if monitor.is_null() {
                 None
             } else {
-                ud::udev_monitor_filter_add_match_subsystem_devtype(monitor,
-                                                                    b"input\0".as_ptr() as
-                                                                    *const i8,
-                                                                    ptr::null());
+                ud::udev_monitor_filter_add_match_subsystem_devtype(
+                    monitor,
+                    b"input\0".as_ptr() as *const i8,
+                    ptr::null(),
+                );
                 ud::udev_monitor_enable_receiving(monitor);
                 Some(Monitor(monitor))
             }

@@ -115,9 +115,9 @@ mod utils;
 
 pub mod ff;
 
-pub use gamepad::{Gilrs, Gamepad, EventIterator, GamepadState, Status, Button, Axis, Event,
-                  PowerInfo, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, NativeEvCode,
-                  MappingSource};
+pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
+                  EventIterator, Gamepad, GamepadState, Gilrs, MappingSource, NativeEvCode,
+                  PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};
 
 trait AsInner<T> {

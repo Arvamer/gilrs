@@ -1,10 +1,10 @@
-use super::effect_source::{EffectSource, EffectState, Magnitude, DistanceModel};
-use super::time::{Repeat, Ticks, TICK_DURATION};
+use super::effect_source::{DistanceModel, EffectSource, EffectState, Magnitude};
+use super::time::{Repeat, TICK_DURATION, Ticks};
 
-use std::sync::mpsc::{self, Sender, Receiver};
+use std::ops::Deref;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
-use std::ops::Deref;
 
 use platform::FfDevice;
 
@@ -53,10 +53,7 @@ impl Effect {
 
 impl From<EffectSource> for Effect {
     fn from(source: EffectSource) -> Self {
-        Effect {
-            source,
-            count: 1,
-        }
+        Effect { source, count: 1 }
     }
 }
 
@@ -98,9 +95,9 @@ pub(crate) fn run(rx: Receiver<Message>) {
                         error!("{:?} with wrong ID", ev);
                     }
                 }
-                Message::Open {id, device } => {
+                Message::Open { id, device } => {
                     devices.insert(id, device.into());
-                },
+                }
                 Message::Close { id } => {
                     devices.remove(id);
                 }
@@ -175,7 +172,10 @@ pub(crate) fn run(rx: Receiver<Message>) {
         let dur = Instant::now().duration_since(t1);
         if dur > sleep_dur {
             // TODO: Should we add dur - sleep_dur to next iteration's dur?
-            warn!("One iteration of a force feedback loop took more than {}ms!", TICK_DURATION);
+            warn!(
+                "One iteration of a force feedback loop took more than {}ms!",
+                TICK_DURATION
+            );
         } else {
             thread::sleep(sleep_dur - dur);
         }

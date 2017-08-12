@@ -5,21 +5,23 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use gamepad::{self, Event, Status, Axis, Button, PowerInfo, GamepadImplExt, Deadzones, MappingSource};
-use mapping::{MappingData, MappingError};
 use super::FfDevice;
-use uuid::Uuid;
-use std::time::Duration;
-use std::{thread, mem, u32, i16, u8, u16};
+use gamepad::{self, Axis, Button, Deadzones, Event, GamepadImplExt, MappingSource, PowerInfo,
+              Status};
+use mapping::{MappingData, MappingError};
+use std::{i16, mem, thread, u16, u32, u8};
 use std::sync::mpsc::{self, Receiver, Sender};
-use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
-use winapi::xinput::{XINPUT_STATE as XState, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_DOWN,
-                     XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_START,
-                     XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB,
-                     XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_A,
-                     XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
-                     XINPUT_GAMEPAD as XGamepad, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
-                     self as xi};
+use std::time::Duration;
+use uuid::Uuid;
+use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
+use winapi::xinput::{XINPUT_BATTERY_INFORMATION as XBatteryInfo, XINPUT_GAMEPAD as XGamepad,
+                     XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK,
+                     XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT,
+                     XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_UP,
+                     XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_LEFT_THUMB,
+                     XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB,
+                     XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
+                     XINPUT_STATE as XState, self as xi};
 
 use xinput;
 
@@ -36,23 +38,29 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub fn new() -> Self {
-        let gamepads = [gamepad_new(0),
-                        gamepad_new(1),
-                        gamepad_new(2),
-                        gamepad_new(3)];
-        let connected = [gamepads[0].is_connected(),
-                         gamepads[1].is_connected(),
-                         gamepads[2].is_connected(),
-                         gamepads[3].is_connected()];
+        let gamepads = [
+            gamepad_new(0),
+            gamepad_new(1),
+            gamepad_new(2),
+            gamepad_new(3),
+        ];
+        let connected = [
+            gamepads[0].is_connected(),
+            gamepads[1].is_connected(),
+            gamepads[2].is_connected(),
+            gamepads[3].is_connected(),
+        ];
         unsafe { xinput::XInputEnable(1) };
         let (tx, rx) = mpsc::channel();
         Self::spawn_thread(tx, connected);
         Gilrs {
             gamepads: gamepads,
             rx: rx,
-            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(),
-                                                              Status::NotObserved,
-                                                              deadzones()),
+            not_observed: gamepad::Gamepad::from_inner_status(
+                Gamepad::none(),
+                Status::NotObserved,
+                deadzones(),
+            ),
         }
     }
 
@@ -86,7 +94,8 @@ impl Gilrs {
             loop {
                 for id in 0..4 {
                     if *connected.get_unchecked(id) ||
-                       counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0 {
+                        counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
+                    {
                         let val = xinput::XInputGetState(id as u32, &mut state);
 
                         if val == ERROR_SUCCESS {
@@ -100,7 +109,8 @@ impl Gilrs {
                                 prev_state = state;
                             }
                         } else if val == ERROR_DEVICE_NOT_CONNECTED &&
-                                  *connected.get_unchecked(id) {
+                                   *connected.get_unchecked(id)
+                        {
                             *connected.get_unchecked_mut(id) = false;
                             let _ = tx.send((id, Event::Disconnected));
                         }
@@ -119,130 +129,267 @@ impl Gilrs {
         }
 
         if g.bLeftTrigger != pg.bLeftTrigger {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::LeftTrigger2,
-                                                g.bLeftTrigger as f32 / u8::MAX as f32,
-                                                4)));
+            let _ = tx.send((
+                id,
+                Event::AxisChanged(
+                    Axis::LeftTrigger2,
+                    g.bLeftTrigger as f32 / u8::MAX as f32,
+                    4,
+                ),
+            ));
         }
         if g.bRightTrigger != pg.bRightTrigger {
-            let _ = tx.send((id,
-                             Event::AxisChanged(Axis::RightTrigger2,
-                                                g.bRightTrigger as f32 / u8::MAX as f32,
-                                                5)));
+            let _ = tx.send((
+                id,
+                Event::AxisChanged(
+                    Axis::RightTrigger2,
+                    g.bRightTrigger as f32 / u8::MAX as f32,
+                    5,
+                ),
+            ));
         }
         if g.sThumbLX != pg.sThumbLX {
-            let _ = tx.send((id, Event::AxisChanged(Axis::LeftStickX, normalize(g.sThumbLX), 0)));
+            let _ = tx.send((
+                id,
+                Event::AxisChanged(
+                    Axis::LeftStickX,
+                    normalize(g.sThumbLX),
+                    0,
+                ),
+            ));
         }
         if g.sThumbLY != pg.sThumbLY {
-            let _ = tx.send((id, Event::AxisChanged(Axis::LeftStickY, normalize(g.sThumbLY), 1)));
+            let _ = tx.send((
+                id,
+                Event::AxisChanged(
+                    Axis::LeftStickY,
+                    normalize(g.sThumbLY),
+                    1,
+                ),
+            ));
         }
         if g.sThumbRX != pg.sThumbRX {
-            let _ = tx.send((id, Event::AxisChanged(Axis::RightStickX, normalize(g.sThumbRX), 2)));
+            let _ = tx.send((
+                id,
+                Event::AxisChanged(
+                    Axis::RightStickX,
+                    normalize(g.sThumbRX),
+                    2,
+                ),
+            ));
         }
         if g.sThumbRY != pg.sThumbRY {
-            let _ = tx.send((id, Event::AxisChanged(Axis::RightStickY, normalize(g.sThumbRY), 3)));
+            let _ = tx.send((
+                id,
+                Event::AxisChanged(
+                    Axis::RightStickY,
+                    normalize(g.sThumbRY),
+                    3,
+                ),
+            ));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::DPadUp, XINPUT_GAMEPAD_DPAD_UP))),
+                true => {
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(Button::DPadUp, XINPUT_GAMEPAD_DPAD_UP),
+                    ))
+                }
                 false => {
-                    tx.send((id, Event::ButtonReleased(Button::DPadUp, XINPUT_GAMEPAD_DPAD_UP)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::DPadUp,
+                            XINPUT_GAMEPAD_DPAD_UP,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_DOWN) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_DOWN != 0 {
                 true => {
-                    tx.send((id, Event::ButtonPressed(Button::DPadDown, XINPUT_GAMEPAD_DPAD_DOWN)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::DPadDown,
+                            XINPUT_GAMEPAD_DPAD_DOWN,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id, Event::ButtonReleased(Button::DPadDown, XINPUT_GAMEPAD_DPAD_DOWN)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::DPadDown,
+                            XINPUT_GAMEPAD_DPAD_DOWN,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_LEFT) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_LEFT != 0 {
                 true => {
-                    tx.send((id, Event::ButtonPressed(Button::DPadLeft, XINPUT_GAMEPAD_DPAD_LEFT)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::DPadLeft,
+                            XINPUT_GAMEPAD_DPAD_LEFT,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id, Event::ButtonReleased(Button::DPadLeft, XINPUT_GAMEPAD_DPAD_LEFT)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::DPadLeft,
+                            XINPUT_GAMEPAD_DPAD_LEFT,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT != 0 {
                 true => {
-                    tx.send((id,
-                             Event::ButtonPressed(Button::DPadRight, XINPUT_GAMEPAD_DPAD_RIGHT)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::DPadRight,
+                            XINPUT_GAMEPAD_DPAD_RIGHT,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id,
-                             Event::ButtonReleased(Button::DPadRight, XINPUT_GAMEPAD_DPAD_RIGHT)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::DPadRight,
+                            XINPUT_GAMEPAD_DPAD_RIGHT,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_START) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_START != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::Start, XINPUT_GAMEPAD_START))),
-                false => tx.send((id, Event::ButtonReleased(Button::Start, XINPUT_GAMEPAD_START))),
+                true => {
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(Button::Start, XINPUT_GAMEPAD_START),
+                    ))
+                }
+                false => {
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(Button::Start, XINPUT_GAMEPAD_START),
+                    ))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_BACK) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_BACK != 0 {
-                true => tx.send((id, Event::ButtonPressed(Button::Select, XINPUT_GAMEPAD_BACK))),
-                false => tx.send((id, Event::ButtonReleased(Button::Select, XINPUT_GAMEPAD_BACK))),
+                true => {
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(Button::Select, XINPUT_GAMEPAD_BACK),
+                    ))
+                }
+                false => {
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(Button::Select, XINPUT_GAMEPAD_BACK),
+                    ))
+                }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_THUMB) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_THUMB != 0 {
                 true => {
-                    tx.send((id,
-                             Event::ButtonPressed(Button::LeftThumb, XINPUT_GAMEPAD_LEFT_THUMB)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::LeftThumb,
+                            XINPUT_GAMEPAD_LEFT_THUMB,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id,
-                             Event::ButtonReleased(Button::LeftThumb, XINPUT_GAMEPAD_LEFT_THUMB)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::LeftThumb,
+                            XINPUT_GAMEPAD_LEFT_THUMB,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB != 0 {
                 true => {
-                    tx.send((id,
-                             Event::ButtonPressed(Button::RightThumb, XINPUT_GAMEPAD_RIGHT_THUMB)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::RightThumb,
+                            XINPUT_GAMEPAD_RIGHT_THUMB,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id,
-                             Event::ButtonReleased(Button::RightThumb, XINPUT_GAMEPAD_RIGHT_THUMB)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::RightThumb,
+                            XINPUT_GAMEPAD_RIGHT_THUMB,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER != 0 {
                 true => {
-                    tx.send((id,
-                             Event::ButtonPressed(Button::LeftTrigger,
-                                                  XINPUT_GAMEPAD_LEFT_SHOULDER)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::LeftTrigger,
+                            XINPUT_GAMEPAD_LEFT_SHOULDER,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id,
-                             Event::ButtonReleased(Button::LeftTrigger,
-                                                   XINPUT_GAMEPAD_LEFT_SHOULDER)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::LeftTrigger,
+                            XINPUT_GAMEPAD_LEFT_SHOULDER,
+                        ),
+                    ))
                 }
             };
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER != 0 {
                 true => {
-                    tx.send((id,
-                             Event::ButtonPressed(Button::RightTrigger,
-                                                  XINPUT_GAMEPAD_RIGHT_SHOULDER)))
+                    tx.send((
+                        id,
+                        Event::ButtonPressed(
+                            Button::RightTrigger,
+                            XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                        ),
+                    ))
                 }
                 false => {
-                    tx.send((id,
-                             Event::ButtonReleased(Button::RightTrigger,
-                                                   XINPUT_GAMEPAD_RIGHT_SHOULDER)))
+                    tx.send((
+                        id,
+                        Event::ButtonReleased(
+                            Button::RightTrigger,
+                            XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                        ),
+                    ))
                 }
             };
         }
@@ -300,9 +447,12 @@ impl Gamepad {
     pub fn power_info(&self) -> PowerInfo {
         unsafe {
             let mut binfo = mem::uninitialized::<XBatteryInfo>();
-            if xinput::XInputGetBatteryInformation(self.id,
-                                                   xi::BATTERY_DEVTYPE_GAMEPAD,
-                                                   &mut binfo) == ERROR_SUCCESS {
+            if xinput::XInputGetBatteryInformation(
+                self.id,
+                xi::BATTERY_DEVTYPE_GAMEPAD,
+                &mut binfo,
+            ) == ERROR_SUCCESS
+            {
                 match binfo.BatteryType {
                     xi::BATTERY_TYPE_WIRED => PowerInfo::Wired,
                     xi::BATTERY_TYPE_ALKALINE |
@@ -328,11 +478,12 @@ impl Gamepad {
         MappingSource::Driver
     }
 
-    pub fn set_mapping(&mut self,
-                       _mapping: &MappingData,
-                       _strict: bool,
-                       _name: Option<&str>)
-                       -> Result<String, MappingError> {
+    pub fn set_mapping(
+        &mut self,
+        _mapping: &MappingData,
+        _strict: bool,
+        _name: Option<&str>,
+    ) -> Result<String, MappingError> {
         Err(MappingError::NotImplemented)
     }
 

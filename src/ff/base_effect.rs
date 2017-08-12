@@ -62,7 +62,8 @@ impl BaseEffect {
     /// Returns `Weak` or `Strong` after applying envelope.
     pub(super) fn magnitude_at(&self, ticks: Ticks) -> BaseEffectType {
         if let Some(wrapped) = self.scheduling.wrap(ticks) {
-            let att = self.scheduling.at(wrapped) * self.envelope.at(wrapped, self.scheduling.play_for);
+            let att = self.scheduling.at(wrapped) *
+                self.envelope.at(wrapped, self.scheduling.play_for);
             self.kind * att
         } else {
             self.kind * 0.0
@@ -86,9 +87,12 @@ impl Envelope {
         debug_assert!(self.attack_length + self.fade_length < dur);
 
         if ticks < self.attack_length {
-            self.attack_level + ticks.0 as f32 * (1.0 - self.attack_level) / self.attack_length.0 as f32
+            self.attack_level +
+                ticks.0 as f32 * (1.0 - self.attack_level) / self.attack_length.0 as f32
         } else if ticks + self.fade_length > dur {
-            1.0 + (ticks + self.fade_length - dur).0 as f32 * (self.fade_level - 1.0) / self.fade_length.0 as f32
+            1.0 +
+                (ticks + self.fade_length - dur).0 as f32 * (self.fade_level - 1.0) /
+                    self.fade_length.0 as f32
         } else {
             1.0
         }
@@ -114,12 +118,8 @@ pub struct Replay {
 }
 
 impl Replay {
-    pub (super) fn at(&self, ticks: Ticks) -> f32 {
-        if ticks >= self.play_for {
-            0.0
-        } else {
-            1.0
-        }
+    pub(super) fn at(&self, ticks: Ticks) -> f32 {
+        if ticks >= self.play_for { 0.0 } else { 1.0 }
     }
 
     /// Returns duration of effect calculated as `play_for + with_delay`.

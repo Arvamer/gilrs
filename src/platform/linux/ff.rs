@@ -5,13 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::fs::File;
-use std::io::{Write, Result as IoResult, Error as IoError, ErrorKind};
-use std::os::unix::io::AsRawFd;
 use std::{mem, slice};
+use std::fs::File;
+use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
+use std::os::unix::io::AsRawFd;
 
+use super::ioctl::{self, ff_effect, ff_replay, ff_rumble_effect, input_event};
 use ff::TICK_DURATION;
-use super::ioctl::{self, ff_effect, input_event, ff_replay, ff_rumble_effect};
 
 #[derive(Debug)]
 pub struct Device {
@@ -20,7 +20,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new(path: &str) -> IoResult<Self>  {
+    pub fn new(path: &str) -> IoResult<Self> {
         let file = File::create(path)?;
         let mut effect = ff_effect {
             type_: FF_RUMBLE,
@@ -35,20 +35,20 @@ impl Device {
         if res.is_err() {
             Err(IoError::new(ErrorKind::Other, "Failed to create effect"))
         } else {
-            Ok(Device {
-                effect: effect.id,
-                file: file,
-            })
+            Ok(Device { effect: effect.id, file: file })
         }
     }
 
     pub(crate) fn set_ff_state(&mut self, strong: u16, weak: u16) {
-       let mut effect = ff_effect {
+        let mut effect = ff_effect {
             type_: FF_RUMBLE,
             id: self.effect,
             direction: 0,
             trigger: Default::default(),
-            replay: ff_replay { delay: 0, length: TICK_DURATION as u16 * 2 },
+            replay: ff_replay {
+                delay: 0,
+                length: TICK_DURATION as u16 * 2,
+            },
             u: Default::default(),
         };
 
@@ -59,7 +59,11 @@ impl Device {
 
             match ioctl::eviocsff(self.file.as_raw_fd(), &mut effect) {
                 Err(err) => {
-                    error!("Failed to modify effect of gamepad {:?}, error: {}", self.file, err);
+                    error!(
+                        "Failed to modify effect of gamepad {:?}, error: {}",
+                        self.file,
+                        err
+                    );
                     return;
                 }
                 Ok(_) => (),
@@ -87,7 +91,13 @@ impl Device {
 impl Drop for Device {
     fn drop(&mut self) {
         match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), &(self.effect as i32)) } {
-            Err(err) => error!("Failed to remove effect of gamepad {:?}: {}", self.file, err),
+            Err(err) => {
+                error!(
+                    "Failed to remove effect of gamepad {:?}: {}",
+                    self.file,
+                    err
+                )
+            }
             Ok(_) => (),
         };
     }

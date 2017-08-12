@@ -4,17 +4,18 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use platform;
-use constants::*;
-use mapping::{MappingData, MappingError};
+
 use AsInner;
-use ff::server::{self, Message};
+use constants::*;
 use ff::Error as FfError;
+use ff::server::{self, Message};
+use mapping::{MappingData, MappingError};
+use platform;
 
 use uuid::Uuid;
 
-use std::ops::{Index, IndexMut};
 use std::f32::NAN;
+use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
 
 /// Main object responsible of managing gamepads.
@@ -81,7 +82,10 @@ impl Gilrs {
     }
 
     fn create_ff_devices(&self) {
-        for (id, gp) in self.gamepads().filter(|&(_, g)| g.is_ff_supported()).map(|(id, g)| (id, g.inner.ff_device())) {
+        for (id, gp) in self.gamepads().filter(|&(_, g)| g.is_ff_supported()).map(
+            |(id, g)| (id, g.inner.ff_device()),
+        )
+        {
             if let Some(device) = gp {
                 let _ = self.tx.send(Message::Open { id: id, device: device });
             }
@@ -146,11 +150,18 @@ impl Gilrs {
         if gp.is_connected() { Some(gp) } else { None }
     }
 
-    pub fn set_listener_position<Vec3: Into<[f32; 3]>>(&self, idx: usize, position: Vec3) -> Result<(), FfError> {
+    pub fn set_listener_position<Vec3: Into<[f32; 3]>>(
+        &self,
+        idx: usize,
+        position: Vec3,
+    ) -> Result<(), FfError> {
         if !self.gamepad(idx).is_ff_supported() {
             Err(FfError::FfNotSupported(idx))
         } else {
-            let _ = self.tx.send(Message::SetListenerPosition { id: idx, position: position.into() });
+            let _ = self.tx.send(Message::SetListenerPosition {
+                id: idx,
+                position: position.into(),
+            });
             Ok(())
         }
     }
@@ -383,10 +394,11 @@ impl Gamepad {
     /// ```
     ///
     /// See also `examples/mapping.rs`.
-    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(&mut self,
-                                                     mapping: &MappingData,
-                                                     name: O)
-                                                     -> Result<String, MappingError> {
+    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(
+        &mut self,
+        mapping: &MappingData,
+        name: O,
+    ) -> Result<String, MappingError> {
         self.inner.set_mapping(mapping, false, name.into())
     }
 
@@ -397,14 +409,14 @@ impl Gamepad {
     ///
     /// Returns `MappingError::NotSdl2Compatible` if `mapping` have an entry for `Button::{C, Z}`
     /// or `Axis::{LeftZ, RightZ}`.
-    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(&mut self,
-                                                            mapping: &MappingData,
-                                                            name: O)
-                                                            -> Result<String, MappingError> {
-        if mapping.button(Button::C).is_some() ||
-            mapping.button(Button::Z).is_some() ||
-            mapping.axis(Axis::LeftZ).is_some() ||
-            mapping.axis(Axis::RightZ).is_some() {
+    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(
+        &mut self,
+        mapping: &MappingData,
+        name: O,
+    ) -> Result<String, MappingError> {
+        if mapping.button(Button::C).is_some() || mapping.button(Button::Z).is_some() ||
+            mapping.axis(Axis::LeftZ).is_some() || mapping.axis(Axis::RightZ).is_some()
+        {
             Err(MappingError::NotSdl2Compatible)
         } else {
             self.inner.set_mapping(mapping, true, name.into())
@@ -666,28 +678,32 @@ impl<'a> Iterator for EventIterator<'a> {
                         Event::AxisChanged(axis, val, native_ev_code) => {
                             let val = match axis {
                                 Axis::LeftStickX => {
-                                    apply_deadzone(val,
-                                                   gamepad.value(Axis::LeftStickY),
-                                                   gamepad.threshold.left_stick)
-                                        .0
+                                    apply_deadzone(
+                                        val,
+                                        gamepad.value(Axis::LeftStickY),
+                                        gamepad.threshold.left_stick,
+                                    ).0
                                 }
                                 Axis::LeftStickY => {
-                                    apply_deadzone(val,
-                                                   gamepad.value(Axis::LeftStickX),
-                                                   gamepad.threshold.left_stick)
-                                        .0
+                                    apply_deadzone(
+                                        val,
+                                        gamepad.value(Axis::LeftStickX),
+                                        gamepad.threshold.left_stick,
+                                    ).0
                                 }
                                 Axis::RightStickX => {
-                                    apply_deadzone(val,
-                                                   gamepad.value(Axis::RightStickY),
-                                                   gamepad.threshold.right_stick)
-                                        .0
+                                    apply_deadzone(
+                                        val,
+                                        gamepad.value(Axis::RightStickY),
+                                        gamepad.threshold.right_stick,
+                                    ).0
                                 }
                                 Axis::RightStickY => {
-                                    apply_deadzone(val,
-                                                   gamepad.value(Axis::RightStickX),
-                                                   gamepad.threshold.right_stick)
-                                        .0
+                                    apply_deadzone(
+                                        val,
+                                        gamepad.value(Axis::RightStickX),
+                                        gamepad.threshold.right_stick,
+                                    ).0
                                 }
                                 axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
                             };

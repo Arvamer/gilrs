@@ -1,12 +1,12 @@
 extern crate gilrs;
 extern crate env_logger;
 
-use gilrs::{Gilrs, Event, Button, Axis};
-use gilrs::ff::{EffectBuilder, BaseEffect, BaseEffectType, DistanceModel};
+use gilrs::{Axis, Button, Event, Gilrs};
+use gilrs::ff::{BaseEffect, BaseEffectType, DistanceModel, EffectBuilder};
 
-use std::time::Duration;
-use std::{thread};
 use std::io::{self, Write};
+use std::thread;
+use std::time::Duration;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Modify {
@@ -51,16 +51,22 @@ fn main() {
     let mut support_ff = Vec::new();
     for (idx, gp) in gilrs.gamepads() {
         let ff = gp.is_ff_supported();
-        println!("{}) {} ({})", idx, gp.name(),
-                 if ff { "Force feedback supported" } else { "Force feedback not supported" });
+        println!(
+            "{}) {} ({})",
+            idx,
+            gp.name(),
+            if ff { "Force feedback supported" } else { "Force feedback not supported" }
+        );
         if ff {
             support_ff.push(idx);
         }
     }
 
     println!("----------------------------------------");
-    println!("Use sticks to move listener. Triggers change properties of distance model. \
-    South/west button changes active property. Press east button on action pad to quit.");
+    println!(
+        "Use sticks to move listener. Triggers change properties of distance model. \
+    South/west button changes active property. Press east button on action pad to quit."
+    );
 
     let pos1 = [-100.0, 0.0, 0.0];
 
@@ -77,16 +83,19 @@ fn main() {
         .gamepads(&support_ff)
         .clone();
 
-    let left_effect = effect_builder.clone()
+    let left_effect = effect_builder
+        .clone()
         .position(pos1)
-        .finish(&mut gilrs).unwrap();
+        .finish(&mut gilrs)
+        .unwrap();
 
     left_effect.play().unwrap();
 
     println!("Playing one effects…");
     println!("Position of effect sources: {:?}", pos1);
 
-    let mut listeners = support_ff.iter()
+    let mut listeners = support_ff
+        .iter()
         .map(|&idx| (idx, [0.0, 0.0, 0.0]))
         .collect::<Vec<_>>();
 
@@ -102,10 +111,12 @@ fn main() {
                 Event::ButtonReleased(Button::East, ..) => break 'main,
                 Event::ButtonReleased(Button::South, ..) => modify.next(),
                 Event::ButtonReleased(Button::West, ..) => modify.prev(),
-                Event::ButtonReleased(Button::LeftTrigger, ..) if modify == Modify::DistModel =>
-                    model = model.wrapping_sub(1),
-                Event::ButtonReleased(Button::RightTrigger, ..) if modify == Modify::DistModel =>
-                    model += 1,
+                Event::ButtonReleased(Button::LeftTrigger, ..) if modify == Modify::DistModel => {
+                    model = model.wrapping_sub(1)
+                }
+                Event::ButtonReleased(Button::RightTrigger, ..) if modify == Modify::DistModel => {
+                    model += 1
+                }
                 _ => (),
             }
         }
@@ -127,9 +138,14 @@ fn main() {
                 gilrs.set_listener_position(idx, *pos).unwrap();
 
                 let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
-                print!("\x1b[2K\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}].\
+                print!(
+                    "\x1b[2K\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}].\
                        Distance: {:.1}",
-                       idx, pos[0], pos[1], dist);
+                    idx,
+                    pos[0],
+                    pos[1],
+                    dist
+                );
                 io::stdout().flush().unwrap();
             }
 
@@ -145,7 +161,7 @@ fn main() {
                 Modify::RolloffFactor => rolloff_factor += x * velocity * 0.1,
                 Modify::RefDistance => ref_distance += x * velocity * 0.1,
                 Modify::MaxDistance => max_distance += x * velocity * 1.0,
-                Modify::DistModel => () // DistanceModel handled in event loop
+                Modify::DistModel => (), // DistanceModel handled in event loop
             }
 
             let model = match model % 4 {
@@ -165,7 +181,7 @@ fn main() {
                     rolloff_factor,
                     max_distance,
                 },
-                _ => unreachable!()
+                _ => unreachable!(),
             };
 
             match left_effect.set_distance_model(model) {

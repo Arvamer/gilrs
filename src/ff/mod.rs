@@ -54,19 +54,19 @@ mod base_effect;
 mod effect_source;
 mod time;
 
-pub(crate) use self::time::TICK_DURATION;
-pub use self::time::{Ticks, Repeat};
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
 pub use self::effect_source::{DistanceModel, DistanceModelError};
+pub use self::time::{Repeat, Ticks};
+pub(crate) use self::time::TICK_DURATION;
 
-use std::{fmt, u32, f32};
+use std::{f32, fmt, u32};
 use std::error::Error as StdError;
-use std::sync::mpsc::{Sender, SendError};
 use std::hash::{Hash, Hasher};
+use std::sync::mpsc::{SendError, Sender};
 
-use self::effect_source::{EffectSource};
-use gamepad::Gilrs;
+use self::effect_source::EffectSource;
 use ff::server::Message;
+use gamepad::Gilrs;
 use utils;
 
 use vec_map::VecMap;
@@ -100,10 +100,7 @@ impl Hash for Effect {
 impl Clone for Effect {
     fn clone(&self) -> Self {
         let _ = self.tx.send(Message::HandleCloned { id: self.id });
-        Effect {
-            id: self.id,
-            tx: self.tx.clone(),
-        }
+        Effect { id: self.id, tx: self.tx.clone() }
     }
 }
 
@@ -132,7 +129,11 @@ impl Effect {
         let mut gamepads = VecMap::new();
 
         for dev in ids.iter().cloned() {
-            if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected(dev))?.is_ff_supported() {
+            if !gilrs
+                .connected_gamepad(dev)
+                .ok_or(Error::Disconnected(dev))?
+                .is_ff_supported()
+            {
                 return Err(Error::FfNotSupported(dev));
             } else {
                 gamepads.insert(dev, ());
@@ -146,7 +147,7 @@ impl Effect {
 
     /// Changes what should happen to effect when it ends.
     pub fn set_repeat(&self, repeat: Repeat) -> Result<(), Error> {
-        self.tx.send(Message::SetRepeat {id: self.id, repeat })?;
+        self.tx.send(Message::SetRepeat { id: self.id, repeat })?;
 
         Ok(())
     }
@@ -159,7 +160,9 @@ impl Effect {
     /// [`DistanceModel`](enum.DistanceModelError.html) for details.
     pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), Error> {
         model.validate()?;
-        self.tx.send(Message::SetDistanceModel { id: self.id, model })?;
+        self.tx.send(
+            Message::SetDistanceModel { id: self.id, model },
+        )?;
 
         Ok(())
     }
@@ -167,7 +170,7 @@ impl Effect {
     /// Changes position of the source of effect.
     pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> Result<(), Error> {
         let position = position.into();
-        self.tx.send(Message::SetPosition  { id: self.id, position })?;
+        self.tx.send(Message::SetPosition { id: self.id, position })?;
 
         Ok(())
     }
@@ -175,7 +178,7 @@ impl Effect {
     /// Changes gain of the effect. `gain` will be clamped to \[0.0, f32::MAX\].
     pub fn set_gain(&self, gain: f32) -> Result<(), Error> {
         let gain = utils::clamp(gain, 0.0, f32::MAX);
-        self.tx.send(Message::SetGain  { id: self.id, gain })?;
+        self.tx.send(Message::SetGain { id: self.id, gain })?;
 
         Ok(())
     }
@@ -257,16 +260,25 @@ impl EffectBuilder {
     /// [`DistanceModel`](enum.DistanceModelError.html) for details.
     pub fn finish(&mut self, gilrs: &mut Gilrs) -> Result<Effect, Error> {
         for (dev, _) in &self.devices {
-            if !gilrs.connected_gamepad(dev).ok_or(Error::Disconnected(dev))?.is_ff_supported() {
+            if !gilrs
+                .connected_gamepad(dev)
+                .ok_or(Error::Disconnected(dev))?
+                .is_ff_supported()
+            {
                 return Err(Error::FfNotSupported(dev));
             }
         }
 
         self.dist_model.validate()?;
 
-        let effect = EffectSource::new(self.base_effects.clone(), self.devices.clone(),
-                                       self.repeat, self.dist_model,
-                                       self.position, self.gain);
+        let effect = EffectSource::new(
+            self.base_effects.clone(),
+            self.devices.clone(),
+            self.repeat,
+            self.dist_model,
+            self.position,
+            self.gain,
+        );
         let id = gilrs.next_ff_id();
         let tx = gilrs.ff_sender();
         tx.send(Message::Create { id, effect: Box::new(effect) })?;
@@ -306,17 +318,17 @@ impl StdError for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_str(
-            &match *self {
-                Error::FfNotSupported(id) =>
-                    format!("Force feedback is not supported by device with id {}.", id),
-                Error::Disconnected(id) =>
-                    format!("Device with id {} is not connected.", id),
-                Error::InvalidDistanceModel(err)
-                    => format!("Distance model is invalid: {}.", err.description()),
-                Error::SendFailed => "Receiving end of a channel is disconnected.".to_owned(),
-                Error::Other => "Unexpected error has occurred.".to_owned(),
-                Error::__Nonexhaustive => unreachable!(),
+        fmt.write_str(&match *self {
+            Error::FfNotSupported(id) => {
+                format!("Force feedback is not supported by device with id {}.", id)
+            }
+            Error::Disconnected(id) => format!("Device with id {} is not connected.", id),
+            Error::InvalidDistanceModel(err) => {
+                format!("Distance model is invalid: {}.", err.description())
+            }
+            Error::SendFailed => "Receiving end of a channel is disconnected.".to_owned(),
+            Error::Other => "Unexpected error has occurred.".to_owned(),
+            Error::__Nonexhaustive => unreachable!(),
         })
     }
 }

@@ -19,10 +19,12 @@ fn main() {
 
         if counter % 250 == 0 {
             for (id, gamepad) in gil.gamepads() {
-                println!("Power info of gamepad {}({}): {:?}",
-                         id,
-                         gamepad.name(),
-                         gamepad.power_info());
+                println!(
+                    "Power info of gamepad {}({}): {:?}",
+                    id,
+                    gamepad.name(),
+                    gamepad.power_info()
+                );
             }
         }
 

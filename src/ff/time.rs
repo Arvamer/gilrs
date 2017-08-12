@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign, Rem, Mul, MulAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 use std::time::Duration;
 
 use utils;

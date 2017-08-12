@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use gamepad::{self, Event, Status, PowerInfo, GamepadImplExt, MappingSource};
 use super::FfDevice;
+use gamepad::{self, Event, GamepadImplExt, MappingSource, PowerInfo, Status};
 use mapping::{MappingData, MappingError};
 use uuid::Uuid;
 
@@ -20,9 +20,11 @@ impl Gilrs {
     pub fn new() -> Self {
         warn!("Current platform is not supported, gamepad input will not work");
         Gilrs {
-            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(),
-                                                              Status::NotObserved,
-                                                              Default::default()),
+            not_observed: gamepad::Gamepad::from_inner_status(
+                Gamepad::none(),
+                Status::NotObserved,
+                Default::default(),
+            ),
         }
     }
 
@@ -74,11 +76,12 @@ impl Gamepad {
         MappingSource::None
     }
 
-    pub fn set_mapping(&mut self,
-                       _mapping: &MappingData,
-                       _strict: bool,
-                       _name: Option<&str>)
-                       -> Result<String, MappingError> {
+    pub fn set_mapping(
+        &mut self,
+        _mapping: &MappingData,
+        _strict: bool,
+        _name: Option<&str>,
+    ) -> Result<String, MappingError> {
         Err(MappingError::NotImplemented)
     }
 

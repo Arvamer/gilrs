@@ -1,9 +1,9 @@
-use std::ops::{Mul, AddAssign};
-use std::{u16, fmt};
+use std::{fmt, u16};
 use std::error::Error;
+use std::ops::{AddAssign, Mul};
 
-use super::time::{Ticks, Repeat};
 use super::base_effect::{BaseEffect, BaseEffectType};
+use super::time::{Repeat, Ticks};
 
 use vec_map::VecMap;
 
@@ -40,12 +40,20 @@ impl DistanceModel {
         //
         // [1]: http://openal.org/documentation/openal-1.1-specification.pdf
         match self {
-            DistanceModel::Linear { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::Linear {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 distance = distance.min(max_distance);
 
                 (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
-            },
-            DistanceModel::LinearClamped { ref_distance, max_distance, rolloff_factor } => {
+            }
+            DistanceModel::LinearClamped {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 distance = distance.max(ref_distance);
                 distance = distance.min(max_distance);
 
@@ -54,7 +62,11 @@ impl DistanceModel {
             DistanceModel::Inverse { ref_distance, rolloff_factor } => {
                 ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance))
             }
-            DistanceModel::InverseClamped { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::InverseClamped {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 distance = distance.max(ref_distance);
                 distance = distance.min(max_distance);
 
@@ -63,7 +75,11 @@ impl DistanceModel {
             DistanceModel::Exponential { ref_distance, rolloff_factor } => {
                 (distance / ref_distance).powf(-rolloff_factor)
             }
-            DistanceModel::ExponentialClamped { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::ExponentialClamped {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 distance = distance.max(ref_distance);
                 distance = distance.min(max_distance);
 
@@ -82,23 +98,35 @@ impl DistanceModel {
 
                 (ref_distance, rolloff_factor, 0.0)
             }
-            DistanceModel::InverseClamped { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::InverseClamped {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 if ref_distance <= 0.0 {
                     return Err(DistanceModelError::InvalidModelParameter);
                 }
 
                 (ref_distance, rolloff_factor, max_distance)
             }
-            DistanceModel::Linear { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::Linear {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 if ref_distance == max_distance {
-                    return Err(DistanceModelError::InvalidModelParameter)
+                    return Err(DistanceModelError::InvalidModelParameter);
                 }
 
                 (ref_distance, rolloff_factor, max_distance)
             }
-            DistanceModel::LinearClamped { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::LinearClamped {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 if ref_distance == max_distance {
-                    return Err(DistanceModelError::InvalidModelParameter)
+                    return Err(DistanceModelError::InvalidModelParameter);
                 }
 
                 (ref_distance, rolloff_factor, max_distance)
@@ -110,7 +138,11 @@ impl DistanceModel {
 
                 (ref_distance, rolloff_factor, 0.0)
             }
-            DistanceModel::ExponentialClamped { ref_distance, max_distance, rolloff_factor } => {
+            DistanceModel::ExponentialClamped {
+                ref_distance,
+                max_distance,
+                rolloff_factor,
+            } => {
                 if ref_distance <= 0.0 {
                     return Err(DistanceModelError::InvalidModelParameter);
                 }
@@ -191,14 +223,14 @@ pub(crate) struct EffectSource {
 }
 
 impl EffectSource {
-    pub (super) fn new(base_effects: Vec<BaseEffect>,
-                       devices: VecMap<()>,
-                       repeat: Repeat,
-                       dist_model: DistanceModel,
-                       position: [f32; 3],
-                       gain: f32)
-                       -> Self
-    {
+    pub(super) fn new(
+        base_effects: Vec<BaseEffect>,
+        devices: VecMap<()>,
+        repeat: Repeat,
+        dist_model: DistanceModel,
+        position: [f32; 3],
+        gain: f32,
+    ) -> Self {
         EffectSource {
             base_effects,
             devices,
@@ -212,10 +244,10 @@ impl EffectSource {
 
     pub(super) fn combine_base_effects(&self, ticks: Ticks, actor_pos: [f32; 3]) -> Magnitude {
         let ticks = match self.state {
-            EffectState::Playing { since } =>{
+            EffectState::Playing { since } => {
                 debug_assert!(ticks >= since);
                 ticks - since
-            },
+            }
             EffectState::Stopped => return Magnitude::zero(),
         };
 
@@ -225,19 +257,25 @@ impl EffectSource {
                 // self.state = EffectState::Stopped;
                 return Magnitude::zero();
             }
-            _ => ()
+            _ => (),
         }
 
-        let attenuation = self.distance_model.attenuation(self.position.distance(actor_pos)) * self.gain;
+        let attenuation = self.distance_model.attenuation(
+            self.position.distance(actor_pos),
+        ) * self.gain;
         if attenuation < 0.05 {
-            return Magnitude::zero()
+            return Magnitude::zero();
         }
 
         let mut final_magnitude = Magnitude::zero();
         for effect in &self.base_effects {
             match effect.magnitude_at(ticks) {
-                BaseEffectType::Strong { magnitude } => final_magnitude.strong = final_magnitude.strong.saturating_add(magnitude),
-                BaseEffectType::Weak { magnitude } => final_magnitude.weak = final_magnitude.weak.saturating_add(magnitude),
+                BaseEffectType::Strong { magnitude } => {
+                    final_magnitude.strong = final_magnitude.strong.saturating_add(magnitude)
+                }
+                BaseEffectType::Weak { magnitude } => {
+                    final_magnitude.weak = final_magnitude.weak.saturating_add(magnitude)
+                }
                 BaseEffectType::__Nonexhaustive => (),
             };
         }
@@ -284,10 +322,11 @@ trait SliceVecExt {
     fn distance(self, from: Self) -> Self::Base;
 }
 
-impl  SliceVecExt for [f32; 3] {
+impl SliceVecExt for [f32; 3] {
     type Base = f32;
 
     fn distance(self, from: Self) -> f32 {
-        ((from[0] - self[0]).powi(2) + (from[1] - self[1]).powi(2) + (from[2] - self[2]).powi(2)).sqrt()
+        ((from[0] - self[0]).powi(2) + (from[1] - self[1]).powi(2) + (from[2] - self[2]).powi(2))
+            .sqrt()
     }
 }

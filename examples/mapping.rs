@@ -1,5 +1,5 @@
 extern crate gilrs;
-use gilrs::{Gilrs, Mapping, Button, Axis, Event};
+use gilrs::{Axis, Button, Event, Gilrs, Mapping};
 use std::{io, u16};
 use std::collections::HashMap;
 
@@ -9,15 +9,19 @@ fn main() {
 
     println!("Connected gamepads:");
     for (id, gp) in gilrs.gamepads() {
-        println!("{}: {} (mapping source: {:?})",
-                 id,
-                 gp.name(),
-                 gp.mapping_source());
+        println!(
+            "{}: {} (mapping source: {:?})",
+            id,
+            gp.name(),
+            gp.mapping_source()
+        );
     }
 
     println!("Pleas select id:");
     let mut id = String::new();
-    io::stdin().read_line(&mut id).expect("Failed to read from stdin");
+    io::stdin().read_line(&mut id).expect(
+        "Failed to read from stdin",
+    );
     // Last char is '\n'
     let id = &id[..id.len() - 1];
     let id = id.parse().expect(&format!("{:?} is not valid id", id));
@@ -25,8 +29,10 @@ fn main() {
     // Discard unwanted events
     for _ in gilrs.poll_events() {}
 
-    println!("Press east button on action pad (B on XBox gamepad layout). It will be used to \
-              skip other mappings.");
+    println!(
+        "Press east button on action pad (B on XBox gamepad layout). It will be used to \
+              skip other mappings."
+    );
     get_btn_nevc(&mut gilrs, id, u16::MAX).map(|nevc| mapping[Button::East] = nevc);
     let skip_btn = mapping[Button::East];
 
@@ -94,9 +100,9 @@ fn main() {
     // that generate ABS events different than ABS_HAT0X and ABS_HAT0Y (code 16 and 17) on Linux,
     // pleas create issue on https://gitlab.com/Arvamer/gilrs/issues
 
-    let sdl_mapping = gilrs.gamepad_mut(id)
-        .set_mapping(&mapping, None)
-        .expect("Failed to set gamepad mapping");
+    let sdl_mapping = gilrs.gamepad_mut(id).set_mapping(&mapping, None).expect(
+        "Failed to set gamepad mapping",
+    );
 
     println!("\nSDL mapping:\n\n{}\n", sdl_mapping);
     println!("Gamepad mapped, you can test it now. Press CTRL-C to quit.\n");
@@ -138,10 +144,10 @@ fn get_axis_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
             }
             match ev {
                 Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::AxisChanged(_, val, nevc) if val.abs() > 0.7 &&
-                                                    state.get(&nevc)
-                    .unwrap_or(&1.0f32)
-                    .abs() <= 0.7 => return Some(nevc),
+                Event::AxisChanged(_, val, nevc)
+                    if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7 => {
+                    return Some(nevc)
+                }
                 Event::AxisChanged(_, val, nevc) => {
                     state.insert(nevc, val);
                 }
@@ -161,10 +167,10 @@ fn get_axis_or_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<(Butt
             match ev {
                 Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
                 Event::ButtonPressed(_, nevc) => return Some((ButtonOrAxis::Button, nevc)),
-                Event::AxisChanged(_, val, nevc) if val.abs() > 0.7 &&
-                                                    state.get(&nevc)
-                    .unwrap_or(&1.0f32)
-                    .abs() <= 0.7 => return Some((ButtonOrAxis::Axis, nevc)),
+                Event::AxisChanged(_, val, nevc)
+                    if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7 => {
+                    return Some((ButtonOrAxis::Axis, nevc))
+                }
                 Event::AxisChanged(_, val, nevc) => {
                     state.insert(nevc, val);
                 }

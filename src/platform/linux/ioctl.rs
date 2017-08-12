@@ -22,7 +22,11 @@ pub unsafe fn eviocgbit(fd: libc::c_int, ev: u32, len: libc::c_int, buf: *mut u8
 }
 
 pub unsafe fn eviocgabs(fd: ::libc::c_int, abs: u32, buf: *mut input_absinfo) -> libc::c_int {
-    ::nix::sys::ioctl::ioctl(fd, ior!(b'E', 0x40 + abs, ::std::mem::size_of::<input_absinfo>()) as libc::c_ulong, buf)
+    ::nix::sys::ioctl::ioctl(
+        fd,
+        ior!(b'E', 0x40 + abs, ::std::mem::size_of::<input_absinfo>()) as libc::c_ulong,
+        buf,
+    )
 }
 
 #[derive(Copy, Clone)]
@@ -35,13 +39,22 @@ pub struct input_event {
 }
 
 impl ::std::default::Default for input_event {
-    fn default() -> Self { unsafe { ::std::mem::zeroed() } }
+    fn default() -> Self {
+        unsafe { ::std::mem::zeroed() }
+    }
 }
 
 impl ::std::fmt::Debug for input_event {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "input_event {{ time: {{ tv_sec: {}, tv_usec: {} }}, type_: {}, code: {}, value: {}",
-               self.time.tv_sec, self.time.tv_usec, self.type_, self.code, self.value)
+        write!(
+            f,
+            "input_event {{ time: {{ tv_sec: {}, tv_usec: {} }}, type_: {}, code: {}, value: {}",
+            self.time.tv_sec,
+            self.time.tv_usec,
+            self.type_,
+            self.code,
+            self.value
+        )
     }
 }
 

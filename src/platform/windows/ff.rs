@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
 use winapi::xinput::XINPUT_VIBRATION as XInputVibration;
-use winapi::winerror::{ERROR_SUCCESS, ERROR_DEVICE_NOT_CONNECTED};
 use xinput;
 
 #[derive(Debug)]
@@ -20,21 +20,28 @@ impl Device {
     }
 
     pub(crate) fn set_ff_state(&mut self, strong: u16, weak: u16) {
-        let mut effect = XInputVibration { wLeftMotorSpeed: strong, wRightMotorSpeed: weak };
+        let mut effect = XInputVibration {
+            wLeftMotorSpeed: strong,
+            wRightMotorSpeed: weak,
+        };
         unsafe {
             let err = xinput::XInputSetState(self.id, &mut effect);
             match err {
                 ERROR_SUCCESS => (),
                 ERROR_DEVICE_NOT_CONNECTED => {
-                    error!("Failed to change FF state – gamepad with id {} is no \
+                    error!(
+                        "Failed to change FF state – gamepad with id {} is no \
                                         longer connected.",
-                           self.id);
+                        self.id
+                    );
                 }
                 _ => {
-                    error!("Failed to change FF state – unknown error. ID = {}, \
+                    error!(
+                        "Failed to change FF state – unknown error. ID = {}, \
                                         error code = {}.",
-                           self.id,
-                           err);
+                        self.id,
+                        err
+                    );
                 }
             }
         }
