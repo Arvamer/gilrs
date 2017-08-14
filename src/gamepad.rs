@@ -17,17 +17,18 @@ use uuid::Uuid;
 use std::f32::NAN;
 use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
+use std::time::SystemTime;
 
 /// Main object responsible of managing gamepads.
 ///
 /// # Event loop
 ///
 /// All interesting actions like button was pressed or new controller was connected are represented
-/// by tuple `(usize, `[`Event`](enum.Event.html)`)`. You should call `poll_events()` method once in
+/// by struct [`Event`](struct.Event.html). You should call `poll_events()` method  once in
 /// your event loop and then iterate over all available events.
 ///
 /// ```
-/// use gilrs::{Gilrs, Event, Button};
+/// use gilrs::{Gilrs, Event, EventType, Button};
 ///
 /// let mut gilrs = Gilrs::new();
 ///
@@ -35,10 +36,12 @@ use std::sync::mpsc::Sender;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, Event::ButtonPressed(Button::South, _)) => {
+///             Event { id, event: EventType::ButtonPressed(Button::South, _), .. } => {
 ///                 println!("Player {}: jump!", id + 1)
 ///             }
-///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
+///             Event { id, event: EventType::Disconnected, .. } => {
+///                 println!("We lost player {}", id + 1)
+///             }
 ///             _ => (),
 ///         };
 ///     }
@@ -92,7 +95,8 @@ impl Gilrs {
         }
     }
 
-    /// Creates iterator over available events. See [`Event`](enum.Event.html) for more information.
+    /// Creates iterator over available events. See [`EventType`](enum.EventType.html) for more
+    /// information.
     pub fn poll_events(&mut self) -> EventIterator {
         EventIterator { gilrs: self }
     }
@@ -658,24 +662,41 @@ impl Deadzones {
 /// if event code is smaller than 0x100 it's either keyboard key or axis.
 pub type NativeEvCode = u16;
 
+/// Holds information about gamepad event.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Event {
+    /// Id of gamepad.
+    pub id: usize,
+    /// Event's data.
+    pub event: EventType,
+    /// Time when event was emitted.
+    pub time: SystemTime,
+}
+
+impl Event {
+    pub(crate) fn new(id: usize, event: EventType) -> Self {
+        Event { id, event, time: SystemTime::now() }
+    }
+}
+
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
     gilrs: &'a mut Gilrs,
 }
 
 impl<'a> Iterator for EventIterator<'a> {
-    type Item = (usize, Event);
+    type Item = Event;
 
-    fn next(&mut self) -> Option<(usize, Event)> {
+    fn next(&mut self) -> Option<Event> {
         match self.gilrs.inner.next_event() {
-            Some((id, ev)) => {
+            Some(Event { id, event, time }) => {
                 let mut maybe_disconnected = None;
                 {
                     let gamepad = self.gilrs.gamepad_mut(id);
-                    match ev {
-                        Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
-                        Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
-                        Event::AxisChanged(axis, val, native_ev_code) => {
+                    match event {
+                        EventType::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
+                        EventType::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
+                        EventType::AxisChanged(axis, val, native_ev_code) => {
                             let val = match axis {
                                 Axis::LeftStickX => {
                                     apply_deadzone(
@@ -709,13 +730,17 @@ impl<'a> Iterator for EventIterator<'a> {
                             };
                             if gamepad.value(axis) != val {
                                 gamepad.state.set_axis(axis, val);
-                                return Some((id, Event::AxisChanged(axis, val, native_ev_code)));
+                                return Some(Event {
+                                    id,
+                                    event: EventType::AxisChanged(axis, val, native_ev_code),
+                                    time,
+                                });
                             } else {
                                 return None;
                             }
                         }
-                        Event::Connected => gamepad.status = Status::Connected,
-                        Event::Disconnected => {
+                        EventType::Connected => gamepad.status = Status::Connected,
+                        EventType::Disconnected => {
                             gamepad.status = Status::Disconnected;
                             maybe_disconnected = Some(id);
                         }
@@ -724,7 +749,7 @@ impl<'a> Iterator for EventIterator<'a> {
                 if let Some(id) = maybe_disconnected {
                     let _ = self.gilrs.tx.send(Message::Close { id });
                 }
-                Some((id, ev))
+                Some(Event { id, event, time })
             }
             None => None,
         }
@@ -733,7 +758,7 @@ impl<'a> Iterator for EventIterator<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Gamepad event.
-pub enum Event {
+pub enum EventType {
     /// Some button on gamepad has been pressed.
     ButtonPressed(Button, NativeEvCode),
     /// Previously pressed button has been released.

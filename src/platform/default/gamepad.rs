@@ -7,7 +7,7 @@
 #![allow(unused_variables)]
 
 use super::FfDevice;
-use gamepad::{self, Event, GamepadImplExt, MappingSource, PowerInfo, Status};
+use gamepad::{self, Event, EventType, GamepadImplExt, MappingSource, PowerInfo, Status};
 use mapping::{MappingData, MappingError};
 use uuid::Uuid;
 
@@ -32,7 +32,7 @@ impl Gilrs {
         Self::new()
     }
 
-    pub fn next_event(&mut self) -> Option<(usize, Event)> {
+    pub fn next_event(&mut self) -> Option<Event> {
         None
     }
 
@@ -92,16 +92,6 @@ impl Gamepad {
     /// Creates Ffdevice corresponding to this gamepad.
     pub fn ff_device(&self) -> Option<FfDevice> {
         Some(FfDevice)
-    }
-}
-
-pub struct EventIterator<'a>(&'a mut Gilrs);
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = (usize, Event);
-
-    fn next(&mut self) -> Option<(usize, Event)> {
-        None
     }
 }
 

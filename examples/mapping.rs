@@ -1,5 +1,5 @@
 extern crate gilrs;
-use gilrs::{Axis, Button, Event, Gilrs, Mapping};
+use gilrs::{Axis, Button, Event, EventType, Gilrs, Mapping};
 use std::{io, u16};
 use std::collections::HashMap;
 
@@ -120,35 +120,35 @@ enum ButtonOrAxis {
     Axis,
 }
 
-fn get_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
+fn get_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
     loop {
-        for (i, ev) in g.poll_events() {
-            if id != i {
+        for Event { id, event, .. } in g.poll_events() {
+            if idx != id {
                 continue;
             }
-            match ev {
-                Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::ButtonPressed(_, nevc) => return Some(nevc),
+            match event {
+                EventType::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
+                EventType::ButtonPressed(_, nevc) => return Some(nevc),
                 _ => (),
             }
         }
     }
 }
 
-fn get_axis_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
+fn get_axis_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
     let mut state = HashMap::new();
     loop {
-        for (i, ev) in g.poll_events() {
-            if id != i {
+        for Event { id, event, .. } in g.poll_events() {
+            if idx != id {
                 continue;
             }
-            match ev {
-                Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::AxisChanged(_, val, nevc)
+            match event {
+                EventType::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
+                EventType::AxisChanged(_, val, nevc)
                     if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7 => {
                     return Some(nevc)
                 }
-                Event::AxisChanged(_, val, nevc) => {
+                EventType::AxisChanged(_, val, nevc) => {
                     state.insert(nevc, val);
                 }
                 _ => (),
@@ -157,21 +157,21 @@ fn get_axis_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
     }
 }
 
-fn get_axis_or_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<(ButtonOrAxis, u16)> {
+fn get_axis_or_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<(ButtonOrAxis, u16)> {
     let mut state = HashMap::new();
     loop {
-        for (i, ev) in g.poll_events() {
-            if id != i {
+        for Event { id, event, .. } in g.poll_events() {
+            if idx != id {
                 continue;
             }
-            match ev {
-                Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::ButtonPressed(_, nevc) => return Some((ButtonOrAxis::Button, nevc)),
-                Event::AxisChanged(_, val, nevc)
+            match event {
+                EventType::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
+                EventType::ButtonPressed(_, nevc) => return Some((ButtonOrAxis::Button, nevc)),
+                EventType::AxisChanged(_, val, nevc)
                     if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7 => {
                     return Some((ButtonOrAxis::Axis, nevc))
                 }
-                Event::AxisChanged(_, val, nevc) => {
+                EventType::AxisChanged(_, val, nevc) => {
                     state.insert(nevc, val);
                 }
                 _ => (),

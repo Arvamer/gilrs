@@ -24,7 +24,7 @@
 //! -------
 //!
 //! ```
-//! use gilrs::{Gilrs, Button};
+//! use gilrs::{Gilrs, Button, Event};
 //!
 //! let mut gilrs = Gilrs::new();
 //!
@@ -35,8 +35,8 @@
 //!
 //! loop {
 //!     // Examine new events
-//!     for (id, event) in gilrs.poll_events() {
-//!         println!("New event from {}: {:?}", id, event);
+//!     for Event { id, event, time } in gilrs.poll_events() {
+//!         println!("{:?} New event from {}: {:?}", time, id, event);
 //!     }
 //!
 //!     // You can also use cached gamepad state
@@ -116,8 +116,8 @@ mod utils;
 pub mod ff;
 
 pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
-                  EventIterator, Gamepad, GamepadState, Gilrs, MappingSource, NativeEvCode,
-                  PowerInfo, Status};
+                  EventIterator, EventType, Gamepad, GamepadState, Gilrs, MappingSource,
+                  NativeEvCode, PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};
 
 trait AsInner<T> {
