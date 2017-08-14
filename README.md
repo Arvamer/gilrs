@@ -37,7 +37,7 @@ gilrs = "0.4.4"
 ```
 
 ```rust
-use gilrs::{Gilrs, Button};
+use gilrs::{Gilrs, Button, Event};
 
 let mut gilrs = Gilrs::new();
 
@@ -48,7 +48,7 @@ for (_id, gamepad) in gilrs.gamepads() {
 
 loop {
     // Examine new events
-    for (id, event) in gilrs.poll_events() {
+    for Event { id, event } in gilrs.poll_events() {
         println!("New event from {}: {:?}", id, event);
     }
 

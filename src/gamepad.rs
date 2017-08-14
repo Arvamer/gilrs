@@ -27,7 +27,7 @@ use std::sync::mpsc::Sender;
 /// your event loop and then iterate over all available events.
 ///
 /// ```
-/// use gilrs::{Gilrs, EventType, Button};
+/// use gilrs::{Gilrs, Event, EventType, Button};
 ///
 /// let mut gilrs = Gilrs::new();
 ///
@@ -35,10 +35,12 @@ use std::sync::mpsc::Sender;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, EventType::ButtonPressed(Button::South, _)) => {
+///             Event { id, event: EventType::ButtonPressed(Button::South, _) } => {
 ///                 println!("Player {}: jump!", id + 1)
 ///             }
-///             (id, EventType::Disconnected) => println!("We lost player {}", id + 1),
+///             Event { id, event: EventType::Disconnected } => {
+///                 println!("We lost player {}", id + 1)
+///             }
 ///             _ => (),
 ///         };
 ///     }
@@ -659,15 +661,24 @@ impl Deadzones {
 /// if event code is smaller than 0x100 it's either keyboard key or axis.
 pub type NativeEvCode = u16;
 
+/// Holds information about gamepad event.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Event {
+    /// Id of gamepad.
+    pub id: usize,
+    /// Event's data.
+    pub event: EventType,
+}
+
 /// Iterator over gamepads events
 pub struct EventIterator<'a> {
     gilrs: &'a mut Gilrs,
 }
 
 impl<'a> Iterator for EventIterator<'a> {
-    type Item = (usize, EventType);
+    type Item = Event;
 
-    fn next(&mut self) -> Option<(usize, EventType)> {
+    fn next(&mut self) -> Option<Event> {
         match self.gilrs.inner.next_event() {
             Some((id, ev)) => {
                 let mut maybe_disconnected = None;
@@ -710,9 +721,10 @@ impl<'a> Iterator for EventIterator<'a> {
                             };
                             if gamepad.value(axis) != val {
                                 gamepad.state.set_axis(axis, val);
-                                return Some(
-                                    (id, EventType::AxisChanged(axis, val, native_ev_code)),
-                                );
+                                return Some(Event {
+                                    id,
+                                    event: EventType::AxisChanged(axis, val, native_ev_code),
+                                });
                             } else {
                                 return None;
                             }
@@ -727,7 +739,7 @@ impl<'a> Iterator for EventIterator<'a> {
                 if let Some(id) = maybe_disconnected {
                     let _ = self.gilrs.tx.send(Message::Close { id });
                 }
-                Some((id, ev))
+                Some(Event { id, event: ev })
             }
             None => None,
         }

@@ -24,7 +24,7 @@
 //! -------
 //!
 //! ```
-//! use gilrs::{Gilrs, Button};
+//! use gilrs::{Gilrs, Button, Event};
 //!
 //! let mut gilrs = Gilrs::new();
 //!
@@ -35,7 +35,7 @@
 //!
 //! loop {
 //!     // Examine new events
-//!     for (id, event) in gilrs.poll_events() {
+//!     for Event { id, event } in gilrs.poll_events() {
 //!         println!("New event from {}: {:?}", id, event);
 //!     }
 //!
@@ -115,7 +115,7 @@ mod utils;
 
 pub mod ff;
 
-pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator,
+pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
                   EventIterator, EventType, Gamepad, GamepadState, Gilrs, MappingSource,
                   NativeEvCode, PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};
