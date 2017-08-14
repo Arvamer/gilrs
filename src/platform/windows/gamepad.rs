@@ -6,12 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
-use gamepad::{self, Axis, Button, Deadzones, EventType, GamepadImplExt, MappingSource, PowerInfo,
-              Status};
+use gamepad::{self, Axis, Button, Deadzones, Event, EventType, GamepadImplExt, MappingSource,
+              PowerInfo, Status};
 use mapping::{MappingData, MappingError};
-use std::{i16, mem, thread, u16, u32, u8};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::time::Duration;
+
 use uuid::Uuid;
 use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
 use winapi::xinput::{XINPUT_BATTERY_INFORMATION as XBatteryInfo, XINPUT_GAMEPAD as XGamepad,
@@ -22,8 +20,11 @@ use winapi::xinput::{XINPUT_BATTERY_INFORMATION as XBatteryInfo, XINPUT_GAMEPAD 
                      XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB,
                      XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y,
                      XINPUT_STATE as XState, self as xi};
-
 use xinput;
+
+use std::{i16, mem, thread, u16, u32, u8};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::time::Duration;
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -32,7 +33,7 @@ const ITERATIONS_TO_CHECK_IF_CONNECTED: u64 = 100;
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: [gamepad::Gamepad; 4],
-    rx: Receiver<(usize, EventType)>,
+    rx: Receiver<Event>,
     not_observed: gamepad::Gamepad,
 }
 
@@ -68,7 +69,7 @@ impl Gilrs {
         Self::new()
     }
 
-    pub fn next_event(&mut self) -> Option<(usize, EventType)> {
+    pub fn next_event(&mut self) -> Option<Event> {
         self.rx.try_recv().ok()
     }
 
@@ -84,7 +85,7 @@ impl Gilrs {
         self.gamepads.len()
     }
 
-    fn spawn_thread(tx: Sender<(usize, EventType)>, connected: [bool; 4]) {
+    fn spawn_thread(tx: Sender<Event>, connected: [bool; 4]) {
         thread::spawn(move || unsafe {
             let mut prev_state = mem::zeroed::<XState>();
             let mut state = mem::zeroed::<XState>();
@@ -101,7 +102,7 @@ impl Gilrs {
                         if val == ERROR_SUCCESS {
                             if !connected.get_unchecked(id) {
                                 *connected.get_unchecked_mut(id) = true;
-                                let _ = tx.send((id, EventType::Connected));
+                                let _ = tx.send(Event::new(id, EventType::Connected));
                             }
 
                             if state.dwPacketNumber != prev_state.dwPacketNumber {
@@ -112,7 +113,7 @@ impl Gilrs {
                                    *connected.get_unchecked(id)
                         {
                             *connected.get_unchecked_mut(id) = false;
-                            let _ = tx.send((id, EventType::Disconnected));
+                            let _ = tx.send(Event::new(id, EventType::Disconnected));
                         }
                     }
                 }
@@ -123,13 +124,13 @@ impl Gilrs {
         });
     }
 
-    fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<(usize, EventType)>) {
+    fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<Event>) {
         fn normalize(val: i16) -> f32 {
             val as f32 / if val < 0 { -(i16::MIN as i32) } else { i16::MAX as i32 } as f32
         }
 
         if g.bLeftTrigger != pg.bLeftTrigger {
-            let _ = tx.send((
+            let _ = tx.send(Event::new(
                 id,
                 EventType::AxisChanged(
                     Axis::LeftTrigger2,
@@ -139,7 +140,7 @@ impl Gilrs {
             ));
         }
         if g.bRightTrigger != pg.bRightTrigger {
-            let _ = tx.send((
+            let _ = tx.send(Event::new(
                 id,
                 EventType::AxisChanged(
                     Axis::RightTrigger2,
@@ -149,7 +150,7 @@ impl Gilrs {
             ));
         }
         if g.sThumbLX != pg.sThumbLX {
-            let _ = tx.send((
+            let _ = tx.send(Event::new(
                 id,
                 EventType::AxisChanged(
                     Axis::LeftStickX,
@@ -159,7 +160,7 @@ impl Gilrs {
             ));
         }
         if g.sThumbLY != pg.sThumbLY {
-            let _ = tx.send((
+            let _ = tx.send(Event::new(
                 id,
                 EventType::AxisChanged(
                     Axis::LeftStickY,
@@ -169,7 +170,7 @@ impl Gilrs {
             ));
         }
         if g.sThumbRX != pg.sThumbRX {
-            let _ = tx.send((
+            let _ = tx.send(Event::new(
                 id,
                 EventType::AxisChanged(
                     Axis::RightStickX,
@@ -179,7 +180,7 @@ impl Gilrs {
             ));
         }
         if g.sThumbRY != pg.sThumbRY {
-            let _ = tx.send((
+            let _ = tx.send(Event::new(
                 id,
                 EventType::AxisChanged(
                     Axis::RightStickY,
@@ -191,7 +192,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::DPadUp,
@@ -200,7 +201,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::DPadUp,
@@ -213,7 +214,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_DOWN) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_DOWN != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::DPadDown,
@@ -222,7 +223,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::DPadDown,
@@ -235,7 +236,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_LEFT) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_LEFT != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::DPadLeft,
@@ -244,7 +245,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::DPadLeft,
@@ -257,7 +258,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::DPadRight,
@@ -266,7 +267,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::DPadRight,
@@ -279,7 +280,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_START) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_START != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::Start,
@@ -288,7 +289,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::Start,
@@ -301,7 +302,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_BACK) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_BACK != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::Select,
@@ -310,7 +311,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::Select,
@@ -323,7 +324,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_THUMB) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_THUMB != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::LeftThumb,
@@ -332,7 +333,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::LeftThumb,
@@ -345,7 +346,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::RightThumb,
@@ -354,7 +355,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::RightThumb,
@@ -367,7 +368,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::LeftTrigger,
@@ -376,7 +377,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::LeftTrigger,
@@ -389,7 +390,7 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(
                             Button::RightTrigger,
@@ -398,7 +399,7 @@ impl Gilrs {
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(
                             Button::RightTrigger,
@@ -411,13 +412,13 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_A) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_A != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(Button::South, XINPUT_GAMEPAD_A),
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(Button::South, XINPUT_GAMEPAD_A),
                     ))
@@ -427,13 +428,13 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_B) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_B != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(Button::East, XINPUT_GAMEPAD_B),
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(Button::East, XINPUT_GAMEPAD_B),
                     ))
@@ -443,13 +444,13 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_X) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_X != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(Button::West, XINPUT_GAMEPAD_X),
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(Button::West, XINPUT_GAMEPAD_X),
                     ))
@@ -459,13 +460,13 @@ impl Gilrs {
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_Y) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_Y != 0 {
                 true => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonPressed(Button::North, XINPUT_GAMEPAD_Y),
                     ))
                 }
                 false => {
-                    tx.send((
+                    tx.send(Event::new(
                         id,
                         EventType::ButtonReleased(Button::North, XINPUT_GAMEPAD_Y),
                     ))

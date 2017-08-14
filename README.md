@@ -48,8 +48,8 @@ for (_id, gamepad) in gilrs.gamepads() {
 
 loop {
     // Examine new events
-    for Event { id, event } in gilrs.poll_events() {
-        println!("New event from {}: {:?}", id, event);
+    for Event { id, event, time } in gilrs.poll_events() {
+        println!("{:?} New event from {}: {:?}", time, id, event);
     }
 
     // You can also use cached gamepad state

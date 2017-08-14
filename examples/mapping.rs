@@ -122,7 +122,7 @@ enum ButtonOrAxis {
 
 fn get_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
     loop {
-        for Event { id, event } in g.poll_events() {
+        for Event { id, event, .. } in g.poll_events() {
             if idx != id {
                 continue;
             }
@@ -138,7 +138,7 @@ fn get_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
 fn get_axis_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
     let mut state = HashMap::new();
     loop {
-        for Event { id, event } in g.poll_events() {
+        for Event { id, event, .. } in g.poll_events() {
             if idx != id {
                 continue;
             }
@@ -160,7 +160,7 @@ fn get_axis_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
 fn get_axis_or_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<(ButtonOrAxis, u16)> {
     let mut state = HashMap::new();
     loop {
-        for Event { id, event } in g.poll_events() {
+        for Event { id, event, .. } in g.poll_events() {
             if idx != id {
                 continue;
             }

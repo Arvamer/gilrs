@@ -17,13 +17,14 @@ use uuid::Uuid;
 use std::f32::NAN;
 use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
+use std::time::SystemTime;
 
 /// Main object responsible of managing gamepads.
 ///
 /// # Event loop
 ///
 /// All interesting actions like button was pressed or new controller was connected are represented
-/// by tuple `(usize, `[`Event`](enum.Event.html)`)`. You should call `poll_events()` method once in
+/// by struct [`Event`](struct.Event.html). You should call `poll_events()` method  once in
 /// your event loop and then iterate over all available events.
 ///
 /// ```
@@ -35,10 +36,10 @@ use std::sync::mpsc::Sender;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             Event { id, event: EventType::ButtonPressed(Button::South, _) } => {
+///             Event { id, event: EventType::ButtonPressed(Button::South, _), .. } => {
 ///                 println!("Player {}: jump!", id + 1)
 ///             }
-///             Event { id, event: EventType::Disconnected } => {
+///             Event { id, event: EventType::Disconnected, .. } => {
 ///                 println!("We lost player {}", id + 1)
 ///             }
 ///             _ => (),
@@ -668,6 +669,14 @@ pub struct Event {
     pub id: usize,
     /// Event's data.
     pub event: EventType,
+    /// Time when event was emitted.
+    pub time: SystemTime,
+}
+
+impl Event {
+    pub(crate) fn new(id: usize, event: EventType) -> Self {
+        Event { id, event, time: SystemTime::now() }
+    }
 }
 
 /// Iterator over gamepads events
@@ -680,11 +689,11 @@ impl<'a> Iterator for EventIterator<'a> {
 
     fn next(&mut self) -> Option<Event> {
         match self.gilrs.inner.next_event() {
-            Some((id, ev)) => {
+            Some(Event { id, event, time }) => {
                 let mut maybe_disconnected = None;
                 {
                     let gamepad = self.gilrs.gamepad_mut(id);
-                    match ev {
+                    match event {
                         EventType::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
                         EventType::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
                         EventType::AxisChanged(axis, val, native_ev_code) => {
@@ -724,6 +733,7 @@ impl<'a> Iterator for EventIterator<'a> {
                                 return Some(Event {
                                     id,
                                     event: EventType::AxisChanged(axis, val, native_ev_code),
+                                    time,
                                 });
                             } else {
                                 return None;
@@ -739,7 +749,7 @@ impl<'a> Iterator for EventIterator<'a> {
                 if let Some(id) = maybe_disconnected {
                     let _ = self.gilrs.tx.send(Message::Close { id });
                 }
-                Some(Event { id, event: ev })
+                Some(Event { id, event, time })
             }
             None => None,
         }
