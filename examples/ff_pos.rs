@@ -1,7 +1,7 @@
 extern crate gilrs;
 extern crate env_logger;
 
-use gilrs::{Axis, Button, Event, Gilrs};
+use gilrs::{Axis, Button, EventType, Gilrs};
 use gilrs::ff::{BaseEffect, BaseEffectType, DistanceModel, EffectBuilder};
 
 use std::io::{self, Write};
@@ -108,15 +108,13 @@ fn main() {
     'main: loop {
         for (_, ev) in gilrs.poll_events() {
             match ev {
-                Event::ButtonReleased(Button::East, ..) => break 'main,
-                Event::ButtonReleased(Button::South, ..) => modify.next(),
-                Event::ButtonReleased(Button::West, ..) => modify.prev(),
-                Event::ButtonReleased(Button::LeftTrigger, ..) if modify == Modify::DistModel => {
-                    model = model.wrapping_sub(1)
-                }
-                Event::ButtonReleased(Button::RightTrigger, ..) if modify == Modify::DistModel => {
-                    model += 1
-                }
+                EventType::ButtonReleased(Button::East, ..) => break 'main,
+                EventType::ButtonReleased(Button::South, ..) => modify.next(),
+                EventType::ButtonReleased(Button::West, ..) => modify.prev(),
+                EventType::ButtonReleased(Button::LeftTrigger, ..)
+                    if modify == Modify::DistModel => model = model.wrapping_sub(1),
+                EventType::ButtonReleased(Button::RightTrigger, ..)
+                    if modify == Modify::DistModel => model += 1,
                 _ => (),
             }
         }

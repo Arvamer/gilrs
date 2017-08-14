@@ -11,7 +11,7 @@ use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
 use constants;
-use gamepad::{Axis, Button, Deadzones, Event, Gamepad as MainGamepad, GamepadImplExt,
+use gamepad::{Axis, Button, Deadzones, EventType, Gamepad as MainGamepad, GamepadImplExt,
               MappingSource, PowerInfo, Status};
 use libc as c;
 use mapping::{Kind, Mapping, MappingData, MappingDb, MappingError};
@@ -105,7 +105,7 @@ impl Gilrs {
         }
     }
 
-    pub fn next_event(&mut self) -> Option<(usize, Event)> {
+    pub fn next_event(&mut self) -> Option<(usize, EventType)> {
         // If there is hotplug event return it, otherwise loop over all gamepdas checking if there
         // is some event.
         if let Some((id, ev)) = self.handle_hotplug() {
@@ -148,7 +148,7 @@ impl Gilrs {
         self.gamepads.len()
     }
 
-    fn handle_hotplug(&mut self) -> Option<(usize, Event)> {
+    fn handle_hotplug(&mut self) -> Option<(usize, EventType)> {
         let monitor = match self.monitor {
             Some(ref m) => m,
             None => return None,
@@ -183,7 +183,7 @@ impl Gilrs {
                                 Status::Connected,
                                 deadzones,
                             );
-                            return Some((id, Event::Connected));
+                            return Some((id, EventType::Connected));
                         } else {
                             let deadzones = gamepad.axes_info.deadzones(&gamepad.mapping);
                             self.gamepads.push(MainGamepad::from_inner_status(
@@ -191,7 +191,7 @@ impl Gilrs {
                                 Status::Connected,
                                 deadzones,
                             ));
-                            return Some((self.gamepads.len() - 1, Event::Connected));
+                            return Some((self.gamepads.len() - 1, EventType::Connected));
                         }
                     }
                 } else if action == cstr_new(b"remove\0") {
@@ -201,7 +201,7 @@ impl Gilrs {
                         })
                         {
                             self.gamepads[id].as_inner_mut().disconnect();
-                            return Some((id, Event::Disconnected));
+                            return Some((id, EventType::Disconnected));
                         } else {
                             info!("Could not find disconnect gamepad {:?}", devnode);
                         }
@@ -603,7 +603,7 @@ impl Gamepad {
         (-1, -1)
     }
 
-    pub fn event(&mut self) -> Option<Event> {
+    pub fn event(&mut self) -> Option<EventType> {
         let mut skip = false;
         // Skip all unknown events and return Option on first know event or when there is no more
         // events to read. Returning None on unknown event breaks iterators.
@@ -634,8 +634,8 @@ impl Gamepad {
                     let code = self.mapping.map(event.code, Kind::Button);
                     let btn = Button::from_u16(code);
                     match event.value {
-                        0 => Some(Event::ButtonReleased(btn, event.code)),
-                        1 => Some(Event::ButtonPressed(btn, event.code)),
+                        0 => Some(EventType::ButtonReleased(btn, event.code)),
+                        1 => Some(EventType::ButtonPressed(btn, event.code)),
                         _ => None,
                     }
                 }
@@ -653,7 +653,7 @@ impl Gamepad {
                                     self.axes_values.insert(event.code as usize, event.value);
                                     let a = Axis::from_u16(code);
                                     let val = Self::axis_value(*axis_info, event.value, a);
-                                    Some(Event::AxisChanged(a, val, event.code))
+                                    Some(EventType::AxisChanged(a, val, event.code))
                                 }
                             }
                         }
@@ -728,7 +728,7 @@ impl Gamepad {
         }
     }
 
-    fn handle_abs_dpad(&mut self, code: u16, event: input_event) -> Option<Event> {
+    fn handle_abs_dpad(&mut self, code: u16, event: input_event) -> Option<EventType> {
         let ev_code = event.code as usize;
         if event.value == 0 && self.axes_values.get(ev_code).cloned().unwrap_or(0) == 0 {
             return None;
@@ -747,9 +747,9 @@ impl Gamepad {
         self.axes_values.insert(ev_code, event.value);
 
         Some(if event.value == 0 {
-            Event::ButtonReleased(btn, event.code)
+            EventType::ButtonReleased(btn, event.code)
         } else {
-            Event::ButtonPressed(btn, event.code)
+            EventType::ButtonPressed(btn, event.code)
         })
     }
 

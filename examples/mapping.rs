@@ -1,5 +1,5 @@
 extern crate gilrs;
-use gilrs::{Axis, Button, Event, Gilrs, Mapping};
+use gilrs::{Axis, Button, EventType, Gilrs, Mapping};
 use std::{io, u16};
 use std::collections::HashMap;
 
@@ -127,8 +127,8 @@ fn get_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
                 continue;
             }
             match ev {
-                Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::ButtonPressed(_, nevc) => return Some(nevc),
+                EventType::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
+                EventType::ButtonPressed(_, nevc) => return Some(nevc),
                 _ => (),
             }
         }
@@ -143,12 +143,12 @@ fn get_axis_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<u16> {
                 continue;
             }
             match ev {
-                Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::AxisChanged(_, val, nevc)
+                EventType::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
+                EventType::AxisChanged(_, val, nevc)
                     if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7 => {
                     return Some(nevc)
                 }
-                Event::AxisChanged(_, val, nevc) => {
+                EventType::AxisChanged(_, val, nevc) => {
                     state.insert(nevc, val);
                 }
                 _ => (),
@@ -165,13 +165,13 @@ fn get_axis_or_btn_nevc(g: &mut Gilrs, id: usize, skip_btn: u16) -> Option<(Butt
                 continue;
             }
             match ev {
-                Event::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
-                Event::ButtonPressed(_, nevc) => return Some((ButtonOrAxis::Button, nevc)),
-                Event::AxisChanged(_, val, nevc)
+                EventType::ButtonPressed(_, nevc) if nevc == skip_btn => return None,
+                EventType::ButtonPressed(_, nevc) => return Some((ButtonOrAxis::Button, nevc)),
+                EventType::AxisChanged(_, val, nevc)
                     if val.abs() > 0.7 && state.get(&nevc).unwrap_or(&1.0f32).abs() <= 0.7 => {
                     return Some((ButtonOrAxis::Axis, nevc))
                 }
-                Event::AxisChanged(_, val, nevc) => {
+                EventType::AxisChanged(_, val, nevc) => {
                     state.insert(nevc, val);
                 }
                 _ => (),

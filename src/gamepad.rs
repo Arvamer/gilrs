@@ -27,7 +27,7 @@ use std::sync::mpsc::Sender;
 /// your event loop and then iterate over all available events.
 ///
 /// ```
-/// use gilrs::{Gilrs, Event, Button};
+/// use gilrs::{Gilrs, EventType, Button};
 ///
 /// let mut gilrs = Gilrs::new();
 ///
@@ -35,10 +35,10 @@ use std::sync::mpsc::Sender;
 /// loop {
 ///     for event in gilrs.poll_events() {
 ///         match event {
-///             (id, Event::ButtonPressed(Button::South, _)) => {
+///             (id, EventType::ButtonPressed(Button::South, _)) => {
 ///                 println!("Player {}: jump!", id + 1)
 ///             }
-///             (id, Event::Disconnected) => println!("We lost player {}", id + 1),
+///             (id, EventType::Disconnected) => println!("We lost player {}", id + 1),
 ///             _ => (),
 ///         };
 ///     }
@@ -92,7 +92,8 @@ impl Gilrs {
         }
     }
 
-    /// Creates iterator over available events. See [`Event`](enum.Event.html) for more information.
+    /// Creates iterator over available events. See [`EventType`](enum.EventType.html) for more
+    /// information.
     pub fn poll_events(&mut self) -> EventIterator {
         EventIterator { gilrs: self }
     }
@@ -664,18 +665,18 @@ pub struct EventIterator<'a> {
 }
 
 impl<'a> Iterator for EventIterator<'a> {
-    type Item = (usize, Event);
+    type Item = (usize, EventType);
 
-    fn next(&mut self) -> Option<(usize, Event)> {
+    fn next(&mut self) -> Option<(usize, EventType)> {
         match self.gilrs.inner.next_event() {
             Some((id, ev)) => {
                 let mut maybe_disconnected = None;
                 {
                     let gamepad = self.gilrs.gamepad_mut(id);
                     match ev {
-                        Event::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
-                        Event::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
-                        Event::AxisChanged(axis, val, native_ev_code) => {
+                        EventType::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
+                        EventType::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
+                        EventType::AxisChanged(axis, val, native_ev_code) => {
                             let val = match axis {
                                 Axis::LeftStickX => {
                                     apply_deadzone(
@@ -709,13 +710,15 @@ impl<'a> Iterator for EventIterator<'a> {
                             };
                             if gamepad.value(axis) != val {
                                 gamepad.state.set_axis(axis, val);
-                                return Some((id, Event::AxisChanged(axis, val, native_ev_code)));
+                                return Some(
+                                    (id, EventType::AxisChanged(axis, val, native_ev_code)),
+                                );
                             } else {
                                 return None;
                             }
                         }
-                        Event::Connected => gamepad.status = Status::Connected,
-                        Event::Disconnected => {
+                        EventType::Connected => gamepad.status = Status::Connected,
+                        EventType::Disconnected => {
                             gamepad.status = Status::Disconnected;
                             maybe_disconnected = Some(id);
                         }
@@ -733,7 +736,7 @@ impl<'a> Iterator for EventIterator<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Gamepad event.
-pub enum Event {
+pub enum EventType {
     /// Some button on gamepad has been pressed.
     ButtonPressed(Button, NativeEvCode),
     /// Previously pressed button has been released.
