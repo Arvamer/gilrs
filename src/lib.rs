@@ -114,6 +114,7 @@ mod mapping;
 mod utils;
 
 pub mod ff;
+pub mod ev;
 
 pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
                   EventIterator, EventType, Gamepad, GamepadState, Gilrs, MappingSource,
