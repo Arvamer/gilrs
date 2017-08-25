@@ -196,7 +196,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::DPadUp,
-                            XINPUT_GAMEPAD_DPAD_UP,
+                            native_ev_codes::BTN_DPAD_UP,
                         ),
                     ))
                 }
@@ -205,7 +205,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::DPadUp,
-                            XINPUT_GAMEPAD_DPAD_UP,
+                            native_ev_codes::BTN_DPAD_UP,
                         ),
                     ))
                 }
@@ -218,7 +218,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::DPadDown,
-                            XINPUT_GAMEPAD_DPAD_DOWN,
+                            native_ev_codes::BTN_DPAD_DOWN,
                         ),
                     ))
                 }
@@ -227,7 +227,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::DPadDown,
-                            XINPUT_GAMEPAD_DPAD_DOWN,
+                            native_ev_codes::BTN_DPAD_DOWN,
                         ),
                     ))
                 }
@@ -240,7 +240,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::DPadLeft,
-                            XINPUT_GAMEPAD_DPAD_LEFT,
+                            native_ev_codes::BTN_DPAD_LEFT,
                         ),
                     ))
                 }
@@ -249,7 +249,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::DPadLeft,
-                            XINPUT_GAMEPAD_DPAD_LEFT,
+                            native_ev_codes::BTN_DPAD_LEFT,
                         ),
                     ))
                 }
@@ -262,7 +262,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::DPadRight,
-                            XINPUT_GAMEPAD_DPAD_RIGHT,
+                            native_ev_codes::BTN_DPAD_RIGHT,
                         ),
                     ))
                 }
@@ -271,7 +271,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::DPadRight,
-                            XINPUT_GAMEPAD_DPAD_RIGHT,
+                            native_ev_codes::BTN_DPAD_RIGHT,
                         ),
                     ))
                 }
@@ -284,7 +284,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::Start,
-                            XINPUT_GAMEPAD_START,
+                            native_ev_codes::BTN_START,
                         ),
                     ))
                 }
@@ -293,7 +293,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::Start,
-                            XINPUT_GAMEPAD_START,
+                            native_ev_codes::BTN_START,
                         ),
                     ))
                 }
@@ -306,7 +306,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::Select,
-                            XINPUT_GAMEPAD_BACK,
+                            native_ev_codes::BTN_SELECT,
                         ),
                     ))
                 }
@@ -315,7 +315,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::Select,
-                            XINPUT_GAMEPAD_BACK,
+                            native_ev_codes::BTN_SELECT,
                         ),
                     ))
                 }
@@ -328,7 +328,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::LeftThumb,
-                            XINPUT_GAMEPAD_LEFT_THUMB,
+                            native_ev_codes::BTN_LTHUMB,
                         ),
                     ))
                 }
@@ -337,7 +337,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::LeftThumb,
-                            XINPUT_GAMEPAD_LEFT_THUMB,
+                            native_ev_codes::BTN_LTHUMB,
                         ),
                     ))
                 }
@@ -350,7 +350,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::RightThumb,
-                            XINPUT_GAMEPAD_RIGHT_THUMB,
+                            native_ev_codes::BTN_RTHUMB,
                         ),
                     ))
                 }
@@ -359,7 +359,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::RightThumb,
-                            XINPUT_GAMEPAD_RIGHT_THUMB,
+                            native_ev_codes::BTN_RTHUMB,
                         ),
                     ))
                 }
@@ -372,7 +372,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::LeftTrigger,
-                            XINPUT_GAMEPAD_LEFT_SHOULDER,
+                            native_ev_codes::BTN_LT,
                         ),
                     ))
                 }
@@ -381,7 +381,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::LeftTrigger,
-                            XINPUT_GAMEPAD_LEFT_SHOULDER,
+                            native_ev_codes::BTN_LT,
                         ),
                     ))
                 }
@@ -394,7 +394,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonPressed(
                             Button::RightTrigger,
-                            XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                            native_ev_codes::BTN_RT,
                         ),
                     ))
                 }
@@ -403,7 +403,7 @@ impl Gilrs {
                         id,
                         EventType::ButtonReleased(
                             Button::RightTrigger,
-                            XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                            native_ev_codes::BTN_RT,
                         ),
                     ))
                 }
@@ -414,13 +414,19 @@ impl Gilrs {
                 true => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonPressed(Button::South, XINPUT_GAMEPAD_A),
+                        EventType::ButtonPressed(
+                            Button::South,
+                            native_ev_codes::BTN_SOUTH,
+                        ),
                     ))
                 }
                 false => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonReleased(Button::South, XINPUT_GAMEPAD_A),
+                        EventType::ButtonReleased(
+                            Button::South,
+                            native_ev_codes::BTN_SOUTH,
+                        ),
                     ))
                 }
             };
@@ -430,13 +436,19 @@ impl Gilrs {
                 true => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonPressed(Button::East, XINPUT_GAMEPAD_B),
+                        EventType::ButtonPressed(
+                            Button::East,
+                            native_ev_codes::BTN_EAST,
+                        ),
                     ))
                 }
                 false => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonReleased(Button::East, XINPUT_GAMEPAD_B),
+                        EventType::ButtonReleased(
+                            Button::East,
+                            native_ev_codes::BTN_EAST,
+                        ),
                     ))
                 }
             };
@@ -446,13 +458,19 @@ impl Gilrs {
                 true => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonPressed(Button::West, XINPUT_GAMEPAD_X),
+                        EventType::ButtonPressed(
+                            Button::West,
+                            native_ev_codes::BTN_WEST,
+                        ),
                     ))
                 }
                 false => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonReleased(Button::West, XINPUT_GAMEPAD_X),
+                        EventType::ButtonReleased(
+                            Button::West,
+                            native_ev_codes::BTN_WEST,
+                        ),
                     ))
                 }
             };
@@ -462,13 +480,19 @@ impl Gilrs {
                 true => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonPressed(Button::North, XINPUT_GAMEPAD_Y),
+                        EventType::ButtonPressed(
+                            Button::North,
+                            native_ev_codes::BTN_NORTH,
+                        ),
                     ))
                 }
                 false => {
                     tx.send(Event::new(
                         id,
-                        EventType::ButtonReleased(Button::North, XINPUT_GAMEPAD_Y),
+                        EventType::ButtonReleased(
+                            Button::North,
+                            native_ev_codes::BTN_NORTH,
+                        ),
                     ))
                 }
             };
