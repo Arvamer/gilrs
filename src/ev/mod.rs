@@ -9,9 +9,12 @@
 
 use gamepad::{Axis, Button, Event, NativeEvCode};
 
-use vec_map::VecMap;
+use vec_map::{self, VecMap};
 
 use std::time::SystemTime;
+use std::iter::Iterator;
+
+pub mod filter;
 
 /// Stores state of gamepads.
 ///
@@ -57,7 +60,7 @@ use std::time::SystemTime;
 ///
 pub struct State {
     gamepads: VecMap<GamepadState>,
-    counter: u64, // max 63bits
+    counter: u64, // max 62bits
 }
 
 impl State {
@@ -76,16 +79,23 @@ impl State {
             ButtonPressed(btn, nec) => {
                 gamepad.buttons.insert(
                     nec as usize,
-                    ButtonData::new(true, self.counter, event.time),
+                    ButtonData::new(true, false, self.counter, event.time),
                 );
                 if btn != Button::Unknown {
                     gamepad.btn_to_nec.insert(btn as usize, nec);
+                    gamepad.nec_to_btn.insert(nec as usize, btn);
                 }
             }
             ButtonReleased(_, nec) => {
                 gamepad.buttons.insert(
                     nec as usize,
-                    ButtonData::new(false, self.counter, event.time),
+                    ButtonData::new(false, false, self.counter, event.time),
+                );
+            }
+            ButtonRepeated(_, nec) => {
+                gamepad.buttons.insert(
+                    nec as usize,
+                    ButtonData::new(true, true, self.counter, event.time),
                 );
             }
             AxisChanged(axis, value, nec) => {
@@ -99,6 +109,7 @@ impl State {
                 );
                 if axis != Axis::Unknown {
                     gamepad.axis_to_nec.insert(axis as usize, nec);
+                    gamepad.nec_to_axis.insert(nec as usize, axis);
                 }
             }
             _ => (),
@@ -185,8 +196,8 @@ impl State {
     /// determine when last event happened. You probably want to use this function in your update
     /// loop after processing events.
     pub fn inc(&mut self) {
-        // Counter is 63bit. See `ButtonData`.
-        if self.counter == 0x7FFF_FFFF_FFFF_FFFF {
+        // Counter is 62bit. See `ButtonData`.
+        if self.counter == 0x3FFF_FFFF_FFFF_FFFF {
             self.counter = 0;
         } else {
             self.counter += 1;
@@ -198,9 +209,13 @@ impl State {
     pub fn counter(&self) -> u64 {
         self.counter
     }
+
+    pub fn gamepads(&self) -> GamepadStateIter {
+        GamepadStateIter(self.gamepads.iter())
+    }
 }
 
-struct GamepadState {
+pub struct GamepadState {
     // Indexed by NativeEvCode (nec)
     buttons: VecMap<ButtonData>,
     // Indexed by NativeEvCode (nec)
@@ -208,6 +223,8 @@ struct GamepadState {
     // Mappings, will be dynamically created while we are processing new events.
     btn_to_nec: VecMap<u16>,
     axis_to_nec: VecMap<u16>,
+    nec_to_btn: VecMap<Button>,
+    nec_to_axis: VecMap<Axis>,
 }
 
 impl GamepadState {
@@ -217,7 +234,57 @@ impl GamepadState {
             axes: VecMap::new(),
             btn_to_nec: VecMap::new(),
             axis_to_nec: VecMap::new(),
+            nec_to_btn: VecMap::new(),
+            nec_to_axis: VecMap::new(),
         }
+    }
+
+    /// Iterate over buttons data.
+    pub fn buttons(&self) -> ButtonDataIter {
+        ButtonDataIter(self.buttons.iter())
+    }
+
+    /// Iterate over axes data.
+    pub fn axes(&self) -> AxisDataIter {
+        AxisDataIter(self.axes.iter())
+    }
+
+    /// Maps `NativeEvCode` to `Button`. Return `Button::Unknown` if no mapping found.
+    pub fn nec_to_btn(&self, nec: NativeEvCode) -> Button {
+        self.nec_to_btn.get(nec as usize).cloned().unwrap_or(Button::Unknown)
+    }
+
+    /// Maps `NativeEvCode` to `Axis`. Return `Axis::Unknown` if no mapping found.
+    pub fn nec_to_axis(&self, nec: NativeEvCode) -> Axis {
+        self.nec_to_axis.get(nec as usize).cloned().unwrap_or(Axis::Unknown)
+    }
+}
+
+pub struct GamepadStateIter<'a>(vec_map::Iter<'a, GamepadState>);
+pub struct ButtonDataIter<'a>(vec_map::Iter<'a, ButtonData>);
+pub struct AxisDataIter<'a>(vec_map::Iter<'a, AxisData>);
+
+impl<'a> Iterator for GamepadStateIter<'a> {
+    type Item = (usize, &'a GamepadState);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<'a> Iterator for ButtonDataIter<'a> {
+    type Item = (usize, &'a ButtonData);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<'a> Iterator for AxisDataIter<'a> {
+    type Item = (usize, &'a AxisData);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
     }
 }
 
@@ -226,14 +293,17 @@ impl GamepadState {
 pub struct ButtonData {
     last_event_ts: SystemTime,
     state_and_counter: u64,
-    // 1b of state, 63b of counter
+    // 2b of state (is pressed, is repeating), 62b of counter
 }
 
 impl ButtonData {
-    fn new(pressed: bool, counter: u64, time: SystemTime) -> Self {
+    fn new(pressed: bool, repeating: bool, counter: u64, time: SystemTime) -> Self {
+        debug_assert!(counter <= 0x3FFF_FFFF_FFFF_FFFF);
+
+        let state = ((pressed as u64) << 63) | ((repeating as u64) << 62);
         ButtonData {
             last_event_ts: time,
-            state_and_counter: ((pressed as u64) << 63) | counter,
+            state_and_counter: state | counter,
         }
     }
 
@@ -242,24 +312,19 @@ impl ButtonData {
         self.state_and_counter >> 63 == 1
     }
 
+    /// Returns `true` if button is repeating.
+    pub fn is_repeating(&self) -> bool {
+        self.state_and_counter & 0x4000_0000_0000_0000 != 0
+    }
+
     /// Returns value of counter when button state last changed.
     pub fn counter(&self) -> u64 {
-        self.state_and_counter & 0x7FFF_FFFF_FFFF_FFFF
+        self.state_and_counter & 0x3FFF_FFFF_FFFF_FFFF
     }
 
     /// Returns when button state last changed.
     pub fn timestamp(&self) -> SystemTime {
         self.last_event_ts
-    }
-
-    #[allow(dead_code)]
-    fn set_state(&mut self, pressed: bool) {
-        self.state_and_counter = ((self.state_and_counter << 1) + pressed as u64).rotate_right(1);
-    }
-
-    #[allow(dead_code)]
-    fn set_counter(&mut self, counter: u64) {
-        self.state_and_counter = self.state_and_counter & 0x8000_0000_0000_0000 | counter;
     }
 }
 
@@ -308,17 +373,12 @@ mod tests {
         };
 
         for _ in 0..(1024 * 1024 * 16) {
-            let counter = xorshift() & 0x7FFF_FFFF_FFFF_FFFF;
+            let counter = xorshift() & 0x3FFF_FFFF_FFFF_FFFF;
             let pressed = xorshift() % 2 == 1;
-            let mut btn = ButtonData::new(pressed, counter, SystemTime::now());
+            let repeating = xorshift() % 2 == 1;
+            let mut btn = ButtonData::new(pressed, repeating, counter, SystemTime::now());
             assert_eq!(btn.is_pressed(), pressed);
-            assert_eq!(btn.counter(), counter);
-
-            let counter = xorshift() & 0x7FFF_FFFF_FFFF_FFFF;
-            let pressed = xorshift() % 2 == 1;
-            btn.set_counter(counter);
-            btn.set_state(pressed);
-            assert_eq!(btn.is_pressed(), pressed);
+            assert_eq!(btn.is_repeating(), repeating);
             assert_eq!(btn.counter(), counter);
         }
     }
