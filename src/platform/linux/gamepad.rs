@@ -666,7 +666,7 @@ impl Gamepad {
             };
 
             if let Some(ev) = ev {
-                let dur = Duration::new(event.time.tv_sec as u64, event.time.tv_usec as u32);
+                let dur = Duration::new(event.time.tv_sec as u64, event.time.tv_usec as u32 * 1000);
 
                 return Some((ev, UNIX_EPOCH + dur));
             }
