@@ -35,7 +35,7 @@
 //!
 //! loop {
 //!     // Examine new events
-//!     for Event { id, event, time } in gilrs.poll_events() {
+//!     while let Some(Event { id, event, time }) = gilrs.next_event() {
 //!         println!("{:?} New event from {}: {:?}", time, id, event);
 //!     }
 //!
@@ -117,8 +117,7 @@ pub mod ff;
 pub mod ev;
 
 pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
-                  EventIterator, EventType, Gamepad, GamepadState, Gilrs, MappingSource,
-                  NativeEvCode, PowerInfo, Status};
+                  EventType, Gamepad, Gilrs, MappingSource, NativeEvCode, PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};
 
 trait AsInner<T> {

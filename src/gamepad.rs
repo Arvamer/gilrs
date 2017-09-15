@@ -7,6 +7,7 @@
 
 use AsInner;
 use constants::*;
+use ev::{AxisData, ButtonData, GamepadState};
 use ff::Error as FfError;
 use ff::server::{self, Message};
 use mapping::{MappingData, MappingError};
@@ -14,7 +15,6 @@ use platform;
 
 use uuid::Uuid;
 
-use std::f32::NAN;
 use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
 use std::time::SystemTime;
@@ -24,8 +24,8 @@ use std::time::SystemTime;
 /// # Event loop
 ///
 /// All interesting actions like button was pressed or new controller was connected are represented
-/// by struct [`Event`](struct.Event.html). You should call `poll_events()` method  once in
-/// your event loop and then iterate over all available events.
+/// by struct [`Event`](struct.Event.html). Use `next_event()` function to retrieve event from
+/// queue.
 ///
 /// ```
 /// use gilrs::{Gilrs, Event, EventType, Button};
@@ -34,7 +34,7 @@ use std::time::SystemTime;
 ///
 /// // Event loop
 /// loop {
-///     for event in gilrs.poll_events() {
+///     while let Some(event) = gilrs.next_event() {
 ///         match event {
 ///             Event { id, event: EventType::ButtonPressed(Button::South, _), .. } => {
 ///                 println!("Player {}: jump!", id + 1)
@@ -49,15 +49,57 @@ use std::time::SystemTime;
 /// }
 /// ```
 ///
-/// Additionally, every time you use `poll_events()`, cached gamepad state is updated. Use
-/// `gamepad(usize)` method or index operator to borrow gamepad and then `state()`,
-/// `is_pressed(Button)` or `value(Axis)` to examine gamepad's state. See
-/// [`Gamepad`](struct.Gamepad.html) for more info.
+/// # Cached gamepad state
+///
+/// `Gilrs` also menage cached gamepad state. To update it, use `update(Event)` method. Updating is
+/// not done automatically, because you probably want the state after filtered events (see
+/// [`ev::filter`](ev/filter/index.html) module), not these from `event_next()`.
+///
+/// To access state you can use `Gamepad::state()` function. Gamepad also implement some state
+/// related functions directly, see [`Gamepad`](struct.Gamepad.html) for more.
+///
+/// ## Counter
+///
+/// `Gilrs` has additional functionality, referred here as *counter*. The idea behind it is simple,
+/// each time you end iteration of update loop, you call `Gilrs::inc()` which will increase
+/// internal counter by one. When state of one if elements changes, value of counter is saved. When
+/// checking state of one of elements you can tell exactly when this event happened. Timestamps are
+/// not good solution here because they can tell you when *system* observed event, not when you
+/// processed it. On the other hand, they are good when you want to implement key repeat or software
+/// debouncing.
+///
+/// ```
+/// use gilrs::{Gilrs, Button};
+///
+/// let mut gilrs = Gilrs::new();
+///
+/// loop {
+///     while let Some(ev) = gilrs.next_event() {
+///         gilrs.update(&ev);
+///         // Do other things with event
+///     }
+///
+///     if gilrs.gamepad(0).is_pressed(Button::DPadLeft) {
+///         // go left
+///     }
+///
+///     match gilrs.gamepad(0).button_data(Button::South) {
+///         Some(d) if d.is_pressed() && d.counter() == gilrs.counter() => {
+///             // jump
+///         }
+///         _ => ()
+///     }
+///
+///     gilrs.inc();
+/// #   break;
+/// }
+///
 #[derive(Debug)]
 pub struct Gilrs {
     inner: platform::Gilrs,
     next_id: usize,
     tx: Sender<Message>,
+    counter: u64,
 }
 
 impl Gilrs {
@@ -67,6 +109,7 @@ impl Gilrs {
             inner: platform::Gilrs::new(),
             next_id: 0,
             tx: server::init(),
+            counter: 0,
         };
         gilrs.create_ff_devices();
         gilrs
@@ -99,6 +142,79 @@ impl Gilrs {
         }
     }
 
+    /// Updates internal state according to `event`.
+    pub fn update(&mut self, event: &Event) {
+        use EventType::*;
+
+        let counter = self.counter;
+
+        let gamepad = match self.connected_gamepad_mut(event.id) {
+            Some(g) => g,
+            None => return,
+        };
+
+        match event.event {
+            ButtonPressed(_, nec) => {
+                gamepad.state.update_btn(
+                    nec,
+                    ButtonData::new(
+                        true,
+                        false,
+                        counter,
+                        event.time,
+                    ),
+                );
+            }
+            ButtonReleased(_, nec) => {
+                gamepad.state.update_btn(
+                    nec,
+                    ButtonData::new(
+                        false,
+                        false,
+                        counter,
+                        event.time,
+                    ),
+                );
+            }
+            ButtonRepeated(_, nec) => {
+                gamepad.state.update_btn(
+                    nec,
+                    ButtonData::new(
+                        true,
+                        true,
+                        counter,
+                        event.time,
+                    ),
+                );
+            }
+            AxisChanged(_, value, nec) => {
+                gamepad.state.update_axis(
+                    nec,
+                    AxisData::new(value, counter, event.time),
+                );
+            }
+            _ => (),
+        }
+    }
+
+    /// Increases internal counter by one. Counter data is stored with state and can be used to
+    /// determine when last event happened. You probably want to use this function in your update
+    /// loop after processing events.
+    pub fn inc(&mut self) {
+        // Counter is 62bit. See `ButtonData`.
+        if self.counter == 0x3FFF_FFFF_FFFF_FFFF {
+            self.counter = 0;
+        } else {
+            self.counter += 1;
+        }
+    }
+
+    /// Returns counter. Counter data is stored with state and can be used to determine when last
+    /// event happened.
+    pub fn counter(&self) -> u64 {
+        self.counter
+    }
+
     /// Creates new `Gilrs` and add content of `sdl_mapping` to internal database. Each mapping
     /// should be in separate line. Lines that does not start from UUID are ignored.
     ///
@@ -108,6 +224,7 @@ impl Gilrs {
             inner: platform::Gilrs::with_mappings(sdl_mapping),
             next_id: 0,
             tx: server::init(),
+            counter: 0,
         }
     }
 
@@ -120,12 +237,6 @@ impl Gilrs {
                 let _ = self.tx.send(Message::Open { id: id, device: device });
             }
         }
-    }
-
-    /// Creates iterator over available events. See [`EventType`](enum.EventType.html) for more
-    /// information.
-    pub fn poll_events(&mut self) -> EventIterator {
-        EventIterator { gilrs: self }
     }
 
     /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
@@ -290,9 +401,8 @@ impl Gamepad {
         Gamepad {
             inner: gamepad,
             state: GamepadState::new(),
-            status: status,
-            // Effect doesn't implement Clone so we can't use vec! macro.
-            threshold: threshold,
+            status,
+            threshold,
         }
     }
 
@@ -307,24 +417,6 @@ impl Gamepad {
     }
 
     /// Returns cached gamepad state.
-    ///
-    /// Every time you use `Gilrs::poll_events()` gamepad state is updated. You can use it to know
-    /// if some button is pressed or to get axis's value.
-    ///
-    /// ```
-    /// use gilrs::{Gilrs, Button, Axis};
-    ///
-    /// let mut gilrs = Gilrs::new();
-    ///
-    /// loop {
-    ///     for _ in gilrs.poll_events() {}
-    ///
-    ///     println!("Start: {}, Left Stick X: {}",
-    ///              gilrs[0].is_pressed(Button::Start),
-    ///              gilrs[0].value(Axis::LeftStickX));
-    ///     # break;
-    /// }
-    /// ```
     pub fn state(&self) -> &GamepadState {
         &self.state
     }
@@ -343,17 +435,30 @@ impl Gamepad {
     }
 
     /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
-    /// represented by axis returns true if value is not equal to 0.0. Always returns `false` for
-    /// `Button::Unknown`.
+    /// represented by axis returns true if value is not equal to 0.0. Panics if `btn` is `Unknown`.
     pub fn is_pressed(&self, btn: Button) -> bool {
-        self.state.is_pressed(btn)
+        assert!(btn != Button::Unknown);
+
+        self.state.is_pressed(self.button_code(btn))
     }
 
     /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
-    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Returns `NaN` for
-    /// `Axis::Unknown`.
+    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Panics if `axis` is
+    /// `Unknown`.
     pub fn value(&self, axis: Axis) -> f32 {
-        self.state.value(axis)
+        assert!(axis != Axis::Unknown);
+
+        self.state.value(self.axis_code(axis))
+    }
+
+    /// Returns button state and when it changed.
+    pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
+        self.state.button_data(self.button_code(btn))
+    }
+
+    /// Returns axis state and when it changed.
+    pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
+        self.state.axis_data(self.axis_code(axis))
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.
@@ -458,6 +563,26 @@ impl Gamepad {
     pub fn is_ff_supported(&self) -> bool {
         self.inner.is_ff_supported()
     }
+
+    /// Returns `Button` mapped to `nec`.
+    pub fn button_name(&self, nec: NativeEvCode) -> Button {
+        unimplemented!()
+    }
+
+    /// Returns `Axis` mapped to `nec`.
+    pub fn axis_name(&self, nec: NativeEvCode) -> Axis {
+        unimplemented!()
+    }
+
+    /// Returns `NativeEvCode` associated with `btn`.
+    pub fn button_code(&self, btn: Button) -> NativeEvCode {
+        unimplemented!()
+    }
+
+    /// Returns `NativeEvCode` associated with `axis`.
+    pub fn axis_code(&self, axis: Axis) -> NativeEvCode {
+        unimplemented!()
+    }
 }
 
 impl AsInner<platform::Gamepad> for Gamepad {
@@ -477,145 +602,6 @@ pub trait GamepadImplExt {
 impl GamepadImplExt for Gamepad {
     fn from_inner_status(inner: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
         Self::new(inner, status, threshold)
-    }
-}
-
-/// Cached state of gamepad's buttons and axes.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct GamepadState {
-    // sticks
-    pub right_stick: (f32, f32),
-    pub left_stick: (f32, f32),
-    pub z: (f32, f32),
-    pub btn_left_thumb: bool,
-    pub btn_right_thumb: bool,
-    // triggers
-    pub right_trigger: f32,
-    pub right_trigger2: f32,
-    pub left_trigger: f32,
-    pub left_trigger2: f32,
-    // action pad
-    pub btn_south: bool,
-    pub btn_east: bool,
-    pub btn_north: bool,
-    pub btn_west: bool,
-    pub btn_c: bool,
-    pub btn_z: bool,
-    // menu pad
-    pub btn_select: bool,
-    pub btn_start: bool,
-    pub btn_mode: bool,
-    // dpad
-    pub btn_dpad_down: bool,
-    pub btn_dpad_left: bool,
-    pub btn_dpad_up: bool,
-    pub btn_dpad_right: bool,
-}
-
-impl GamepadState {
-    /// Creates new `GamepadState` with all values zeroed.
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    /// Sets new value for given button.
-    pub fn set_btn(&mut self, btn: Button, val: bool) {
-        match btn {
-            Button::South => self.btn_south = val,
-            Button::East => self.btn_east = val,
-            Button::North => self.btn_north = val,
-            Button::West => self.btn_west = val,
-            Button::C => self.btn_c = val,
-            Button::Z => self.btn_z = val,
-
-            Button::LeftTrigger => self.left_trigger = if val { 1.0 } else { 0.0 },
-            Button::LeftTrigger2 => self.left_trigger2 = if val { 1.0 } else { 0.0 },
-            Button::RightTrigger => self.right_trigger = if val { 1.0 } else { 0.0 },
-            Button::RightTrigger2 => self.right_trigger2 = if val { 1.0 } else { 0.0 },
-
-            Button::Select => self.btn_select = val,
-            Button::Start => self.btn_start = val,
-            Button::Mode => self.btn_mode = val,
-
-            Button::LeftThumb => self.btn_left_thumb = val,
-            Button::RightThumb => self.btn_right_thumb = val,
-
-            Button::DPadUp => self.btn_dpad_up = val,
-            Button::DPadDown => self.btn_dpad_down = val,
-            Button::DPadRight => self.btn_dpad_right = val,
-            Button::DPadLeft => self.btn_dpad_left = val,
-
-            Button::Unknown => (),
-        };
-    }
-
-    /// Sets new value for given axis.
-    pub fn set_axis(&mut self, axis: Axis, val: f32) {
-        match axis {
-            Axis::LeftStickX => self.left_stick.0 = val,
-            Axis::LeftStickY => self.left_stick.1 = val,
-            Axis::LeftZ => self.z.0 = val,
-            Axis::RightStickX => self.right_stick.0 = val,
-            Axis::RightStickY => self.right_stick.1 = val,
-            Axis::RightZ => self.z.1 = val,
-            Axis::LeftTrigger => self.left_trigger = val,
-            Axis::LeftTrigger2 => self.left_trigger2 = val,
-            Axis::RightTrigger => self.right_trigger = val,
-            Axis::RightTrigger2 => self.right_trigger2 = val,
-            Axis::Unknown => (),
-        };
-    }
-
-    /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
-    /// represented by axis returns true if value is not equal to 0.0. Always returns `false` for
-    /// `Button::Unknown`.
-    pub fn is_pressed(&self, btn: Button) -> bool {
-        match btn {
-            Button::South => self.btn_south,
-            Button::East => self.btn_east,
-            Button::North => self.btn_north,
-            Button::West => self.btn_west,
-            Button::C => self.btn_c,
-            Button::Z => self.btn_z,
-
-            Button::LeftTrigger => self.left_trigger != 0.0,
-            Button::LeftTrigger2 => self.left_trigger2 != 0.0,
-            Button::RightTrigger => self.right_trigger != 0.0,
-            Button::RightTrigger2 => self.right_trigger2 != 0.0,
-
-            Button::Select => self.btn_select,
-            Button::Start => self.btn_start,
-            Button::Mode => self.btn_mode,
-
-            Button::LeftThumb => self.btn_left_thumb,
-            Button::RightThumb => self.btn_right_thumb,
-
-            Button::DPadUp => self.btn_dpad_up,
-            Button::DPadDown => self.btn_dpad_down,
-            Button::DPadRight => self.btn_dpad_right,
-            Button::DPadLeft => self.btn_dpad_left,
-
-            Button::Unknown => false,
-        }
-    }
-
-    /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
-    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Returns `NaN` for
-    /// `Axis::Unknown`.
-    pub fn value(&self, axis: Axis) -> f32 {
-        match axis {
-            Axis::LeftStickX => self.left_stick.0,
-            Axis::LeftStickY => self.left_stick.1,
-            Axis::LeftZ => self.z.0,
-            Axis::RightStickX => self.right_stick.0,
-            Axis::RightStickY => self.right_stick.1,
-            Axis::RightZ => self.z.1,
-            Axis::LeftTrigger => self.left_trigger,
-            Axis::LeftTrigger2 => self.left_trigger2,
-            Axis::RightTrigger => self.right_trigger,
-            Axis::RightTrigger2 => self.right_trigger2,
-            Axis::Unknown => NAN, // or return 0.0?
-        }
     }
 }
 
@@ -703,84 +689,6 @@ pub struct Event {
 impl Event {
     pub(crate) fn new(id: usize, event: EventType) -> Self {
         Event { id, event, time: SystemTime::now() }
-    }
-}
-
-/// Iterator over gamepads events
-pub struct EventIterator<'a> {
-    gilrs: &'a mut Gilrs,
-}
-
-impl<'a> Iterator for EventIterator<'a> {
-    type Item = Event;
-
-    fn next(&mut self) -> Option<Event> {
-        match self.gilrs.inner.next_event() {
-            Some(Event { id, event, time }) => {
-                let mut maybe_disconnected = None;
-                {
-                    let gamepad = self.gilrs.gamepad_mut(id);
-                    match event {
-                        EventType::ButtonPressed(btn, _) => gamepad.state.set_btn(btn, true),
-                        EventType::ButtonReleased(btn, _) => gamepad.state.set_btn(btn, false),
-                        EventType::AxisChanged(axis, val, native_ev_code) => {
-                            let val = match axis {
-                                Axis::LeftStickX => {
-                                    apply_deadzone(
-                                        val,
-                                        gamepad.value(Axis::LeftStickY),
-                                        gamepad.threshold.left_stick,
-                                    ).0
-                                }
-                                Axis::LeftStickY => {
-                                    apply_deadzone(
-                                        val,
-                                        gamepad.value(Axis::LeftStickX),
-                                        gamepad.threshold.left_stick,
-                                    ).0
-                                }
-                                Axis::RightStickX => {
-                                    apply_deadzone(
-                                        val,
-                                        gamepad.value(Axis::RightStickY),
-                                        gamepad.threshold.right_stick,
-                                    ).0
-                                }
-                                Axis::RightStickY => {
-                                    apply_deadzone(
-                                        val,
-                                        gamepad.value(Axis::RightStickX),
-                                        gamepad.threshold.right_stick,
-                                    ).0
-                                }
-                                axis => apply_deadzone(val, 0.0, gamepad.threshold.get(axis)).0,
-                            };
-                            if gamepad.value(axis) != val {
-                                gamepad.state.set_axis(axis, val);
-                                return Some(Event {
-                                    id,
-                                    event: EventType::AxisChanged(axis, val, native_ev_code),
-                                    time,
-                                });
-                            } else {
-                                return None;
-                            }
-                        }
-                        EventType::Connected => gamepad.status = Status::Connected,
-                        EventType::Disconnected => {
-                            gamepad.status = Status::Disconnected;
-                            maybe_disconnected = Some(id);
-                        }
-                        EventType::ButtonRepeated(..) => unreachable!(),
-                    };
-                }
-                if let Some(id) = maybe_disconnected {
-                    let _ = self.gilrs.tx.send(Message::Close { id });
-                }
-                Some(Event { id, event, time })
-            }
-            None => None,
-        }
     }
 }
 

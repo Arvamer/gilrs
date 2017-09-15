@@ -27,7 +27,7 @@ fn main() {
     let id = id.parse().expect(&format!("{:?} is not valid id", id));
 
     // Discard unwanted events
-    for _ in gilrs.poll_events() {}
+    while let Some(_) = gilrs.next_event() {}
 
     println!(
         "Press east button on action pad (B on XBox gamepad layout). It will be used to \
@@ -108,11 +108,10 @@ fn main() {
     println!("Gamepad mapped, you can test it now. Press CTRL-C to quit.\n");
 
     loop {
-        for ev in gilrs.poll_events() {
+        while let Some(ev) = gilrs.next_event() {
             println!("{:?}", ev);
         }
     }
-
 }
 
 enum ButtonOrAxis {
@@ -122,7 +121,7 @@ enum ButtonOrAxis {
 
 fn get_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
     loop {
-        for Event { id, event, .. } in g.poll_events() {
+        while let Some(Event { id, event, .. }) = g.next_event() {
             if idx != id {
                 continue;
             }
@@ -138,7 +137,7 @@ fn get_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
 fn get_axis_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
     let mut state = HashMap::new();
     loop {
-        for Event { id, event, .. } in g.poll_events() {
+        while let Some(Event { id, event, .. }) = g.next_event() {
             if idx != id {
                 continue;
             }
@@ -160,7 +159,7 @@ fn get_axis_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<u16> {
 fn get_axis_or_btn_nevc(g: &mut Gilrs, idx: usize, skip_btn: u16) -> Option<(ButtonOrAxis, u16)> {
     let mut state = HashMap::new();
     loop {
-        for Event { id, event, .. } in g.poll_events() {
+        while let Some(Event { id, event, .. }) = g.next_event() {
             if idx != id {
                 continue;
             }

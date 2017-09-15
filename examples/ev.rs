@@ -2,7 +2,6 @@ extern crate gilrs;
 extern crate env_logger;
 
 use gilrs::Gilrs;
-use gilrs::ev::State;
 use gilrs::ev::filter::{Filter, Noise, Repeat};
 
 use std::thread;
@@ -10,28 +9,22 @@ use std::time::Duration;
 
 fn main() {
     env_logger::init().unwrap();
-    let mut gil = Gilrs::new();
-    let mut state = State::new();
+    let mut gilrs = Gilrs::new();
     let noise_filter = Noise::new();
-    let repeat_filter = Repeat {
-        after: Duration::from_millis(1000),
-        every: Duration::from_millis(50),
-    };
-
-    let mut counter = 0;
+    let repeat_filter = Repeat::new();
 
     loop {
-        while let Some(ev) = gil.next_event().filter(&noise_filter, &state).filter(
+        while let Some(ev) = gilrs.next_event().filter(&noise_filter, &gilrs).filter(
             &repeat_filter,
-            &state,
+            &gilrs,
         )
         {
-            state.update(&ev);
+            gilrs.update(&ev);
             println!("{:?}", ev);
         }
 
-        if counter % 1000 == 0 {
-            for (id, gamepad) in gil.gamepads() {
+        if gilrs.counter() % 250 == 0 {
+            for (id, gamepad) in gilrs.gamepads() {
                 println!(
                     "Power info of gamepad {}({}): {:?}",
                     id,
@@ -41,7 +34,7 @@ fn main() {
             }
         }
 
-        counter += 1;
-        thread::sleep(Duration::from_millis(10));
+        gilrs.inc();
+        thread::sleep(Duration::from_millis(33));
     }
 }

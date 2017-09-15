@@ -106,7 +106,7 @@ fn main() {
     let mut model = 0usize;
 
     'main: loop {
-        for Event { event, .. } in gilrs.poll_events() {
+        while let Some(Event { event, .. }) = gilrs.next_event() {
             match event {
                 EventType::ButtonReleased(Button::East, ..) => break 'main,
                 EventType::ButtonReleased(Button::South, ..) => modify.next(),
