@@ -494,25 +494,27 @@ impl Mapping {
     }
 
     pub fn map_button(&self, code: NativeEvCode) -> Button {
-        self.btns.get(code as usize).cloned().unwrap_or(Button::Unknown)
+        self.btns.get(code as usize).cloned().unwrap_or(
+            Button::Unknown,
+        )
     }
 
     pub fn map_axis(&self, code: NativeEvCode) -> Axis {
-        self.axes.get(code as usize).cloned().unwrap_or(Axis::Unknown)
+        self.axes.get(code as usize).cloned().unwrap_or(
+            Axis::Unknown,
+        )
     }
 
     pub fn map_rev_axis(&self, axis: Axis) -> Option<NativeEvCode> {
-        self.axes
-            .iter()
-            .find(|x| *x.1 == axis)
-            .map(|x| x.0 as NativeEvCode)
+        self.axes.iter().find(|x| *x.1 == axis).map(|x| {
+            x.0 as NativeEvCode
+        })
     }
 
     pub fn map_rev_button(&self, btn: Button) -> Option<NativeEvCode> {
-        self.btns
-            .iter()
-            .find(|x| *x.1 == btn)
-            .map(|x| x.0 as NativeEvCode)
+        self.btns.iter().find(|x| *x.1 == btn).map(|x| {
+            x.0 as NativeEvCode
+        })
     }
 
     fn unmap_not_mapped_axes(&mut self) {
@@ -546,7 +548,8 @@ impl Default for Mapping {
             };
         }
 
-        let btns = vec_map![
+        let btns =
+            vec_map![
             nec::BTN_SOUTH => Button::South,
             nec::BTN_EAST => Button::East,
             nec::BTN_C => Button::C,
@@ -568,7 +571,8 @@ impl Default for Mapping {
             nec::BTN_DPAD_RIGHT => Button::DPadRight
         ];
 
-        let axes = vec_map![
+        let axes =
+            vec_map![
             nec::AXIS_LSTICKX => Axis::LeftStickX,
             nec::AXIS_LSTICKY => Axis::LeftStickY,
             nec::AXIS_LEFTZ => Axis::LeftZ,
@@ -583,11 +587,7 @@ impl Default for Mapping {
             nec::AXIS_LT2 => Axis::LeftTrigger2
         ];
 
-        Mapping {
-            axes,
-            btns,
-            name: String::new(),
-        }
+        Mapping { axes, btns, name: String::new() }
     }
 }
 

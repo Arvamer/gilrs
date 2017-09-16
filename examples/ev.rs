@@ -2,7 +2,7 @@ extern crate gilrs;
 extern crate env_logger;
 
 use gilrs::Gilrs;
-use gilrs::ev::filter::{Filter, Noise, Repeat};
+use gilrs::ev::filter::{Filter, Jitter, Repeat};
 
 use std::thread;
 use std::time::Duration;
@@ -10,7 +10,7 @@ use std::time::Duration;
 fn main() {
     env_logger::init().unwrap();
     let mut gilrs = Gilrs::new();
-    let noise_filter = Noise::new();
+    let noise_filter = Jitter::new();
     let repeat_filter = Repeat::new();
 
     loop {

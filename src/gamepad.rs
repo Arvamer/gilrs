@@ -10,7 +10,7 @@ use constants::*;
 use ev::{AxisData, ButtonData, GamepadState};
 use ff::Error as FfError;
 use ff::server::{self, Message};
-use mapping::{MappingData, MappingError};
+use mapping::{Mapping, MappingData, MappingDb, MappingError};
 use platform;
 
 use uuid::Uuid;
@@ -100,6 +100,7 @@ pub struct Gilrs {
     next_id: usize,
     tx: Sender<Message>,
     counter: u64,
+    mappings: MappingDb,
 }
 
 impl Gilrs {
@@ -110,6 +111,7 @@ impl Gilrs {
             next_id: 0,
             tx: server::init(),
             counter: 0,
+            mappings: MappingDb::new(),
         };
         gilrs.create_ff_devices();
         gilrs
@@ -118,23 +120,41 @@ impl Gilrs {
     /// Returns next pending event.
     pub fn next_event(&mut self) -> Option<Event> {
         match self.inner.next_event() {
-            Some(Event { id, event, time }) => {
-                let mut maybe_disconnected = None;
-                {
-                    let gamepad = self.gamepad_mut(id);
-                    match event {
-                        EventType::Connected => gamepad.status = Status::Connected,
-                        EventType::Disconnected => {
-                            gamepad.status = Status::Disconnected;
-                            maybe_disconnected = Some(id);
+            Some(Event { id, mut event, time }) => {
+                let gamepad = self.inner.gamepad_mut(id);
+                match event {
+                    EventType::ButtonPressed(_, nec) => {
+                        event = EventType::ButtonPressed(gamepad.button_name(nec), nec);
+                    }
+                    EventType::ButtonReleased(_, nec) => {
+                        event = EventType::ButtonReleased(gamepad.button_name(nec), nec);
+                    }
+                    EventType::AxisChanged(_, val, nec) => {
+                        event = EventType::AxisChanged(gamepad.axis_name(nec), val, nec);
+                    }
+                    EventType::Connected => {
+                        gamepad.status = Status::Connected;
+                        let mapping = self.mappings
+                            .get(gamepad.uuid())
+                            .and_then(|s| {
+                                Mapping::parse_sdl_mapping(
+                                    s,
+                                    gamepad.inner.buttons(),
+                                    gamepad.inner.axes(),
+                                ).ok()
+                            })
+                            .unwrap_or_default();
+                        if !mapping.name().is_empty() {
+                            gamepad.inner.set_name(mapping.name())
                         }
-                        _ => (),
-                    };
-                }
-
-                if let Some(id) = maybe_disconnected {
-                    let _ = self.tx.send(Message::Close { id });
-                }
+                        gamepad.mapping = mapping;
+                    }
+                    EventType::Disconnected => {
+                        gamepad.status = Status::Disconnected;
+                        let _ = self.tx.send(Message::Close { id });
+                    }
+                    _ => (),
+                };
 
                 Some(Event { id, event, time })
             }
@@ -221,10 +241,11 @@ impl Gilrs {
     /// This function does not check validity of mappings.
     pub fn with_mappings(sdl_mapping: &str) -> Self {
         Gilrs {
-            inner: platform::Gilrs::with_mappings(sdl_mapping),
+            inner: platform::Gilrs::new(),
             next_id: 0,
             tx: server::init(),
             counter: 0,
+            mappings: MappingDb::with_mappings(sdl_mapping),
         }
     }
 
@@ -234,7 +255,7 @@ impl Gilrs {
         )
         {
             if let Some(device) = gp {
-                let _ = self.tx.send(Message::Open { id: id, device: device });
+                let _ = self.tx.send(Message::Open { id, device });
             }
         }
     }
@@ -393,16 +414,16 @@ pub struct Gamepad {
     inner: platform::Gamepad,
     state: GamepadState,
     status: Status,
-    threshold: Deadzones,
+    mapping: Mapping,
 }
 
 impl Gamepad {
-    fn new(gamepad: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
+    fn new(gamepad: platform::Gamepad, status: Status) -> Self {
         Gamepad {
             inner: gamepad,
             state: GamepadState::new(),
             status,
-            threshold,
+            mapping: Mapping::new(),
         }
     }
 
@@ -439,7 +460,9 @@ impl Gamepad {
     pub fn is_pressed(&self, btn: Button) -> bool {
         assert!(btn != Button::Unknown);
 
-        self.state.is_pressed(self.button_code(btn))
+        self.button_code(btn)
+            .map(|nec| self.state.is_pressed(nec))
+            .unwrap_or(false)
     }
 
     /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
@@ -448,17 +471,23 @@ impl Gamepad {
     pub fn value(&self, axis: Axis) -> f32 {
         assert!(axis != Axis::Unknown);
 
-        self.state.value(self.axis_code(axis))
+        self.axis_code(axis)
+            .map(|nec| self.state.value(nec))
+            .unwrap_or(0.0)
     }
 
     /// Returns button state and when it changed.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
-        self.state.button_data(self.button_code(btn))
+        self.button_code(btn).and_then(
+            |nec| self.state.button_data(nec),
+        )
     }
 
     /// Returns axis state and when it changed.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
-        self.state.axis_data(self.axis_code(axis))
+        self.axis_code(axis).and_then(
+            |nec| self.state.axis_data(nec),
+        )
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.
@@ -479,7 +508,7 @@ impl Gamepad {
     ///     println!("{} is ready to use!", gamepad.name());
     /// }
     pub fn mapping_source(&self) -> MappingSource {
-        self.inner.mapping_source()
+        unimplemented!()
     }
 
     /// Sets gamepad's mapping and returns SDL2 representation of them. Returned mappings may not be
@@ -535,7 +564,25 @@ impl Gamepad {
         mapping: &MappingData,
         name: O,
     ) -> Result<String, MappingError> {
-        self.inner.set_mapping(mapping, false, name.into())
+        if !self.is_connected() {
+            return Err(MappingError::NotConnected);
+        }
+
+        let name = match name.into() {
+            Some(s) => s,
+            None => self.inner.name(),
+        };
+
+        let (mapping, s) = Mapping::from_data(
+            mapping,
+            self.inner.buttons(),
+            self.inner.axes(),
+            name,
+            self.uuid(),
+        )?;
+        self.mapping = mapping;
+
+        Ok(s)
     }
 
     /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
@@ -555,7 +602,7 @@ impl Gamepad {
         {
             Err(MappingError::NotSdl2Compatible)
         } else {
-            self.inner.set_mapping(mapping, true, name.into())
+            self.set_mapping(mapping, name)
         }
     }
 
@@ -566,25 +613,26 @@ impl Gamepad {
 
     /// Returns `Button` mapped to `nec`.
     pub fn button_name(&self, nec: NativeEvCode) -> Button {
-        unimplemented!()
+        self.mapping.map_button(nec)
     }
 
     /// Returns `Axis` mapped to `nec`.
     pub fn axis_name(&self, nec: NativeEvCode) -> Axis {
-        unimplemented!()
+        self.mapping.map_axis(nec)
     }
 
     /// Returns `NativeEvCode` associated with `btn`.
-    pub fn button_code(&self, btn: Button) -> NativeEvCode {
-        unimplemented!()
+    pub fn button_code(&self, btn: Button) -> Option<NativeEvCode> {
+        self.mapping.map_rev_button(btn)
     }
 
     /// Returns `NativeEvCode` associated with `axis`.
-    pub fn axis_code(&self, axis: Axis) -> NativeEvCode {
-        unimplemented!()
+    pub fn axis_code(&self, axis: Axis) -> Option<NativeEvCode> {
+        self.mapping.map_rev_axis(axis)
     }
 }
 
+// TODO: use pub(crate)
 impl AsInner<platform::Gamepad> for Gamepad {
     fn as_inner(&self) -> &platform::Gamepad {
         &self.inner
@@ -595,13 +643,15 @@ impl AsInner<platform::Gamepad> for Gamepad {
     }
 }
 
+// TODO: use pub(crate)
 pub trait GamepadImplExt {
-    fn from_inner_status(inner: platform::Gamepad, status: Status, threshold: Deadzones) -> Self;
+    fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self;
 }
 
+// TODO: use pub(crate)
 impl GamepadImplExt for Gamepad {
-    fn from_inner_status(inner: platform::Gamepad, status: Status, threshold: Deadzones) -> Self {
-        Self::new(inner, status, threshold)
+    fn from_inner_status(inner: platform::Gamepad, status: Status) -> Self {
+        Self::new(inner, status)
     }
 }
 
@@ -615,53 +665,6 @@ pub enum Status {
     Connected,
     Disconnected,
     NotObserved,
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct Deadzones {
-    pub right_stick: f32,
-    pub left_stick: f32,
-    pub left_z: f32,
-    pub right_z: f32,
-    pub right_trigger: f32,
-    pub right_trigger2: f32,
-    pub left_trigger: f32,
-    pub left_trigger2: f32,
-}
-
-impl Deadzones {
-    #[allow(dead_code)]
-    pub fn set(&mut self, axis: Axis, val: f32) {
-        match axis {
-            Axis::LeftStickX => self.left_stick = val,
-            Axis::LeftStickY => self.left_stick = val,
-            Axis::LeftZ => self.left_z = val,
-            Axis::RightStickX => self.right_stick = val,
-            Axis::RightStickY => self.right_stick = val,
-            Axis::RightZ => self.right_z = val,
-            Axis::LeftTrigger => self.left_trigger = val,
-            Axis::LeftTrigger2 => self.left_trigger2 = val,
-            Axis::RightTrigger => self.right_trigger = val,
-            Axis::RightTrigger2 => self.right_trigger2 = val,
-            Axis::Unknown => (),
-        };
-    }
-
-    pub fn get(&self, axis: Axis) -> f32 {
-        match axis {
-            Axis::LeftStickX => self.left_stick,
-            Axis::LeftStickY => self.left_stick,
-            Axis::LeftZ => self.left_z,
-            Axis::RightStickX => self.right_stick,
-            Axis::RightStickY => self.right_stick,
-            Axis::RightZ => self.right_z,
-            Axis::LeftTrigger => self.left_trigger,
-            Axis::LeftTrigger2 => self.left_trigger2,
-            Axis::RightTrigger => self.right_trigger,
-            Axis::RightTrigger2 => self.right_trigger2,
-            Axis::Unknown => 0.05,
-        }
-    }
 }
 
 /// Platform specific event code.
@@ -805,6 +808,8 @@ pub enum Axis {
     RightStickX = AXIS_RSTICKX,
     RightStickY = AXIS_RSTICKY,
     RightZ = AXIS_RIGHTZ,
+    DPadX = AXIS_DPADX,
+    DPadY = AXIS_DPADY,
     LeftTrigger = AXIS_LT,
     LeftTrigger2 = AXIS_LT2,
     RightTrigger = AXIS_RT,

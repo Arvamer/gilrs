@@ -3,17 +3,17 @@ use gamepad::{Event, EventType, Gilrs};
 use std::time::{Duration, SystemTime};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Noise {
+pub struct Jitter {
     pub threshold: f32,
 }
 
-impl Noise {
+impl Jitter {
     pub fn new() -> Self {
-        Noise { threshold: 0.01 }
+        Jitter { threshold: 0.01 }
     }
 }
 
-impl FilterFn for Noise {
+impl FilterFn for Jitter {
     fn filter(&self, ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
         match ev {
             Some(Event {
