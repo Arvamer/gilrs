@@ -14,7 +14,11 @@ pub fn test_bit(n: u16, array: &[u8]) -> bool {
 
 /// Like `(a: f32 / b).ceil()` but for integers.
 pub fn ceil_div(a: u32, b: u32) -> u32 {
-    if a == 0 { 0 } else { 1 + ((a - 1) / b) }
+    if a == 0 {
+        0
+    } else {
+        1 + ((a - 1) / b)
+    }
 }
 
 pub fn clamp(x: f32, min: f32, max: f32) -> f32 {

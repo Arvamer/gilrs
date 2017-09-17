@@ -90,9 +90,9 @@
 //! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
 
 #[cfg(target_os = "linux")]
-extern crate libudev_sys;
-#[cfg(target_os = "linux")]
 extern crate libc;
+#[cfg(target_os = "linux")]
+extern crate libudev_sys;
 #[cfg(target_os = "linux")]
 #[macro_use]
 extern crate nix;
@@ -102,10 +102,10 @@ extern crate winapi;
 #[cfg(target_os = "windows")]
 extern crate xinput;
 
-extern crate vec_map;
-extern crate uuid;
 #[macro_use]
 extern crate log;
+extern crate uuid;
+extern crate vec_map;
 
 mod gamepad;
 mod platform;

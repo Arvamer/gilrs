@@ -17,15 +17,13 @@ impl FilterFn for Jitter {
     fn filter(&self, ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
         match ev {
             Some(Event {
-                     event: EventType::AxisChanged(_, val, axis),
-                     id,
-                     ..
-                 }) => {
-                match gilrs.gamepad(id).state().axis_data(axis) {
-                    Some(data) if (val - data.value()).abs() < self.threshold => None,
-                    _ => ev,
-                }
-            }
+                event: EventType::AxisChanged(_, val, axis),
+                id,
+                ..
+            }) => match gilrs.gamepad(id).state().axis_data(axis) {
+                Some(data) if (val - data.value()).abs() < self.threshold => None,
+                _ => ev,
+            },
             _ => ev,
         }
     }

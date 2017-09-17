@@ -187,11 +187,9 @@ impl Mapping {
             let m_axes = &mut mapping.axes;
 
             match key {
-                "platform" => {
-                    if val != platform::NAME {
-                        return Err(ParseSdlMappingError::NotTargetPlatform);
-                    }
-                }
+                "platform" => if val != platform::NAME {
+                    return Err(ParseSdlMappingError::NotTargetPlatform);
+                },
                 "x" => {
                     Mapping::insert_btn(val, buttons, m_btns, Button::West)?;
                 }
@@ -349,9 +347,10 @@ impl Mapping {
             Ok(val) => val,
             Err(_) => return Err(ParseSdlMappingError::InvalidValue),
         };
-        buttons.get(val).cloned().ok_or(
-            ParseSdlMappingError::InvalidBtn,
-        )
+        buttons
+            .get(val)
+            .cloned()
+            .ok_or(ParseSdlMappingError::InvalidBtn)
     }
 
     fn get_axis(val: &str, axes: &[NativeEvCode]) -> Result<NativeEvCode, ParseSdlMappingError> {
@@ -361,9 +360,9 @@ impl Mapping {
                 Ok(val) => val,
                 Err(_) => return Err(ParseSdlMappingError::InvalidValue),
             };
-            axes.get(val).cloned().ok_or(
-                ParseSdlMappingError::InvalidAxis,
-            )
+            axes.get(val)
+                .cloned()
+                .ok_or(ParseSdlMappingError::InvalidAxis)
         } else if ident == "h" {
             let mut val_it = val.split('.');
 
@@ -465,9 +464,10 @@ impl Mapping {
         sdl_mappings: &mut String,
         mapped_btns: &mut VecMap<Button>,
     ) -> Result<(), MappingError> {
-        let n_btn = buttons.iter().position(|&x| x == ev_code).ok_or(
-            MappingError::InvalidCode(ev_code),
-        )?;
+        let n_btn = buttons
+            .iter()
+            .position(|&x| x == ev_code)
+            .ok_or(MappingError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
         mapped_btns.insert(ev_code as usize, mapped_btn);
         Ok(())
@@ -481,9 +481,9 @@ impl Mapping {
         sdl_mappings: &mut String,
         mapped_axes: &mut VecMap<Axis>,
     ) -> Result<(), MappingError> {
-        let n_axis = axes.iter().position(|&x| x == ev_code).ok_or(
-            MappingError::InvalidCode(ev_code),
-        )?;
+        let n_axis = axes.iter()
+            .position(|&x| x == ev_code)
+            .ok_or(MappingError::InvalidCode(ev_code))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
         mapped_axes.insert(ev_code as usize, mapped_axis);
         Ok(())
@@ -494,27 +494,31 @@ impl Mapping {
     }
 
     pub fn map_button(&self, code: NativeEvCode) -> Button {
-        self.btns.get(code as usize).cloned().unwrap_or(
-            Button::Unknown,
-        )
+        self.btns
+            .get(code as usize)
+            .cloned()
+            .unwrap_or(Button::Unknown)
     }
 
     pub fn map_axis(&self, code: NativeEvCode) -> Axis {
-        self.axes.get(code as usize).cloned().unwrap_or(
-            Axis::Unknown,
-        )
+        self.axes
+            .get(code as usize)
+            .cloned()
+            .unwrap_or(Axis::Unknown)
     }
 
     pub fn map_rev_axis(&self, axis: Axis) -> Option<NativeEvCode> {
-        self.axes.iter().find(|x| *x.1 == axis).map(|x| {
-            x.0 as NativeEvCode
-        })
+        self.axes
+            .iter()
+            .find(|x| *x.1 == axis)
+            .map(|x| x.0 as NativeEvCode)
     }
 
     pub fn map_rev_button(&self, btn: Button) -> Option<NativeEvCode> {
-        self.btns.iter().find(|x| *x.1 == btn).map(|x| {
-            x.0 as NativeEvCode
-        })
+        self.btns
+            .iter()
+            .find(|x| *x.1 == btn)
+            .map(|x| x.0 as NativeEvCode)
     }
 
     fn unmap_not_mapped_axes(&mut self) {
@@ -526,9 +530,9 @@ impl Mapping {
         mapped_axes.sort();
         mapped_axes.dedup();
         for mapped_axis in mapped_axes.into_iter() {
-            self.axes.entry(mapped_axis as usize).or_insert(
-                Axis::Unknown,
-            );
+            self.axes
+                .entry(mapped_axis as usize)
+                .or_insert(Axis::Unknown);
         }
     }
 }
@@ -548,8 +552,7 @@ impl Default for Mapping {
             };
         }
 
-        let btns =
-            vec_map![
+        let btns = vec_map![
             nec::BTN_SOUTH => Button::South,
             nec::BTN_EAST => Button::East,
             nec::BTN_C => Button::C,
@@ -571,8 +574,7 @@ impl Default for Mapping {
             nec::BTN_DPAD_RIGHT => Button::DPadRight
         ];
 
-        let axes =
-            vec_map![
+        let axes = vec_map![
             nec::AXIS_LSTICKX => Axis::LeftStickX,
             nec::AXIS_LSTICKY => Axis::LeftStickY,
             nec::AXIS_LEFTZ => Axis::LeftZ,
@@ -832,8 +834,12 @@ mod tests {
                                     dpleft:h0.8,dpdown:h0.4,dpright:h0.2,leftx:a0,lefty:a1,rightx:\
                                     a2,righty:a3,lefttrigger:a4,righttrigger:a5,";
 
-    const BUTTONS: [u16; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    const AXES: [u16; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+    const BUTTONS: [u16; 12] = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+    ];
+    const AXES: [u16; 8] = [
+        0, 1, 2, 3, 4, 5, 6, 7
+    ];
 
     #[test]
     fn mapping() {
@@ -844,8 +850,12 @@ mod tests {
     fn from_data() {
         let uuid = Uuid::nil();
         let name = "Best Gamepad";
-        let buttons = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-        let axes = [0, 1, 2, 3, 4, 5, 6, 7];
+        let buttons = [
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
+        ];
+        let axes = [
+            0, 1, 2, 3, 4, 5, 6, 7
+        ];
 
         let mut data = MappingData::new();
         data[Axis::LeftStickX] = 0;
@@ -872,14 +882,14 @@ mod tests {
         data[Button::LeftThumb] = 21;
         data[Button::RightThumb] = 22;
 
-        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
-            .unwrap();
+        let (mappings, sdl_mappings) =
+            Mapping::from_data(&data, &buttons, &axes, name, uuid).unwrap();
         let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
         assert_eq!(mappings, sdl_mappings);
 
         data[Button::North] = data.button(Button::South).unwrap();
-        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
-            .unwrap();
+        let (mappings, sdl_mappings) =
+            Mapping::from_data(&data, &buttons, &axes, name, uuid).unwrap();
         let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
         assert_eq!(mappings, sdl_mappings);
 
@@ -909,8 +919,8 @@ mod tests {
         data[Button::C] = 10;
         data[Button::Z] = 11;
 
-        let (mappings, sdl_mappings) = Mapping::from_data(&data, &buttons, &axes, name, uuid)
-            .unwrap();
+        let (mappings, sdl_mappings) =
+            Mapping::from_data(&data, &buttons, &axes, name, uuid).unwrap();
         let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
         assert_eq!(mappings, sdl_mappings);
 

@@ -154,16 +154,13 @@ impl Gilrs {
                     if let Some(gamepad) = Gamepad::open(&dev) {
                         if let Some(id) = self.gamepads.iter().position(|gp| {
                             gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
-                        })
-                        {
+                        }) {
                             self.gamepads[id] =
                                 MainGamepad::from_inner_status(gamepad, Status::Connected);
                             return Some(Event::new(id, EventType::Connected));
                         } else {
-                            self.gamepads.push(MainGamepad::from_inner_status(
-                                gamepad,
-                                Status::Connected,
-                            ));
+                            self.gamepads
+                                .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
                             return Some(Event::new(self.gamepads.len() - 1, EventType::Connected));
                         }
                     }
@@ -171,8 +168,7 @@ impl Gilrs {
                     if let Some(devnode) = dev.devnode() {
                         if let Some(id) = self.gamepads.iter().position(|gp| {
                             is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
-                        })
-                        {
+                        }) {
                             self.gamepads[id].as_inner_mut().disconnect();
                             return Some(Event::new(id, EventType::Disconnected));
                         } else {
@@ -198,7 +194,11 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
             l_ptr = l_ptr.offset(1);
             r_ptr = r_ptr.offset(1);
         }
-        if *l_ptr == 0 && r_ptr == end { true } else { false }
+        if *l_ptr == 0 && r_ptr == end {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -228,9 +228,9 @@ impl AxesInfo {
     }
 
     fn deadzone(&self, idx: u16) -> f32 {
-        self.info.get(idx as usize).map_or(0.0, |i| {
-            i.flat as f32 / i.maximum as f32
-        })
+        self.info
+            .get(idx as usize)
+            .map_or(0.0, |i| i.flat as f32 / i.maximum as f32)
     }
 }
 
@@ -470,7 +470,11 @@ impl Gamepad {
 
     fn is_gamepad(&self) -> bool {
         // TODO: improve it (for example check for buttons in range)
-        if self.buttons.len() >= 1 && self.axes.len() >= 2 { true } else { false }
+        if self.buttons.len() >= 1 && self.axes.len() >= 2 {
+            true
+        } else {
+            false
+        }
     }
 
     fn create_uuid(fd: i32) -> Option<Uuid> {
@@ -573,10 +577,8 @@ impl Gamepad {
                     None
                 }
                 EV_KEY => {
-                    self.buttons_values.insert(
-                        event.code as usize,
-                        event.value == 1,
-                    );
+                    self.buttons_values
+                        .insert(event.code as usize, event.value == 1);
                     let btn = Button::Unknown;
                     match event.value {
                         0 => Some(EventType::ButtonReleased(btn, event.code)),
@@ -648,9 +650,10 @@ impl Gamepad {
 
         for btn in self.buttons.iter().cloned() {
             let val = test_bit(btn, &buf);
-            if self.buttons_values.get(btn as usize).cloned().unwrap_or(
-                false,
-            ) != val
+            if self.buttons_values
+                .get(btn as usize)
+                .cloned()
+                .unwrap_or(false) != val
             {
                 self.dropped_events.push(input_event {
                     type_: EV_KEY,
@@ -663,8 +666,8 @@ impl Gamepad {
     }
 
     fn axis_value(axes_info: input_absinfo, val: i32, axis: u16) -> f32 {
-        let mut val = val as f32 /
-            if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
+        let mut val =
+            val as f32 / if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
         // FIXME: axis is not mapped
         if axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY || axis == ABS_Z ||
             axis == ABS_RZ && axes_info.minimum == 0
@@ -730,7 +733,11 @@ impl Gamepad {
             }
             PowerInfo::Unknown
         } else {
-            if self.fd > -1 { PowerInfo::Wired } else { PowerInfo::Unknown }
+            if self.fd > -1 {
+                PowerInfo::Wired
+            } else {
+                PowerInfo::Unknown
+            }
         }
     }
 
@@ -842,14 +849,7 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
         vendor,
         0,
         &[
-            (product >> 8) as u8,
-            product as u8,
-            0,
-            0,
-            (version >> 8) as u8,
-            version as u8,
-            0,
-            0,
+            (product >> 8) as u8, product as u8, 0, 0, (version >> 8) as u8, version as u8, 0, 0
         ],
     ).unwrap()
 }

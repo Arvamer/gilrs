@@ -16,7 +16,11 @@ pub struct Udev(*mut ud::udev);
 impl Udev {
     pub fn new() -> Option<Self> {
         let u = unsafe { ud::udev_new() };
-        if u.is_null() { None } else { Some(Udev(u)) }
+        if u.is_null() {
+            None
+        } else {
+            Some(Udev(u))
+        }
     }
 
     pub fn enumerate(&self) -> Option<Enumerate> {
@@ -99,7 +103,11 @@ pub struct Device(*mut ud::udev_device);
 impl Device {
     pub fn from_syspath(udev: &Udev, path: &CStr) -> Option<Self> {
         let dev = unsafe { ud::udev_device_new_from_syspath(udev.0, path.as_ptr()) };
-        if dev.is_null() { None } else { Some(Device(dev)) }
+        if dev.is_null() {
+            None
+        } else {
+            Some(Device(dev))
+        }
     }
 
     pub fn syspath(&self) -> &CStr {
@@ -110,7 +118,11 @@ impl Device {
     pub fn devnode(&self) -> Option<&CStr> {
         unsafe {
             let s = ud::udev_device_get_devnode(self.0);
-            if s.is_null() { None } else { Some(CStr::from_ptr(s)) }
+            if s.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(s))
+            }
         }
     }
 
@@ -123,14 +135,22 @@ impl Device {
     pub fn action(&self) -> Option<&CStr> {
         unsafe {
             let s = ud::udev_device_get_action(self.0);
-            if s.is_null() { None } else { Some(CStr::from_ptr(s)) }
+            if s.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(s))
+            }
         }
     }
 
     pub fn property_value(&self, key: &CStr) -> Option<&CStr> {
         unsafe {
             let s = ud::udev_device_get_property_value(self.0, key.as_ptr());
-            if s.is_null() { None } else { Some(CStr::from_ptr(s)) }
+            if s.is_null() {
+                None
+            } else {
+                Some(CStr::from_ptr(s))
+            }
         }
     }
 }

@@ -160,8 +160,6 @@ pub struct ff_effect {
     pub trigger: ff_trigger,
     pub replay: ff_replay,
     // FIXME this is actually a union
-    #[cfg(target_pointer_width = "64")]
-    pub u: [u64; 4],
-    #[cfg(target_pointer_width = "32")]
-    pub u: [u32; 7],
+    #[cfg(target_pointer_width = "64")] pub u: [u64; 4],
+    #[cfg(target_pointer_width = "32")] pub u: [u32; 7],
 }

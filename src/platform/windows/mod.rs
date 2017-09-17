@@ -8,6 +8,6 @@ mod gamepad;
 mod ff;
 
 pub use self::ff::Device as FfDevice;
-pub use self::gamepad::{Gamepad, Gilrs, native_ev_codes};
+pub use self::gamepad::{native_ev_codes, Gamepad, Gilrs};
 
 pub const NAME: &'static str = "Windows";

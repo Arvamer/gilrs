@@ -46,9 +46,10 @@ impl GamepadState {
 
     /// Returns value of axis or 0.0 when there is no information about axis.
     pub fn value(&self, axis: NativeEvCode) -> f32 {
-        self.axes.get(axis as usize).map(|s| s.value()).unwrap_or(
-            0.0,
-        )
+        self.axes
+            .get(axis as usize)
+            .map(|s| s.value())
+            .unwrap_or(0.0)
     }
 
     /// Iterate over buttons data.

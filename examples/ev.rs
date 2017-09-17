@@ -1,5 +1,5 @@
-extern crate gilrs;
 extern crate env_logger;
+extern crate gilrs;
 
 use gilrs::Gilrs;
 use gilrs::ev::filter::{Filter, Jitter, Repeat};
@@ -14,10 +14,10 @@ fn main() {
     let repeat_filter = Repeat::new();
 
     loop {
-        while let Some(ev) = gilrs.next_event().filter(&noise_filter, &gilrs).filter(
-            &repeat_filter,
-            &gilrs,
-        )
+        while let Some(ev) = gilrs
+            .next_event()
+            .filter(&noise_filter, &gilrs)
+            .filter(&repeat_filter, &gilrs)
         {
             gilrs.update(&ev);
             println!("{:?}", ev);

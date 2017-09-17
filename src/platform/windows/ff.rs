@@ -31,14 +31,14 @@ impl Device {
                 ERROR_DEVICE_NOT_CONNECTED => {
                     error!(
                         "Failed to change FF state – gamepad with id {} is no \
-                                        longer connected.",
+                         longer connected.",
                         self.id
                     );
                 }
                 _ => {
                     error!(
                         "Failed to change FF state – unknown error. ID = {}, \
-                                        error code = {}.",
+                         error code = {}.",
                         self.id,
                         err
                     );

@@ -175,43 +175,24 @@ impl Gilrs {
 
         match event.event {
             ButtonPressed(_, nec) => {
-                gamepad.state.update_btn(
-                    nec,
-                    ButtonData::new(
-                        true,
-                        false,
-                        counter,
-                        event.time,
-                    ),
-                );
+                gamepad
+                    .state
+                    .update_btn(nec, ButtonData::new(true, false, counter, event.time));
             }
             ButtonReleased(_, nec) => {
-                gamepad.state.update_btn(
-                    nec,
-                    ButtonData::new(
-                        false,
-                        false,
-                        counter,
-                        event.time,
-                    ),
-                );
+                gamepad
+                    .state
+                    .update_btn(nec, ButtonData::new(false, false, counter, event.time));
             }
             ButtonRepeated(_, nec) => {
-                gamepad.state.update_btn(
-                    nec,
-                    ButtonData::new(
-                        true,
-                        true,
-                        counter,
-                        event.time,
-                    ),
-                );
+                gamepad
+                    .state
+                    .update_btn(nec, ButtonData::new(true, true, counter, event.time));
             }
             AxisChanged(_, value, nec) => {
-                gamepad.state.update_axis(
-                    nec,
-                    AxisData::new(value, counter, event.time),
-                );
+                gamepad
+                    .state
+                    .update_axis(nec, AxisData::new(value, counter, event.time));
             }
             _ => (),
         }
@@ -250,9 +231,9 @@ impl Gilrs {
     }
 
     fn create_ff_devices(&self) {
-        for (id, gp) in self.gamepads().filter(|&(_, g)| g.is_ff_supported()).map(
-            |(id, g)| (id, g.inner.ff_device()),
-        )
+        for (id, gp) in self.gamepads()
+            .filter(|&(_, g)| g.is_ff_supported())
+            .map(|(id, g)| (id, g.inner.ff_device()))
         {
             if let Some(device) = gp {
                 let _ = self.tx.send(Message::Open { id, device });
@@ -304,13 +285,21 @@ impl Gilrs {
     /// Returns a reference to connected gamepad or `None`.
     pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
         let gp = self.inner.gamepad(id);
-        if gp.is_connected() { Some(gp) } else { None }
+        if gp.is_connected() {
+            Some(gp)
+        } else {
+            None
+        }
     }
 
     /// Returns a mutable reference to connected gamepad or `None`.
     pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let gp = self.inner.gamepad_mut(id);
-        if gp.is_connected() { Some(gp) } else { None }
+        if gp.is_connected() {
+            Some(gp)
+        } else {
+            None
+        }
     }
 
     pub fn set_listener_position<Vec3: Into<[f32; 3]>>(
@@ -478,16 +467,14 @@ impl Gamepad {
 
     /// Returns button state and when it changed.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
-        self.button_code(btn).and_then(
-            |nec| self.state.button_data(nec),
-        )
+        self.button_code(btn)
+            .and_then(|nec| self.state.button_data(nec))
     }
 
     /// Returns axis state and when it changed.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
-        self.axis_code(axis).and_then(
-            |nec| self.state.axis_data(nec),
-        )
+        self.axis_code(axis)
+            .and_then(|nec| self.state.axis_data(nec))
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.

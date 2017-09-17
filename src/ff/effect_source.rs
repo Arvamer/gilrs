@@ -182,8 +182,7 @@ pub enum DistanceModelError {
     InvalidMaxDistance,
     /// Possible divide by zero
     InvalidModelParameter,
-    #[doc(hidden)]
-    __Nonexhaustive,
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Error for DistanceModelError {
@@ -260,9 +259,8 @@ impl EffectSource {
             _ => (),
         }
 
-        let attenuation = self.distance_model.attenuation(
-            self.position.distance(actor_pos),
-        ) * self.gain;
+        let attenuation = self.distance_model
+            .attenuation(self.position.distance(actor_pos)) * self.gain;
         if attenuation < 0.05 {
             return Magnitude::zero();
         }
