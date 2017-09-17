@@ -57,9 +57,8 @@ mod time;
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
 pub use self::effect_source::{DistanceModel, DistanceModelError};
 pub use self::time::{Repeat, Ticks};
-pub(crate) use self::time::TICK_DURATION;
 
-use std::{f32, fmt, u32};
+use std::{f32, fmt};
 use std::error::Error as StdError;
 use std::hash::{Hash, Hasher};
 use std::sync::mpsc::{SendError, Sender};

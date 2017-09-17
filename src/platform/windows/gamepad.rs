@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
-use gamepad::{self, Axis, Button, Deadzones, Event, EventType, GamepadImplExt, MappingSource,
-              PowerInfo, Status};
+use gamepad::{self, Axis, Button, Event, EventType, GamepadImplExt, MappingSource, PowerInfo,
+              Status, NativeEvCode};
 use mapping::{MappingData, MappingError};
 
 use uuid::Uuid;
@@ -60,13 +60,8 @@ impl Gilrs {
             not_observed: gamepad::Gamepad::from_inner_status(
                 Gamepad::none(),
                 Status::NotObserved,
-                deadzones(),
             ),
         }
-    }
-
-    pub fn with_mappings(_sdl_mapping: &str) -> Self {
-        Self::new()
     }
 
     pub fn next_event(&mut self) -> Option<Event> {
@@ -554,25 +549,24 @@ impl Gamepad {
         }
     }
 
-    pub fn mapping_source(&self) -> MappingSource {
-        MappingSource::Driver
-    }
-
-    pub fn set_mapping(
-        &mut self,
-        _mapping: &MappingData,
-        _strict: bool,
-        _name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        Err(MappingError::NotImplemented)
-    }
-
     pub fn is_ff_supported(&self) -> bool {
         true
     }
 
     pub fn ff_device(&self) -> Option<FfDevice> {
         Some(FfDevice::new(self.id))
+    }
+
+    pub fn buttons(&self) -> &[NativeEvCode] {
+        &native_ev_codes::BUTTONS
+    }
+
+    pub fn axes(&self) -> &[NativeEvCode] {
+        &native_ev_codes::AXES
+    }
+
+    pub fn set_name(&mut self, name: &str) {
+        self.name = name.to_owned();
     }
 }
 
@@ -585,7 +579,7 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
     let gamepad = Gamepad {
         name: format!("XInput Controller {}", id + 1),
         uuid: Uuid::nil(),
-        id: id,
+        id,
     };
 
     let status = unsafe {
@@ -597,20 +591,10 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
         }
     };
 
-    gamepad::Gamepad::from_inner_status(gamepad, status, deadzones())
-}
-
-fn deadzones() -> Deadzones {
-    Deadzones {
-        right_stick: xi::XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as f32 / 65534.0,
-        left_stick: xi::XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as f32 / 65534.0,
-        left_trigger2: xi::XINPUT_GAMEPAD_TRIGGER_THRESHOLD as f32 / 255.0,
-        ..Default::default()
-    }
+    gamepad::Gamepad::from_inner_status(gamepad, status)
 }
 
 pub mod native_ev_codes {
-    #![allow(dead_code)]
     pub const BTN_SOUTH: u16 = 0;
     pub const BTN_EAST: u16 = 1;
     pub const BTN_C: u16 = 2;
@@ -644,4 +628,31 @@ pub mod native_ev_codes {
     pub const AXIS_LT: u16 = 9;
     pub const AXIS_RT2: u16 = 10;
     pub const AXIS_LT2: u16 = 11;
+
+    pub(super) static BUTTONS: [u16; 15] = [
+        BTN_SOUTH,
+        BTN_EAST,
+        BTN_NORTH,
+        BTN_WEST,
+        BTN_LT,
+        BTN_RT,
+        BTN_SELECT,
+        BTN_START,
+        BTN_MODE,
+        BTN_LTHUMB,
+        BTN_RTHUMB,
+        BTN_DPAD_UP,
+        BTN_DPAD_DOWN,
+        BTN_DPAD_LEFT,
+        BTN_DPAD_RIGHT,
+    ];
+
+    pub(super) static AXES: [u16; 6] = [
+        AXIS_LSTICKX,
+        AXIS_LSTICKY,
+        AXIS_RSTICKX,
+        AXIS_RSTICKY,
+        AXIS_RT2,
+        AXIS_LT2,
+    ];
 }
