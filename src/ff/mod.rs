@@ -348,7 +348,6 @@ impl From<DistanceModelError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::u32;
 
     #[test]
     fn envelope() {

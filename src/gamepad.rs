@@ -216,6 +216,11 @@ impl Gilrs {
         self.counter
     }
 
+    /// Sets counter to 0.
+    pub fn reset_counter(&mut self) {
+        self.counter = 0;
+    }
+
     /// Creates new `Gilrs` and add content of `sdl_mapping` to internal database. Each mapping
     /// should be in separate line. Lines that does not start from UUID are ignored.
     ///
@@ -677,8 +682,30 @@ pub struct Event {
 }
 
 impl Event {
-    pub(crate) fn new(id: usize, event: EventType) -> Self {
+    /// Creates new event with current time.
+    pub fn new(id: usize, event: EventType) -> Self {
         Event { id, event, time: SystemTime::now() }
+    }
+
+    /// Returns `Event` with `EventType::Dropped`.
+    pub fn drop(mut self) -> Event {
+        self.event = EventType::Dropped;
+
+        self
+    }
+
+    /// Creates `Event` with `EventType::Dropped`.
+    pub fn dropped() -> Event {
+        Event {
+            id: ::std::usize::MAX,
+            event: EventType::Dropped,
+            time: SystemTime::now(),
+        }
+    }
+
+    /// Returns true if event is `Dropped` and should be ignored.
+    pub fn is_dropped(&self) -> bool {
+        self.event == EventType::Dropped
     }
 }
 
@@ -700,6 +727,8 @@ pub enum EventType {
     Connected,
     /// Gamepad has been disconnected. Disconnected gamepad will not generate any new events.
     Disconnected,
+    /// There was an `Event`, but it was dropped by one of filters. You should ignore it.
+    Dropped,
 }
 
 #[repr(u16)]

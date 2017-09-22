@@ -116,6 +116,7 @@ mod utils;
 pub mod ff;
 pub mod ev;
 
+pub use ev::filter::Filter;
 pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
                   EventType, Gamepad, Gilrs, MappingSource, NativeEvCode, PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};

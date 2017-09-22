@@ -19,8 +19,10 @@ fn main() {
             .filter(&noise_filter, &gilrs)
             .filter(&repeat_filter, &gilrs)
         {
-            gilrs.update(&ev);
-            println!("{:?}", ev);
+            if !ev.is_dropped() {
+                gilrs.update(&ev);
+                println!("{:?}", ev);
+            }
         }
 
         if gilrs.counter() % 250 == 0 {
