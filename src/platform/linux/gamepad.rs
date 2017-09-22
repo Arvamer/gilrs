@@ -18,6 +18,7 @@ use libc as c;
 use uuid::Uuid;
 use vec_map::VecMap;
 
+use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::mem;
 use std::ops::Index;
@@ -30,11 +31,13 @@ pub struct Gilrs {
     monitor: Option<Monitor>,
     not_observed: MainGamepad,
     event_counter: usize,
+    additional_events: VecDeque<Event>,
 }
 
 impl Gilrs {
     pub fn new() -> Self {
         let mut gamepads = Vec::new();
+        let mut additional_events = VecDeque::new();
 
         let udev = match Udev::new() {
             Some(udev) => udev,
@@ -58,6 +61,8 @@ impl Gilrs {
             if let Some(dev) = Device::from_syspath(&udev, &dev) {
                 if let Some(gamepad) = Gamepad::open(&dev) {
                     gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected));
+                    additional_events
+                        .push_back(Event::new(gamepads.len() - 1, EventType::Connected));
                 }
             }
         }
@@ -68,10 +73,11 @@ impl Gilrs {
         }
 
         Gilrs {
-            gamepads: gamepads,
-            monitor: monitor,
+            gamepads,
+            monitor,
             not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
             event_counter: 0,
+            additional_events,
         }
     }
 
@@ -81,12 +87,15 @@ impl Gilrs {
             monitor: None,
             not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
             event_counter: 0,
+            additional_events: VecDeque::new(),
         }
     }
 
     pub fn next_event(&mut self) -> Option<Event> {
-        // If there is hotplug event return it, otherwise loop over all gamepdas checking if there
-        // is some event.
+        if let Some(event) = self.additional_events.pop_front() {
+            return Some(event);
+        }
+
         if let Some(event) = self.handle_hotplug() {
             return Some(event);
         }

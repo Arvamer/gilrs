@@ -695,7 +695,8 @@ pub enum EventType {
     /// triggers.
     AxisChanged(Axis, f32, NativeEvCode),
     /// Gamepad has been connected. If gamepad's UUID doesn't match one of disconnected gamepads,
-    /// newly connected gamepad will get new ID.
+    /// newly connected gamepad will get new ID. This event is also emitted when creating `Gilrs`
+    /// for every gamepad that was already connected.
     Connected,
     /// Gamepad has been disconnected. Disconnected gamepad will not generate any new events.
     Disconnected,

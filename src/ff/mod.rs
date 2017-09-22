@@ -57,6 +57,7 @@ mod time;
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
 pub use self::effect_source::{DistanceModel, DistanceModelError};
 pub use self::time::{Repeat, Ticks};
+#[allow(unused_imports)]
 pub(crate) use self::time::TICK_DURATION;
 
 

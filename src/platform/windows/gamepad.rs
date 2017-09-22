@@ -6,9 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
-use gamepad::{self, Axis, Button, Event, EventType, GamepadImplExt, MappingSource, NativeEvCode,
-              PowerInfo, Status};
-use mapping::{MappingData, MappingError};
+use gamepad::{self, Axis, Button, Event, EventType, GamepadImplExt, NativeEvCode, PowerInfo,
+              Status};
 
 use uuid::Uuid;
 use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
@@ -22,6 +21,7 @@ use winapi::xinput::{self as xi, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
 use xinput;
 
 use std::{mem, thread, i16, u16, u32, u8};
+use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
@@ -34,6 +34,7 @@ pub struct Gilrs {
     gamepads: [gamepad::Gamepad; 4],
     rx: Receiver<Event>,
     not_observed: gamepad::Gamepad,
+    additional_events: VecDeque<Event>,
 }
 
 impl Gilrs {
@@ -44,24 +45,38 @@ impl Gilrs {
             gamepad_new(2),
             gamepad_new(3),
         ];
+
         let connected = [
             gamepads[0].is_connected(),
             gamepads[1].is_connected(),
             gamepads[2].is_connected(),
             gamepads[3].is_connected(),
         ];
+
+        let additional_events = connected
+            .iter()
+            .enumerate()
+            .filter(|&(_, &con)| con)
+            .map(|(i, _)| Event::new(i, EventType::Connected))
+            .collect();
+
         unsafe { xinput::XInputEnable(1) };
         let (tx, rx) = mpsc::channel();
         Self::spawn_thread(tx, connected);
         Gilrs {
-            gamepads: gamepads,
-            rx: rx,
+            gamepads,
+            rx,
             not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
+            additional_events,
         }
     }
 
     pub fn next_event(&mut self) -> Option<Event> {
-        self.rx.try_recv().ok()
+        if let Some(event) = self.additional_events.pop_front() {
+            Some(event)
+        } else {
+            self.rx.try_recv().ok()
+        }
     }
 
     pub fn gamepad(&self, id: usize) -> &gamepad::Gamepad {
