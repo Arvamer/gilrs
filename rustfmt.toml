@@ -8,3 +8,4 @@ reorder_imports_in_group = true
 struct_lit_width = 40
 struct_variant_width = 60
 use_try_shorthand = true
+format_strings = true

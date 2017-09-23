@@ -167,11 +167,11 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
     use platform::native_ev_codes as necs;
 
     fn can_map(gp: &Gamepad) -> bool {
-        gp.button_name(necs::BTN_DPAD_RIGHT) == Button::Unknown &&
-            gp.button_name(necs::BTN_DPAD_LEFT) == Button::Unknown &&
-            gp.button_name(necs::BTN_DPAD_DOWN) == Button::Unknown &&
-            gp.button_name(necs::BTN_DPAD_UP) == Button::Unknown &&
-            gp.button_code(Button::DPadRight).is_none()
+        gp.button_name(necs::BTN_DPAD_RIGHT) == Button::Unknown
+            && gp.button_name(necs::BTN_DPAD_LEFT) == Button::Unknown
+            && gp.button_name(necs::BTN_DPAD_DOWN) == Button::Unknown
+            && gp.button_name(necs::BTN_DPAD_UP) == Button::Unknown
+            && gp.button_code(Button::DPadRight).is_none()
     }
 
     match ev {

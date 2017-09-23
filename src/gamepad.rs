@@ -648,8 +648,9 @@ impl Gamepad {
         mapping: &MappingData,
         name: O,
     ) -> Result<String, MappingError> {
-        if mapping.button(Button::C).is_some() || mapping.button(Button::Z).is_some() ||
-            mapping.axis(Axis::LeftZ).is_some() || mapping.axis(Axis::RightZ).is_some()
+        if mapping.button(Button::C).is_some() || mapping.button(Button::Z).is_some()
+            || mapping.axis(Axis::LeftZ).is_some()
+            || mapping.axis(Axis::RightZ).is_some()
         {
             Err(MappingError::NotSdl2Compatible)
         } else {

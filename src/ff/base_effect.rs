@@ -93,12 +93,12 @@ impl Envelope {
         debug_assert!(self.attack_length + self.fade_length < dur);
 
         if ticks < self.attack_length {
-            self.attack_level +
-                ticks.0 as f32 * (1.0 - self.attack_level) / self.attack_length.0 as f32
+            self.attack_level
+                + ticks.0 as f32 * (1.0 - self.attack_level) / self.attack_length.0 as f32
         } else if ticks + self.fade_length > dur {
-            1.0 +
-                (ticks + self.fade_length - dur).0 as f32 * (self.fade_level - 1.0) /
-                    self.fade_length.0 as f32
+            1.0
+                + (ticks + self.fade_length - dur).0 as f32 * (self.fade_level - 1.0)
+                    / self.fade_length.0 as f32
         } else {
             1.0
         }

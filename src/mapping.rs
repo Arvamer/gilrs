@@ -55,14 +55,14 @@ impl Mapping {
             return Err(MappingError::InvalidName);
         }
 
-        if data.axes.contains_key(Axis::LeftTrigger as usize) &&
-            data.buttons.contains_key(Button::LeftTrigger as usize) ||
-            data.axes.contains_key(Axis::LeftTrigger2 as usize) &&
-                data.buttons.contains_key(Button::LeftTrigger2 as usize) ||
-            data.axes.contains_key(Axis::RightTrigger as usize) &&
-                data.buttons.contains_key(Button::RightTrigger as usize) ||
-            data.axes.contains_key(Axis::RightTrigger2 as usize) &&
-                data.buttons.contains_key(Button::RightTrigger2 as usize)
+        if data.axes.contains_key(Axis::LeftTrigger as usize)
+            && data.buttons.contains_key(Button::LeftTrigger as usize)
+            || data.axes.contains_key(Axis::LeftTrigger2 as usize)
+                && data.buttons.contains_key(Button::LeftTrigger2 as usize)
+            || data.axes.contains_key(Axis::RightTrigger as usize)
+                && data.buttons.contains_key(Button::RightTrigger as usize)
+            || data.axes.contains_key(Axis::RightTrigger2 as usize)
+                && data.buttons.contains_key(Button::RightTrigger2 as usize)
         {
             return Err(MappingError::DuplicatedEntry);
         }

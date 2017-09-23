@@ -402,8 +402,8 @@ impl Gamepad {
         unsafe {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
-                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits) &&
-                    test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits)
+                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits)
+                    && test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits)
                 {
                     true
                 } else {
@@ -478,11 +478,11 @@ impl Gamepad {
     }
 
     fn battery_fd(dev: &Device) -> (i32, i32) {
-        use std::fs::{self, File};
-        use std::path::Path;
-        use std::os::unix::io::IntoRawFd;
-        use std::os::unix::ffi::OsStrExt;
         use std::ffi::OsStr;
+        use std::fs::{self, File};
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::io::IntoRawFd;
+        use std::path::Path;
 
         let syspath = Path::new(OsStr::from_bytes(dev.syspath().to_bytes()));
         // Returned syspath points to <device path>/input/inputXX/eventXX. First "device" is
@@ -616,8 +616,8 @@ impl Gamepad {
         let mut val =
             val as f32 / if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
         // FIXME: axis is not mapped
-        if axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY || axis == ABS_Z ||
-            axis == ABS_RZ && axes_info.minimum == 0
+        if axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY || axis == ABS_Z
+            || axis == ABS_RZ && axes_info.minimum == 0
         {
             val = (val - 0.5) * 2.0
         }
