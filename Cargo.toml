@@ -9,7 +9,10 @@ documentation = "https://docs.rs/gilrs/"
 repository = "https://gitlab.com/Arvamer/gilrs"
 readme = "README.md"
 keywords = ["gamepad", "joystick", "input"]
+categories = ["game-engines"]
 
+[badges]
+gitlab = { repository = "Arvamer/gilrs" }
 
 [dependencies]
 vec_map = "0.8"
