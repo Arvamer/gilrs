@@ -621,7 +621,11 @@ impl Gamepad {
         {
             val = (val - 0.5) * 2.0
         }
-        val * if axis == ABS_Y || axis == ABS_RY || axis == ABS_RZ { -1.0 } else { 1.0 }
+        val * if axis == ABS_Y || axis == ABS_RY || axis == ABS_RZ || axis == ABS_HAT0Y {
+            -1.0
+        } else {
+            1.0
+        }
     }
 
     fn disconnect(&mut self) {

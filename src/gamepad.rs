@@ -455,6 +455,7 @@ impl Gamepad {
         assert!(btn != Button::Unknown);
 
         self.button_code(btn)
+            .or_else(|| btn.to_nec())
             .map(|nec| self.state.is_pressed(nec))
             .unwrap_or(false)
     }
@@ -814,6 +815,33 @@ impl Button {
         match self {
             DPadUp | DPadDown | DPadLeft | DPadRight => true,
             _ => false,
+        }
+    }
+
+    fn to_nec(self) -> Option<NativeEvCode> {
+        use platform::native_ev_codes as necs;
+
+        match self {
+            Button::South => Some(necs::BTN_SOUTH),
+            Button::East => Some(necs::BTN_EAST),
+            Button::North => Some(necs::BTN_NORTH),
+            Button::West => Some(necs::BTN_WEST),
+            Button::C => Some(necs::BTN_C),
+            Button::Z => Some(necs::BTN_Z),
+            Button::LeftTrigger => Some(necs::BTN_LT),
+            Button::LeftTrigger2 => Some(necs::BTN_LT2),
+            Button::RightTrigger => Some(necs::BTN_RT),
+            Button::RightTrigger2 => Some(necs::BTN_RT2),
+            Button::Select => Some(necs::BTN_SELECT),
+            Button::Start => Some(necs::BTN_START),
+            Button::Mode => Some(necs::BTN_MODE),
+            Button::LeftThumb => Some(necs::BTN_LTHUMB),
+            Button::RightThumb => Some(necs::BTN_RTHUMB),
+            Button::DPadUp => Some(necs::BTN_DPAD_UP),
+            Button::DPadDown => Some(necs::BTN_DPAD_DOWN),
+            Button::DPadLeft => Some(necs::BTN_DPAD_LEFT),
+            Button::DPadRight => Some(necs::BTN_DPAD_RIGHT),
+            _ => None,
         }
     }
 }

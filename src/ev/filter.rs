@@ -76,7 +76,7 @@
 //! `FilterFn` is also implemented for all `Fn(Option<Event>, &Gilrs) -> Option<Event>`, so above
 //! example could be simplified to passing closure to `filter()` function.
 
-use gamepad::{Event, EventType, Gilrs};
+use gamepad::{Axis, Button, Event, EventType, Gamepad, Gilrs};
 
 use std::time::{Duration, SystemTime};
 
@@ -145,6 +145,90 @@ pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                     id,
                     time,
                     event: EventType::AxisChanged(axis, val, nec),
+                }
+            })
+        }
+        _ => ev,
+    }
+}
+
+/// Maps axis dpad events to button dpad events.
+///
+/// This filter will do nothing if gamepad have dpad buttons (to prevent double events for same
+/// element) and if standard `NativeEvCode` for dpads is used by some other buttons.
+pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
+    use platform::native_ev_codes as necs;
+
+    fn can_map(gp: &Gamepad) -> bool {
+        gp.button_name(necs::BTN_DPAD_RIGHT) == Button::Unknown &&
+            gp.button_name(necs::BTN_DPAD_LEFT) == Button::Unknown &&
+            gp.button_name(necs::BTN_DPAD_DOWN) == Button::Unknown &&
+            gp.button_name(necs::BTN_DPAD_UP) == Button::Unknown &&
+            gp.button_code(Button::DPadRight).is_none()
+    }
+
+    match ev {
+        Some(Event {
+            event: EventType::AxisChanged(Axis::DPadX, val, _),
+            id,
+            time,
+        }) if can_map(gilrs.gamepad(id)) =>
+        {
+            Some(if val == 1.0 {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonPressed(Button::DPadRight, necs::BTN_DPAD_RIGHT),
+                }
+            } else if val == -1.0 {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonPressed(Button::DPadLeft, necs::BTN_DPAD_LEFT),
+                }
+            } else if gilrs.gamepad(id).state().is_pressed(necs::BTN_DPAD_RIGHT) {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonReleased(Button::DPadRight, necs::BTN_DPAD_RIGHT),
+                }
+            } else {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonReleased(Button::DPadLeft, necs::BTN_DPAD_LEFT),
+                }
+            })
+        }
+        Some(Event {
+            event: EventType::AxisChanged(Axis::DPadY, val, _),
+            id,
+            time,
+        }) if can_map(gilrs.gamepad(id)) =>
+        {
+            Some(if val == 1.0 {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonPressed(Button::DPadUp, necs::BTN_DPAD_UP),
+                }
+            } else if val == -1.0 {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonPressed(Button::DPadDown, necs::BTN_DPAD_DOWN),
+                }
+            } else if gilrs.gamepad(id).state().is_pressed(necs::BTN_DPAD_UP) {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonReleased(Button::DPadUp, necs::BTN_DPAD_UP),
+                }
+            } else {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonReleased(Button::DPadDown, necs::BTN_DPAD_DOWN),
                 }
             })
         }

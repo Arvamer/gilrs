@@ -2,7 +2,7 @@ extern crate env_logger;
 extern crate gilrs;
 
 use gilrs::Gilrs;
-use gilrs::ev::filter::{deadzone, Filter, Jitter, Repeat};
+use gilrs::ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter, Repeat};
 
 use std::thread;
 use std::time::Duration;
@@ -16,6 +16,7 @@ fn main() {
     loop {
         while let Some(ev) = gilrs
             .next_event()
+            .filter(&axis_dpad_to_button, &gilrs)
             .filter(&noise_filter, &gilrs)
             .filter(&deadzone, &gilrs)
             .filter(&repeat_filter, &gilrs)
