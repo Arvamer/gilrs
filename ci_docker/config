@@ -1,4 +1,0 @@
-[target.x86_64-pc-windows-gnu]
-ar = "/usr/bin/x86_64-w64-mingw32-ar"
-linker = "/usr/bin/x86_64-w64-mingw32-gcc"
-
