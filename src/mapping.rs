@@ -661,21 +661,17 @@ pub struct MappingDb {
 }
 
 impl MappingDb {
-    pub fn new() -> Self {
-        Self::with_mappings("")
-    }
-
-    pub fn with_mappings(sdl_mappings: &str) -> Self {
+    pub fn without_env() -> Self {
         let mut db = MappingDb { mappings: HashMap::new() };
-
         db.insert(include_str!("../SDL_GameControllerDB/gamecontrollerdb.txt"));
-        db.insert(sdl_mappings);
-
-        if let Ok(mapping) = env::var("SDL_GAMECONTROLLERCONFIG") {
-            db.insert(&mapping);
-        }
 
         db
+    }
+
+    pub fn add_env_mappings(&mut self) {
+        if let Ok(mapping) = env::var("SDL_GAMECONTROLLERCONFIG") {
+            self.insert(&mapping);
+        }
     }
 
     pub fn insert(&mut self, s: &str) {
@@ -952,7 +948,9 @@ mod tests {
             "\nShould be ignored\nThis also should,be ignored\n\n{}",
             TEST_STR
         );
-        let db = MappingDb::with_mappings(&mappings);
+        let mut db = MappingDb::without_env();
+        db.insert(&mappings);
+
         assert_eq!(
             Some(TEST_STR),
             db.get(Uuid::parse_str("03000000260900008888000000010001").unwrap())

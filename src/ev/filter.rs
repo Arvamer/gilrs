@@ -12,10 +12,10 @@
 //! # Example
 //!
 //! ```
-//! use gilrs::{Gilrs, Filter};
+//! use gilrs::{GilrsBuilder, Filter};
 //! use gilrs::ev::filter::{Jitter, Repeat, deadzone};
 //!
-//! let mut gilrs = Gilrs::new();
+//! let mut gilrs = GilrsBuilder::new().with_default_filters(false).build();
 //! let jitter = Jitter { threshold: 0.02 };
 //! let repeat = Repeat::new();
 //!

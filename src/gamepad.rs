@@ -101,24 +101,41 @@ pub struct Gilrs {
     tx: Sender<Message>,
     counter: u64,
     mappings: MappingDb,
+    default_filters: bool,
 }
 
 impl Gilrs {
-    /// Creates new `Gilrs`.
+    /// Creates new `Gilrs` with default settings. See [`GilrsBuilder`](struct.GilrsBuilder.html)
+    /// for more details.
     pub fn new() -> Self {
-        let gilrs = Gilrs {
-            inner: platform::Gilrs::new(),
-            next_id: 0,
-            tx: server::init(),
-            counter: 0,
-            mappings: MappingDb::new(),
-        };
-        gilrs.create_ff_devices();
-        gilrs
+        GilrsBuilder::new().build()
     }
 
     /// Returns next pending event.
     pub fn next_event(&mut self) -> Option<Event> {
+        use ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
+
+        if self.default_filters {
+            let jitter_filter = Jitter::new();
+            loop {
+                let ev = self.next_event_priv()
+                    .filter(&axis_dpad_to_button, self)
+                    .filter(&jitter_filter, self)
+                    .filter(&deadzone, self);
+
+                // Skip all dropped events, there is no reason to return them
+                match ev {
+                    Some(ev) if ev.is_dropped() => (),
+                    _ => break ev,
+                }
+            }
+        } else {
+            self.next_event_priv()
+        }
+    }
+
+    /// Returns next pending event.
+    fn next_event_priv(&mut self) -> Option<Event> {
         match self.inner.next_event() {
             Some(Event { id, mut event, time }) => {
                 let gamepad = self.inner.gamepad_mut(id);
@@ -219,20 +236,6 @@ impl Gilrs {
     /// Sets counter to 0.
     pub fn reset_counter(&mut self) {
         self.counter = 0;
-    }
-
-    /// Creates new `Gilrs` and add content of `sdl_mapping` to internal database. Each mapping
-    /// should be in separate line. Lines that does not start from UUID are ignored.
-    ///
-    /// This function does not check validity of mappings.
-    pub fn with_mappings(sdl_mapping: &str) -> Self {
-        Gilrs {
-            inner: platform::Gilrs::new(),
-            next_id: 0,
-            tx: server::init(),
-            counter: 0,
-            mappings: MappingDb::with_mappings(sdl_mapping),
-        }
     }
 
     fn create_ff_devices(&self) {
@@ -349,6 +352,55 @@ impl Index<usize> for Gilrs {
 impl IndexMut<usize> for Gilrs {
     fn index_mut(&mut self, idx: usize) -> &mut Gamepad {
         self.gamepad_mut(idx)
+    }
+}
+
+/// Allow to create `Gilrs ` with customized behaviour.
+pub struct GilrsBuilder {
+    mappings: MappingDb,
+    default_filters: bool,
+}
+
+impl GilrsBuilder {
+    /// Create builder with default settings. Use `build()` to create `Gilrs`.
+    pub fn new() -> Self {
+        GilrsBuilder {
+            mappings: MappingDb::without_env(),
+            default_filters: true,
+        }
+    }
+
+    /// If `true`, use [`axis_dpad_to_button`](ev/filter/fn.axis_dpad_to_button.html),
+    /// [`Jitter`](ev/filter/struct.Jitter.html) and [`deadzone`](ev/filter/fn.deadzone.html)
+    /// filters with default parameters. Defaults to `true`.
+    pub fn with_default_filters(mut self, default_filters: bool) -> Self {
+        self.default_filters = default_filters;
+
+        self
+    }
+
+    /// Adds SDL mappings.
+    pub fn add_mappings(mut self, mappings: &str) -> Self {
+        self.mappings.insert(mappings);
+
+        self
+    }
+
+    /// Creates `Gilrs`.
+    pub fn build(mut self) -> Gilrs {
+        self.mappings.add_env_mappings();
+
+        let gilrs = Gilrs {
+            inner: platform::Gilrs::new(),
+            next_id: 0,
+            tx: server::init(),
+            counter: 0,
+            mappings: self.mappings,
+            default_filters: self.default_filters,
+        };
+        gilrs.create_ff_devices();
+
+        gilrs
     }
 }
 
