@@ -81,6 +81,10 @@ impl Gamepad {
     }
 
     pub fn set_name(&mut self, name: &str) {}
+
+    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
+        0.1
+    }
 }
 
 pub mod native_ev_codes {

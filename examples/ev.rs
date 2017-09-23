@@ -2,7 +2,7 @@ extern crate env_logger;
 extern crate gilrs;
 
 use gilrs::Gilrs;
-use gilrs::ev::filter::{Filter, Jitter, Repeat};
+use gilrs::ev::filter::{deadzone, Filter, Jitter, Repeat};
 
 use std::thread;
 use std::time::Duration;
@@ -17,6 +17,7 @@ fn main() {
         while let Some(ev) = gilrs
             .next_event()
             .filter(&noise_filter, &gilrs)
+            .filter(&deadzone, &gilrs)
             .filter(&repeat_filter, &gilrs)
         {
             if !ev.is_dropped() {

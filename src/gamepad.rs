@@ -499,8 +499,14 @@ impl Gamepad {
     /// {
     ///     println!("{} is ready to use!", gamepad.name());
     /// }
+    /// ```
     pub fn mapping_source(&self) -> MappingSource {
-        unimplemented!()
+        if self.mapping.is_default() {
+            // TODO: check if it's Driver or None
+            MappingSource::Driver
+        } else {
+            MappingSource::SdlMappings
+        }
     }
 
     /// Sets gamepad's mapping and returns SDL2 representation of them. Returned mappings may not be
@@ -621,6 +627,11 @@ impl Gamepad {
     /// Returns `NativeEvCode` associated with `axis`.
     pub fn axis_code(&self, axis: Axis) -> Option<NativeEvCode> {
         self.mapping.map_rev_axis(axis)
+    }
+
+    /// Returns area in which axis events should be ignored.
+    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
+        self.inner.deadzone(axis)
     }
 }
 
@@ -893,14 +904,4 @@ pub enum MappingSource {
     /// Gamepad does not use any mappings and most gamepad events will probably be `Button::Unknown`
     /// or `Axis::Unknown`
     None,
-}
-
-pub fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
-    let magnitude = (x * x + y * y).sqrt();
-    if magnitude <= threshold {
-        (0.0, 0.0)
-    } else {
-        let norm = ((magnitude - threshold) / (1.0 - threshold)) / magnitude;
-        (x * norm, y * norm)
-    }
 }

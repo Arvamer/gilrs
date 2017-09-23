@@ -239,7 +239,7 @@ impl AxesInfo {
     fn deadzone(&self, idx: u16) -> f32 {
         self.info
             .get(idx as usize)
-            .map_or(0.0, |i| i.flat as f32 / i.maximum as f32)
+            .map_or(0.1, |i| i.flat as f32 / i.maximum as f32)
     }
 }
 
@@ -414,68 +414,6 @@ impl Gamepad {
             }
         }
     }
-
-    /*   fn create_mapping_if_gamepad(
-        fd: i32,
-        db: &MappingDb,
-        uuid: Uuid,
-        path: &CStr,
-    ) -> Option<()> {
-        unsafe {
-            let mut ev_bits = [0u8; (EV_MAX / 8) as usize + 1];
-            let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
-            let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
-
-            if ioctl::eviocgbit(fd, 0, ev_bits.len() as i32, ev_bits.as_mut_ptr()) < 0 ||
-                ioctl::eviocgbit(
-                    fd,
-                    EV_KEY as u32,
-                    key_bits.len() as i32,
-                    key_bits.as_mut_ptr(),
-                ) < 0 ||
-                ioctl::eviocgbit(
-                    fd,
-                    EV_ABS as u32,
-                    abs_bits.len() as i32,
-                    abs_bits.as_mut_ptr(),
-                ) < 0
-            {
-                info!(
-                    "Unable to get essential information about device {:?}, probably js \
-                       interface, skipping…",
-                    path
-                );
-                return None;
-            }
-
-            let buttons = Self::find_buttons(&key_bits, false);
-            let axes = Self::find_axes(&abs_bits);
-
-            let mapping = db.get(uuid).and_then(|s| {
-                Mapping::parse_sdl_mapping(s, &buttons, &axes).ok()
-            });
-
-            if Self::is_gamepad(&buttons, &axes) {
-                let src = if mapping.is_some() {
-                    MappingSource::SdlMappings
-                } else {
-                    if Self::uses_gamepad_api(&key_bits) {
-                        MappingSource::Driver
-                    } else {
-                        MappingSource::None
-                    }
-                };
-                Some((mapping.unwrap_or(Mapping::new()), src))
-            } else {
-                warn!(
-                    "{:?} doesn't have at least 1 button and 2 axes, ignoring.",
-                    path
-                );
-                None
-            }
-
-        }
-    }*/
 
     fn is_gamepad(&self) -> bool {
         // TODO: improve it (for example check for buttons in range)
@@ -750,52 +688,6 @@ impl Gamepad {
         }
     }
 
-    /* pub fn mapping_source(&self) -> MappingSource {
-        self.mapping_source
-    }
-
-    pub fn set_mapping(
-        &mut self,
-        mapping: &MappingData,
-        strict: bool,
-        name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        if self.fd < 0 {
-            return Err(MappingError::NotConnected);
-        }
-
-        let name = match name {
-            Some(n) => n,
-            None => &self.name,
-        };
-
-        let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
-        let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
-
-        unsafe {
-            ioctl::eviocgbit(
-                self.fd,
-                EV_KEY as u32,
-                key_bits.len() as i32,
-                key_bits.as_mut_ptr(),
-            );
-            ioctl::eviocgbit(
-                self.fd,
-                EV_ABS as u32,
-                abs_bits.len() as i32,
-                abs_bits.as_mut_ptr(),
-            );
-        }
-
-        let buttons = Self::find_buttons(&key_bits, strict);
-        let axes = Self::find_axes(&abs_bits);
-
-        let (mapping, s) = Mapping::from_data(mapping, &buttons, &axes, name, self.uuid)?;
-        self.mapping = mapping;
-        self.mapping_source = MappingSource::SdlMappings;
-        Ok(s)
-    }*/
-
     pub fn is_ff_supported(&self) -> bool {
         self.ff_supported
     }
@@ -823,6 +715,10 @@ impl Gamepad {
 
     pub fn axes(&self) -> &[NativeEvCode] {
         &self.axes
+    }
+
+    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
+        self.axes_info.deadzone(axis)
     }
 }
 

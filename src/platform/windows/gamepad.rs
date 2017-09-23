@@ -425,6 +425,17 @@ impl Gamepad {
     pub fn set_name(&mut self, name: &str) {
         self.name = name.to_owned();
     }
+
+    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
+        use self::native_ev_codes::*;
+
+        match axis {
+            AXIS_LSTICKX | AXIS_LSTICKY => xi::XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as f32 / 65535.0,
+            AXIS_RSTICKX | AXIS_RSTICKY => xi::XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as f32 / 65535.0,
+            AXIS_LT2 | AXIS_RT2 => xi::XINPUT_GAMEPAD_TRIGGER_THRESHOLD as f32 / 255.0,
+            _ => 0.1,
+        }
+    }
 }
 
 #[inline(always)]

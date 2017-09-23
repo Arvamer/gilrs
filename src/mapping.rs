@@ -25,6 +25,7 @@ pub struct Mapping {
     axes: VecMap<Axis>,
     btns: VecMap<Button>,
     name: String,
+    default: bool,
 }
 
 impl Mapping {
@@ -33,6 +34,7 @@ impl Mapping {
             axes: VecMap::new(),
             btns: VecMap::new(),
             name: String::new(),
+            default: false,
         }
     }
 
@@ -142,6 +144,7 @@ impl Mapping {
             axes: mapped_axes,
             btns: mapped_btns,
             name: name.to_owned(),
+            default: false,
         };
 
         mapping.unmap_not_mapped_axes();
@@ -535,6 +538,10 @@ impl Mapping {
                 .or_insert(Axis::Unknown);
         }
     }
+
+    pub fn is_default(&self) -> bool {
+        self.default
+    }
 }
 
 impl Default for Mapping {
@@ -589,7 +596,12 @@ impl Default for Mapping {
             nec::AXIS_LT2 => Axis::LeftTrigger2
         ];
 
-        Mapping { axes, btns, name: String::new() }
+        Mapping {
+            axes,
+            btns,
+            name: String::new(),
+            default: true,
+        }
     }
 }
 
