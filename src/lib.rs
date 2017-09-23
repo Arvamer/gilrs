@@ -50,15 +50,14 @@
 //! Supported features
 //! ------------------
 //!
-//! |                  | Input | Hotplugging | Mappings | Force feedback |
-//! |------------------|:-----:|:-----------:|:--------:|:--------------:|
-//! | Linux            |   ✓   |      ✓      |     ✓    |        ✓       |
-//! | Windows (XInput) |   ✓   |      ✓      |    n/a   |        ✓*      |
-//! | OS X             |   ✕   |      ✕      |     ✕    |        ✕       |
-//! | Emscripten       |   ✕   |      ✕      |     ✕    |       n/a      |
-//! | Android          |   ✕   |      ✕      |     ✕    |        ✕       |
+//! |                  | Input | Hotplugging | Force feedback |
+//! |------------------|:-----:|:-----------:|:--------------:|
+//! | Linux            |   ✓   |      ✓      |        ✓       |
+//! | Windows (XInput) |   ✓   |      ✓      |        ✓       |
+//! | OS X             |   ✕   |      ✕      |        ✕       |
+//! | Emscripten       |   ✕   |      ✕      |       n/a      |
+//! | Android          |   ✕   |      ✕      |        ✕       |
 //!
-//! *since 0.5.0
 //!
 //! Controller layout
 //! -----------------

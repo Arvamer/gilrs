@@ -3,7 +3,6 @@ GilRs - Game Input Library for Rust
 
 [![build status](https://gitlab.com/Arvamer/gilrs/badges/master/build.svg)](https://gitlab.com/Arvamer/gilrs/commits/master)
 [![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
-[![Crates.io](https://img.shields.io/crates/l/gilrs.svg)](https://gitlab.com/Arvamer/gilrs#license)
 [![Documentation](https://docs.rs/gilrs/badge.svg)](https://docs.rs/gilrs/)
 
 [**Documentation (master)**](https://arvamer.gitlab.io/gilrs/doc/gilrs/)
@@ -33,7 +32,7 @@ Example
 
 ```toml
 [dependencies]
-gilrs = "0.4.4"
+gilrs = "0.5.0"
 ```
 
 ```rust
@@ -48,7 +47,7 @@ for (_id, gamepad) in gilrs.gamepads() {
 
 loop {
     // Examine new events
-    for Event { id, event, time } in gilrs.poll_events() {
+    while let Some(Event { id, event, time }) = gilrs.next_event() {
         println!("{:?} New event from {}: {:?}", time, id, event);
     }
 
@@ -62,15 +61,14 @@ loop {
 Supported features
 ------------------
 
-|                  | Input | Hotplugging | Mappings | Force feedback |
-|------------------|:-----:|:-----------:|:--------:|:--------------:|
-| Linux            |   ✓   |      ✓      |     ✓    |        ✓       |
-| Windows (XInput) |   ✓   |      ✓      |    n/a   |        ✓*      |
-| OS X             |   ✕   |      ✕      |     ✕    |        ✕       |
-| Emscripten       |   ✕   |      ✕      |     ✕    |       n/a      |
-| Android          |   ✕   |      ✕      |     ✕    |        ✕       |
+|                  | Input | Hotplugging | Force feedback |
+|------------------|:-----:|:-----------:|:--------------:|
+| Linux            |   ✓   |      ✓      |        ✓       |
+| Windows (XInput) |   ✓   |      ✓      |        ✓       |
+| OS X             |   ✕   |      ✕      |        ✕       |
+| Emscripten       |   ✕   |      ✕      |       n/a      |
+| Android          |   ✕   |      ✕      |        ✕       |
 
-*since 0.5.0
 
 Platform specific notes
 ======================
