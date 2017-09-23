@@ -7,16 +7,45 @@ v0.5.0 - unreleased
 ### Added
 
 - `Mapping::remove_button()` and `Mapping::remove_axis()`.
+- `GilrsBuilder` for customizing how `Gilrs` is created.
+- Event filters. See `ev::filter` module for more info.
+- `Gilrs::next_event()` - use it with `while let` loop in your event loop.
+  This allow to avoid borrow checker problems that `EventIterator` caused.
+- New event – `Dropped`. Used by filters to indicate that you should ignore
+  this event.
+- New event – `ButtonRepeated`. Can be emitted by `Repeat` filter.
+- `Axis::{DPadX, DPadY}`
+- `Gamepad::{button_name, axis_name, button_code, axis_code}` functions for
+  accessing mapping data.
+- `Gamepad::axis_data, button_data` – part of new extended gamepad state.
+- `Gilrs::update, inc, counter, reset_counter` – part of new extended
+   gamepad state.
+
+### Removed
+
+- `Gilrs::with_mappings()` – use `GilrsBuilder`.
+- `Gilrs::poll_events()` and `EventIterator` – use `Gilrs::next_event()`
+  instead.
 
 ### Changed
 
+- New gamepad state. Now can store state for any button or axis (previously was
+  only useful for named buttons and axes). Additionally it now also know when
+  last event happened. Basic usage with `is_pressed()` and `value()` methods is
+  same, but check out documentation for new features.
+- Gamepad state now must be explicitly updated with `Gilrs::update(Event)`.
+  This change was necessary because filters can change events.
+- `Event` is now a struct and contains common information like id of gamepad
+  and timestamp (new). Old enum was renamed to `EventType` and can be accessed
+  from `Event.event` public field.
 - New force feedback module, including support for Windows. There are to many
   changes to list them all here, so pleas check documentation and examples.
 - Renamed `ff::Error::EffectNotSupported` to `ff::Error::NotSupported`.
-- `Button::Unknown` and `Axis::Unknown` have now vale of 0x100.
+- `Button::Unknown` and `Axis::Unknown` have now value of 0.
 - `Gamepad::set_mapping()` (and `_strict` variant) now returns error when
   creating mapping with `Button::Unknown` or `Axis::Unknown`. Additionally
   `_strict` version does not allow `Button::{C, Z}` and Axis::{LeftZ, RightZ}.
+- xinput: New values for `NativEvCode`
 
 ### Fixed
 
