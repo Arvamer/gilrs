@@ -386,7 +386,7 @@ impl Gamepad {
     fn get_name(fd: i32) -> Option<String> {
         unsafe {
             let mut namebuff = mem::uninitialized::<[u8; 128]>();
-            if ioctl::eviocgname(fd, namebuff.as_mut_ptr(), namebuff.len()).is_err() {
+            if ioctl::eviocgname(fd, &mut namebuff).is_err() {
                 None
             } else {
                 Some(
@@ -592,7 +592,7 @@ impl Gamepad {
 
         let mut buf = [0u8; KEY_MAX as usize / 8 + 1];
         unsafe {
-            let _ = ioctl::eviocgkey(self.fd, buf.as_mut_ptr(), buf.len());
+            let _ = ioctl::eviocgkey(self.fd, &mut buf);
         }
 
         for btn in self.buttons.iter().cloned() {

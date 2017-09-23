@@ -12,17 +12,17 @@
 use libc;
 
 ioctl!(read eviocgid with b'E', 0x02; /*struct*/ input_id);
-ioctl!(write eviocrmff with b'E', 0x81; libc::c_int);
-ioctl!(write eviocsff with b'E', 0x80; ff_effect);
-ioctl!(read buf eviocgname with b'E', 0x06; u8);
-ioctl!(read buf eviocgkey with b'E', 0x18; u8);
+ioctl!(write_int eviocrmff with b'E', 0x81);
+ioctl!(write_ptr eviocsff with b'E', 0x80; ff_effect);
+ioctl!(read_buf eviocgname with b'E', 0x06; u8);
+ioctl!(read_buf eviocgkey with b'E', 0x18; u8);
 
 pub unsafe fn eviocgbit(fd: libc::c_int, ev: u32, len: libc::c_int, buf: *mut u8) -> libc::c_int {
-    ::nix::sys::ioctl::ioctl(fd, ior!(b'E', 0x20 + ev, len) as libc::c_ulong, buf)
+    ::nix::libc::ioctl(fd, ior!(b'E', 0x20 + ev, len) as libc::c_ulong, buf)
 }
 
 pub unsafe fn eviocgabs(fd: ::libc::c_int, abs: u32, buf: *mut input_absinfo) -> libc::c_int {
-    ::nix::sys::ioctl::ioctl(
+    ::nix::libc::ioctl(
         fd,
         ior!(b'E', 0x40 + abs, ::std::mem::size_of::<input_absinfo>()) as libc::c_ulong,
         buf,
