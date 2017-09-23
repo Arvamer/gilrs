@@ -91,13 +91,11 @@ impl Device {
 impl Drop for Device {
     fn drop(&mut self) {
         match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), &(self.effect as i32)) } {
-            Err(err) => {
-                error!(
-                    "Failed to remove effect of gamepad {:?}: {}",
-                    self.file,
-                    err
-                )
-            }
+            Err(err) => error!(
+                "Failed to remove effect of gamepad {:?}: {}",
+                self.file,
+                err
+            ),
             Ok(_) => (),
         };
     }

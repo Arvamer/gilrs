@@ -1,5 +1,5 @@
-extern crate gilrs;
 extern crate env_logger;
+extern crate gilrs;
 
 use gilrs::Gilrs;
 use gilrs::ff::{BaseEffect, BaseEffectType, EffectBuilder, Replay, Ticks};

@@ -7,8 +7,7 @@
 #![allow(unused_variables)]
 
 use super::FfDevice;
-use gamepad::{self, Event, EventType, GamepadImplExt, MappingSource, PowerInfo, Status};
-use mapping::{MappingData, MappingError};
+use gamepad::{self, Event, GamepadImplExt, NativeEvCode, PowerInfo, Status};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -20,16 +19,8 @@ impl Gilrs {
     pub fn new() -> Self {
         warn!("Current platform is not supported, gamepad input will not work");
         Gilrs {
-            not_observed: gamepad::Gamepad::from_inner_status(
-                Gamepad::none(),
-                Status::NotObserved,
-                Default::default(),
-            ),
+            not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
         }
-    }
-
-    pub fn with_mappings(_sdl_mapping: &str) -> Self {
-        Self::new()
     }
 
     pub fn next_event(&mut self) -> Option<Event> {
@@ -72,19 +63,6 @@ impl Gamepad {
         PowerInfo::Unknown
     }
 
-    pub fn mapping_source(&self) -> MappingSource {
-        MappingSource::None
-    }
-
-    pub fn set_mapping(
-        &mut self,
-        _mapping: &MappingData,
-        _strict: bool,
-        _name: Option<&str>,
-    ) -> Result<String, MappingError> {
-        Err(MappingError::NotImplemented)
-    }
-
     pub fn is_ff_supported(&self) -> bool {
         false
     }
@@ -92,6 +70,20 @@ impl Gamepad {
     /// Creates Ffdevice corresponding to this gamepad.
     pub fn ff_device(&self) -> Option<FfDevice> {
         Some(FfDevice)
+    }
+
+    pub fn buttons(&self) -> &[NativeEvCode] {
+        &[]
+    }
+
+    pub fn axes(&self) -> &[NativeEvCode] {
+        &[]
+    }
+
+    pub fn set_name(&mut self, name: &str) {}
+
+    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
+        0.1
     }
 }
 

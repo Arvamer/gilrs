@@ -10,8 +10,7 @@ use super::time::Ticks;
 pub enum BaseEffectType {
     Weak { magnitude: u16 },
     Strong { magnitude: u16 },
-    #[doc(hidden)]
-    __Nonexhaustive,
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl BaseEffectType {
@@ -62,8 +61,8 @@ impl BaseEffect {
     /// Returns `Weak` or `Strong` after applying envelope.
     pub(super) fn magnitude_at(&self, ticks: Ticks) -> BaseEffectType {
         if let Some(wrapped) = self.scheduling.wrap(ticks) {
-            let att = self.scheduling.at(wrapped) *
-                self.envelope.at(wrapped, self.scheduling.play_for);
+            let att =
+                self.scheduling.at(wrapped) * self.envelope.at(wrapped, self.scheduling.play_for);
             self.kind * att
         } else {
             self.kind * 0.0
@@ -119,7 +118,11 @@ pub struct Replay {
 
 impl Replay {
     pub(super) fn at(&self, ticks: Ticks) -> f32 {
-        if ticks >= self.play_for { 0.0 } else { 1.0 }
+        if ticks >= self.play_for {
+            0.0
+        } else {
+            1.0
+        }
     }
 
     /// Returns duration of effect calculated as `play_for + with_delay`.

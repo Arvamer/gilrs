@@ -35,7 +35,7 @@
 //!
 //! loop {
 //!     // Examine new events
-//!     for Event { id, event, time } in gilrs.poll_events() {
+//!     while let Some(Event { id, event, time }) = gilrs.next_event() {
 //!         println!("{:?} New event from {}: {:?}", time, id, event);
 //!     }
 //!
@@ -50,15 +50,14 @@
 //! Supported features
 //! ------------------
 //!
-//! |                  | Input | Hotplugging | Mappings | Force feedback |
-//! |------------------|:-----:|:-----------:|:--------:|:--------------:|
-//! | Linux            |   ✓   |      ✓      |     ✓    |        ✓       |
-//! | Windows (XInput) |   ✓   |      ✓      |    n/a   |        ✓*      |
-//! | OS X             |   ✕   |      ✕      |     ✕    |        ✕       |
-//! | Emscripten       |   ✕   |      ✕      |     ✕    |       n/a      |
-//! | Android          |   ✕   |      ✕      |     ✕    |        ✕       |
+//! |                  | Input | Hotplugging | Force feedback |
+//! |------------------|:-----:|:-----------:|:--------------:|
+//! | Linux            |   ✓   |      ✓      |        ✓       |
+//! | Windows (XInput) |   ✓   |      ✓      |        ✓       |
+//! | OS X             |   ✕   |      ✕      |        ✕       |
+//! | Emscripten       |   ✕   |      ✕      |       n/a      |
+//! | Android          |   ✕   |      ✕      |        ✕       |
 //!
-//! *since 0.5.0
 //!
 //! Controller layout
 //! -----------------
@@ -90,9 +89,9 @@
 //! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
 
 #[cfg(target_os = "linux")]
-extern crate libudev_sys;
-#[cfg(target_os = "linux")]
 extern crate libc;
+#[cfg(target_os = "linux")]
+extern crate libudev_sys;
 #[cfg(target_os = "linux")]
 #[macro_use]
 extern crate nix;
@@ -102,10 +101,10 @@ extern crate winapi;
 #[cfg(target_os = "windows")]
 extern crate xinput;
 
-extern crate vec_map;
-extern crate uuid;
 #[macro_use]
 extern crate log;
+extern crate uuid;
+extern crate vec_map;
 
 mod gamepad;
 mod platform;
@@ -114,10 +113,12 @@ mod mapping;
 mod utils;
 
 pub mod ff;
+pub mod ev;
 
+pub use ev::filter::Filter;
 pub use gamepad::{Axis, Button, ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Event,
-                  EventIterator, EventType, Gamepad, GamepadState, Gilrs, MappingSource,
-                  NativeEvCode, PowerInfo, Status};
+                  EventType, Gamepad, Gilrs, GilrsBuilder, MappingSource, NativeEvCode, PowerInfo,
+                  Status};
 pub use mapping::{MappingData as Mapping, MappingError};
 
 trait AsInner<T> {

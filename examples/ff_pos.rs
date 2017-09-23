@@ -1,5 +1,5 @@
-extern crate gilrs;
 extern crate env_logger;
+extern crate gilrs;
 
 use gilrs::{Axis, Button, Event, EventType, Gilrs};
 use gilrs::ff::{BaseEffect, BaseEffectType, DistanceModel, EffectBuilder};
@@ -65,7 +65,7 @@ fn main() {
     println!("----------------------------------------");
     println!(
         "Use sticks to move listener. Triggers change properties of distance model. \
-    South/west button changes active property. Press east button on action pad to quit."
+         South/west button changes active property. Press east button on action pad to quit."
     );
 
     let pos1 = [-100.0, 0.0, 0.0];
@@ -106,15 +106,21 @@ fn main() {
     let mut model = 0usize;
 
     'main: loop {
-        for Event { event, .. } in gilrs.poll_events() {
+        while let Some(Event { event, .. }) = gilrs.next_event() {
             match event {
                 EventType::ButtonReleased(Button::East, ..) => break 'main,
                 EventType::ButtonReleased(Button::South, ..) => modify.next(),
                 EventType::ButtonReleased(Button::West, ..) => modify.prev(),
                 EventType::ButtonReleased(Button::LeftTrigger, ..)
-                    if modify == Modify::DistModel => model = model.wrapping_sub(1),
+                    if modify == Modify::DistModel =>
+                {
+                    model = model.wrapping_sub(1)
+                }
                 EventType::ButtonReleased(Button::RightTrigger, ..)
-                    if modify == Modify::DistModel => model += 1,
+                    if modify == Modify::DistModel =>
+                {
+                    model += 1
+                }
                 _ => (),
             }
         }
@@ -138,7 +144,7 @@ fn main() {
                 let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
                 print!(
                     "\x1b[2K\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}].\
-                       Distance: {:.1}",
+                     Distance: {:.1}",
                     idx,
                     pos[0],
                     pos[1],

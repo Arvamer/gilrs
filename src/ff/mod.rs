@@ -57,9 +57,11 @@ mod time;
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
 pub use self::effect_source::{DistanceModel, DistanceModelError};
 pub use self::time::{Repeat, Ticks};
+#[allow(unused_imports)]
 pub(crate) use self::time::TICK_DURATION;
 
-use std::{f32, fmt, u32};
+
+use std::{fmt, f32};
 use std::error::Error as StdError;
 use std::hash::{Hash, Hasher};
 use std::sync::mpsc::{SendError, Sender};
@@ -160,9 +162,8 @@ impl Effect {
     /// [`DistanceModel`](enum.DistanceModelError.html) for details.
     pub fn set_distance_model(&self, model: DistanceModel) -> Result<(), Error> {
         model.validate()?;
-        self.tx.send(
-            Message::SetDistanceModel { id: self.id, model },
-        )?;
+        self.tx
+            .send(Message::SetDistanceModel { id: self.id, model })?;
 
         Ok(())
     }
@@ -299,8 +300,7 @@ pub enum Error {
     SendFailed,
     /// Unexpected error has occurred
     Other,
-    #[doc(hidden)]
-    __Nonexhaustive,
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl StdError for Error {
@@ -348,7 +348,6 @@ impl From<DistanceModelError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::u32;
 
     #[test]
     fn envelope() {
