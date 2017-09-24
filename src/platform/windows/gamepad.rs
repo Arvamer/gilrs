@@ -140,7 +140,7 @@ impl Gilrs {
                 EventType::AxisChanged(
                     Axis::LeftTrigger2,
                     g.bLeftTrigger as f32 / u8::MAX as f32,
-                    4,
+                    native_ev_codes::AXIS_LT2,
                 ),
             ));
         }
@@ -150,32 +150,48 @@ impl Gilrs {
                 EventType::AxisChanged(
                     Axis::RightTrigger2,
                     g.bRightTrigger as f32 / u8::MAX as f32,
-                    5,
+                    native_ev_codes::AXIS_RT2,
                 ),
             ));
         }
         if g.sThumbLX != pg.sThumbLX {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisChanged(Axis::LeftStickX, normalize(g.sThumbLX), 0),
+                EventType::AxisChanged(
+                    Axis::LeftStickX,
+                    normalize(g.sThumbLX),
+                    native_ev_codes::AXIS_LSTICKX,
+                ),
             ));
         }
         if g.sThumbLY != pg.sThumbLY {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisChanged(Axis::LeftStickY, normalize(g.sThumbLY), 1),
+                EventType::AxisChanged(
+                    Axis::LeftStickY,
+                    normalize(g.sThumbLY),
+                    native_ev_codes::AXIS_LSTICKY,
+                ),
             ));
         }
         if g.sThumbRX != pg.sThumbRX {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisChanged(Axis::RightStickX, normalize(g.sThumbRX), 2),
+                EventType::AxisChanged(
+                    Axis::RightStickX,
+                    normalize(g.sThumbRX),
+                    native_ev_codes::AXIS_RSTICKX,
+                ),
             ));
         }
         if g.sThumbRY != pg.sThumbRY {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisChanged(Axis::RightStickY, normalize(g.sThumbRY), 3),
+                EventType::AxisChanged(
+                    Axis::RightStickY,
+                    normalize(g.sThumbRY),
+                    native_ev_codes::AXIS_RSTICKY,
+                ),
             ));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
