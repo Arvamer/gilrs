@@ -138,6 +138,7 @@ impl Gilrs {
     fn next_event_priv(&mut self) -> Option<Event> {
         match self.inner.next_event() {
             Some(Event { id, mut event, time }) => {
+                debug!("Original event: {:?}", Event { id, event, time });
                 let gamepad = self.inner.gamepad_mut(id);
                 match event {
                     EventType::ButtonPressed(_, nec) => {

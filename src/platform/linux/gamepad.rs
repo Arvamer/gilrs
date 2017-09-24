@@ -616,8 +616,8 @@ impl Gamepad {
         let mut val =
             val as f32 / if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
         // FIXME: axis is not mapped
-        if axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY || axis == ABS_Z
-            || axis == ABS_RZ && axes_info.minimum == 0
+        if (axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY || axis == ABS_Z
+            || axis == ABS_RZ) && axes_info.minimum == 0
         {
             val = (val - 0.5) * 2.0
         }
