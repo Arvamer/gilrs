@@ -714,8 +714,6 @@ impl Gamepad {
     }
 
     /// Returns ID of gamepad.
-    ///
-    /// This function can return invalid ID if `Connected` event for this gamepad was not emitted.
     pub fn id(&self) -> usize {
         self.id
     }

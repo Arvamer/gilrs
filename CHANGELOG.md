@@ -18,6 +18,7 @@ v0.5.0 - unreleased
 - `Gamepad::{button_name, axis_name, button_code, axis_code}` functions for
   accessing mapping data.
 - `Gamepad::axis_data, button_data` – part of new extended gamepad state.
+- `Gamepad::id()` – returns gamepad ID.
 - `Gilrs::update, inc, counter, reset_counter` – part of new extended
    gamepad state.
 
