@@ -139,7 +139,7 @@ fn main() {
                     pos[1] += velocity * sy.signum();
                 }
 
-                gilrs.set_listener_position(idx, *pos).unwrap();
+                gilrs[idx].set_listener_position(*pos).unwrap();
 
                 let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
                 print!(

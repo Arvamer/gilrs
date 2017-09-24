@@ -165,6 +165,15 @@ impl Gilrs {
                             gamepad.inner.set_name(mapping.name())
                         }
                         gamepad.mapping = mapping;
+
+                        if gamepad.id == usize::max_value() {
+                            gamepad.id = id;
+                            gamepad.tx = self.tx.clone();
+
+                            if let Some(device) = gamepad.inner.ff_device() {
+                                let _ = self.tx.send(Message::Open { id, device });
+                            }
+                        }
                     }
                     EventType::Disconnected => {
                         gamepad.status = Status::Disconnected;
@@ -249,6 +258,14 @@ impl Gilrs {
         }
     }
 
+    fn finish_gamepads_creation(&mut self) {
+        let tx = self.tx.clone();
+        for (id, gp) in self.gamepads_mut() {
+            gp.id = id;
+            gp.tx = tx.clone();
+        }
+    }
+
     /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
     /// it was disconnected or never observed. If gamepad's status is not equal to
     /// `Status::Connected` all actions preformed on it are no-op and all values in cached gamepad
@@ -307,22 +324,6 @@ impl Gilrs {
             Some(gp)
         } else {
             None
-        }
-    }
-
-    pub fn set_listener_position<Vec3: Into<[f32; 3]>>(
-        &self,
-        idx: usize,
-        position: Vec3,
-    ) -> Result<(), FfError> {
-        if !self.gamepad(idx).is_ff_supported() {
-            Err(FfError::FfNotSupported(idx))
-        } else {
-            let _ = self.tx.send(Message::SetListenerPosition {
-                id: idx,
-                position: position.into(),
-            });
-            Ok(())
         }
     }
 
@@ -390,7 +391,7 @@ impl GilrsBuilder {
     pub fn build(mut self) -> Gilrs {
         self.mappings.add_env_mappings();
 
-        let gilrs = Gilrs {
+        let mut gilrs = Gilrs {
             inner: platform::Gilrs::new(),
             next_id: 0,
             tx: server::init(),
@@ -398,6 +399,7 @@ impl GilrsBuilder {
             mappings: self.mappings,
             default_filters: self.default_filters,
         };
+        gilrs.finish_gamepads_creation();
         gilrs.create_ff_devices();
 
         gilrs
@@ -461,6 +463,8 @@ pub struct Gamepad {
     state: GamepadState,
     status: Status,
     mapping: Mapping,
+    tx: Sender<Message>,
+    id: usize,
 }
 
 impl Gamepad {
@@ -470,6 +474,8 @@ impl Gamepad {
             state: GamepadState::new(),
             status,
             mapping: Mapping::new(),
+            tx: ::std::sync::mpsc::channel().0,
+            id: usize::max_value(),
         }
     }
 
@@ -663,6 +669,24 @@ impl Gamepad {
         self.inner.is_ff_supported()
     }
 
+    /// Change gamepad position used by force feedback effects.
+    pub fn set_listener_position<Vec3: Into<[f32; 3]>>(
+        &self,
+        position: Vec3,
+    ) -> Result<(), FfError> {
+        if !self.is_connected() {
+            Err(FfError::Disconnected(self.id))
+        } else if !self.is_ff_supported() {
+            Err(FfError::FfNotSupported(self.id))
+        } else {
+            self.tx.send(Message::SetListenerPosition {
+                id: self.id,
+                position: position.into(),
+            })?;
+            Ok(())
+        }
+    }
+
     /// Returns `Button` mapped to `nec`.
     pub fn button_name(&self, nec: NativeEvCode) -> Button {
         self.mapping.map_button(nec)
@@ -686,6 +710,13 @@ impl Gamepad {
     /// Returns area in which axis events should be ignored.
     pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
         self.inner.deadzone(axis)
+    }
+
+    /// Returns ID of gamepad.
+    ///
+    /// This function can return invalid ID if `Connected` event for this gamepad was not emitted.
+    pub fn id(&self) -> usize {
+        self.id
     }
 }
 
