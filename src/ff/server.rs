@@ -27,6 +27,7 @@ pub(crate) enum Message {
     Close { id: usize },
     SetListenerPosition { id: usize, position: [f32; 3] },
     SetGamepads { id: usize, gamepads: VecMap<()> },
+    AddGamepad { id: usize, gamepad_id: usize },
     SetRepeat { id: usize, repeat: Repeat },
     SetDistanceModel { id: usize, model: DistanceModel },
     SetPosition { id: usize, position: [f32; 3] },
@@ -75,7 +76,7 @@ impl Deref for Effect {
 impl From<FfDevice> for Device {
     fn from(inner: FfDevice) -> Self {
         Device {
-            inner: inner,
+            inner,
             position: [0.0, 0.0, 0.0],
             gain: 1.0,
         }
@@ -91,6 +92,8 @@ pub(crate) fn run(rx: Receiver<Message>) {
     loop {
         let t1 = Instant::now();
         while let Ok(ev) = rx.try_recv() {
+            debug!("New ff event: {:?}", ev);
+
             match ev {
                 Message::Create { id, effect } => {
                     effects.insert(id, (*effect).into());
@@ -134,6 +137,11 @@ pub(crate) fn run(rx: Receiver<Message>) {
                 }
                 Message::SetGamepads { id, gamepads } => if let Some(eff) = effects.get_mut(id) {
                     eff.source.devices = gamepads;
+                } else {
+                    error!("Invalid effect id {} when changing gamepads.", id);
+                },
+                Message::AddGamepad { id, gamepad_id } => if let Some(eff) = effects.get_mut(id) {
+                    eff.source.devices.insert(gamepad_id, ());
                 } else {
                     error!("Invalid effect id {} when changing gamepads.", id);
                 },

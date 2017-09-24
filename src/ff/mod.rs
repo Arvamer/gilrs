@@ -68,7 +68,7 @@ use std::sync::mpsc::{SendError, Sender};
 
 use self::effect_source::EffectSource;
 use ff::server::Message;
-use gamepad::Gilrs;
+use gamepad::{Gamepad, Gilrs};
 use utils;
 
 use vec_map::VecMap;
@@ -147,6 +147,28 @@ impl Effect {
         Ok(())
     }
 
+    /// Adds gamepad to the list of gamepads associated with effect.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Disconnected(id)` or `Error::FfNotSupported(id)` if gamepad is not connected
+    /// or does not support force feedback.
+    pub fn add_gamepad(&self, gamepad: &Gamepad) -> Result<(), Error> {
+        if !gamepad.is_connected() {
+            Err(Error::Disconnected(gamepad.id()))
+        } else if !gamepad.is_ff_supported() {
+            Err(Error::FfNotSupported(gamepad.id()))
+        } else {
+            self.tx.send(Message::AddGamepad {
+                id: self.id,
+                gamepad_id: gamepad.id(),
+            })?;
+
+            Ok(())
+        }
+    }
+
+
     /// Changes what should happen to effect when it ends.
     pub fn set_repeat(&self, repeat: Repeat) -> Result<(), Error> {
         self.tx.send(Message::SetRepeat { id: self.id, repeat })?;
@@ -223,6 +245,13 @@ impl EffectBuilder {
         for dev in ids {
             self.devices.insert(*dev, ());
         }
+        self
+    }
+
+    /// Adds gamepad to the list of gamepads associated with effect.
+    pub fn add_gamepad(&mut self, gamepad: &Gamepad) -> &mut Self {
+        self.devices.insert(gamepad.id(), ());
+
         self
     }
 
