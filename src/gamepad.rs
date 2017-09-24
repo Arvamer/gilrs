@@ -165,8 +165,15 @@ impl Gilrs {
                             gamepad.inner.set_name(mapping.name())
                         }
                         gamepad.mapping = mapping;
-                        gamepad.id = id;
-                        gamepad.tx = self.tx.clone();
+
+                        if gamepad.id == usize::max_value() {
+                            gamepad.id = id;
+                            gamepad.tx = self.tx.clone();
+
+                            if let Some(device) = gamepad.inner.ff_device() {
+                                let _ = self.tx.send(Message::Open { id, device });
+                            }
+                        }
                     }
                     EventType::Disconnected => {
                         gamepad.status = Status::Disconnected;

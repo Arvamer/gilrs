@@ -709,8 +709,11 @@ impl Gamepad {
     }
 
     pub fn ff_device(&self) -> Option<FfDevice> {
-        // TODO
-        FfDevice::new(&self.devpath).ok()
+        if self.is_ff_supported() {
+            FfDevice::new(&self.devpath).ok()
+        } else {
+            None
+        }
     }
 
     pub fn buttons(&self) -> &[NativeEvCode] {
