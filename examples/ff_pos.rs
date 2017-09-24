@@ -106,23 +106,24 @@ fn main() {
     let mut model = 0usize;
 
     'main: loop {
-        while let Some(Event { event, .. }) = gilrs.next_event() {
-            match event {
+        while let Some(event) = gilrs.next_event() {
+            match event.event {
                 EventType::ButtonReleased(Button::East, ..) => break 'main,
                 EventType::ButtonReleased(Button::South, ..) => modify.next(),
                 EventType::ButtonReleased(Button::West, ..) => modify.prev(),
                 EventType::ButtonReleased(Button::LeftTrigger, ..)
                     if modify == Modify::DistModel =>
                 {
-                    model = model.wrapping_sub(1)
+                    model = model.wrapping_sub(1);
                 }
                 EventType::ButtonReleased(Button::RightTrigger, ..)
                     if modify == Modify::DistModel =>
                 {
-                    model += 1
+                    model.wrapping_add(1);
                 }
                 _ => (),
             }
+            gilrs.update(&event);
         }
 
         for &mut (idx, ref mut pos) in &mut listeners {
