@@ -30,6 +30,7 @@ v0.5.0 - unreleased
 
 ### Changed
 
+- Minimal rust version is now 1.19
 - New gamepad state. Now can store state for any button or axis (previously was
   only useful for named buttons and axes). Additionally it now also know when
   last event happened. Basic usage with `is_pressed()` and `value()` methods is
