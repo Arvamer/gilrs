@@ -12,7 +12,7 @@ use super::udev::*;
 use AsInner;
 use gamepad::{Axis, Button, Event, EventType, Gamepad as MainGamepad, GamepadImplExt,
               NativeEvCode, PowerInfo, Status};
-use utils::test_bit;
+use utils::{clamp, test_bit};
 
 use libc as c;
 use uuid::Uuid;
@@ -613,18 +613,14 @@ impl Gamepad {
     }
 
     fn axis_value(axes_info: input_absinfo, val: i32, axis: u16) -> f32 {
-        let mut val =
-            val as f32 / if val < 0 { -axes_info.minimum } else { axes_info.maximum } as f32;
-        // FIXME: axis is not mapped
-        if (axis == ABS_X || axis == ABS_Y || axis == ABS_RX || axis == ABS_RY || axis == ABS_Z
-            || axis == ABS_RZ) && axes_info.minimum == 0
-        {
-            val = (val - 0.5) * 2.0
-        }
-        val * if axis == ABS_Y || axis == ABS_RY || axis == ABS_RZ || axis == ABS_HAT0Y {
-            -1.0
+        let range = (axes_info.maximum - axes_info.minimum) as f32;
+        let mut val = (val - axes_info.minimum) as f32;
+        val = val / range * 2.0 - 1.0;
+        val = clamp(val, -1.0, 1.0);
+        if axis == ABS_Y || axis == ABS_RY || axis == ABS_RZ || axis == ABS_HAT0Y {
+            -val
         } else {
-            1.0
+            val
         }
     }
 
