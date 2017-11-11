@@ -615,7 +615,9 @@ impl Gamepad {
     fn axis_value(axes_info: input_absinfo, val: i32, axis: u16) -> f32 {
         let range = (axes_info.maximum - axes_info.minimum) as f32;
         let mut val = (val - axes_info.minimum) as f32;
-        if axis == ABS_HAT1X || axis == ABS_HAT1Y || axis == ABS_HAT2X || axis == ABS_HAT2Y {
+        if axis == ABS_HAT1X || axis == ABS_HAT1Y || axis == ABS_HAT2X || axis == ABS_HAT2Y
+        || axis == ABS_Z || axis == ABS_RZ
+        {
             // Triggers are normalized to [0.0, 1.0]
             val = val / range;
             val = clamp(val, 0.0, 1.0);
@@ -624,7 +626,7 @@ impl Gamepad {
             val = val / range * 2.0 - 1.0;
             val = clamp(val, -1.0, 1.0);
         }
-        if axis == ABS_Y || axis == ABS_RY || axis == ABS_RZ || axis == ABS_HAT0Y {
+        if axis == ABS_Y || axis == ABS_RY || axis == ABS_HAT0Y {
             -val
         } else {
             val
