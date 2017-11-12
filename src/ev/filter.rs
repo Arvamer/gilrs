@@ -30,9 +30,9 @@
 //! loop {
 //!     while let Some(event) = gilrs
 //!         .next_event()
-//!         .filter(&jitter, &gilrs)
-//!         .filter(&deadzone, &gilrs)
-//!         .filter(&repeat, &gilrs)
+//!         .filter_ev(&jitter, &gilrs)
+//!         .filter_ev(&deadzone, &gilrs)
+//!         .filter_ev(&repeat, &gilrs)
 //!     {
 //!         gilrs.update(&event);
 //!         println!("{:?}", event);
@@ -74,9 +74,9 @@
 //! let unknown = Event::new(0, EventType::ButtonPressed(Button::Unknown, 0));
 //! let south = Event::new(0, EventType::ButtonPressed(Button::South, 0));
 //!
-//! let ev = unknown.filter(&UnknownSlayer, &gilrs).unwrap();
+//! let ev = unknown.filter_ev(&UnknownSlayer, &gilrs).unwrap();
 //! assert_eq!(ev.is_dropped(), true);
-//! let ev = south.filter(&UnknownSlayer, &gilrs).unwrap();
+//! let ev = south.filter_ev(&UnknownSlayer, &gilrs).unwrap();
 //! assert_eq!(ev.is_dropped(), false);
 //! ```
 //!
@@ -302,7 +302,7 @@ impl FilterFn for Repeat {
 ///
 /// See module level documentation for more info.
 pub trait Filter {
-    fn filter<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event>;
+    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event>;
 }
 
 /// Actual filter implementation.
@@ -322,7 +322,7 @@ where
 }
 
 impl Filter for Option<Event> {
-    fn filter<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event> {
+    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event> {
         let e = filter.filter(*self, gilrs);
         debug_assert!(
             !(self.is_some() && e.is_none()),
@@ -334,7 +334,7 @@ impl Filter for Option<Event> {
 }
 
 impl Filter for Event {
-    fn filter<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event> {
+    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event> {
         let e = filter.filter(Some(*self), gilrs);
         debug_assert!(
             !e.is_none(),
