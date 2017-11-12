@@ -1,7 +1,16 @@
 Change Log
 ==========
 
-v0.5.0 - unreleased
+v0.5.1 – 2017-11-12
+
+### Fixed
+
+- Fixed compilation errors on recent nightly introduced by addition of `filter`
+  method to `Option`. If you want to use filters in your code on nightly, use
+  universal function call syntax – `Filter::filter(&ev, &filter, &gilrs)` or
+  0.6 branch (at the moment unreleased).
+
+v0.5.0 – 2017-09-24
 -------------------
 
 ### Added
