@@ -1,7 +1,21 @@
 Change Log
 ==========
 
-v0.5.0 - unreleased
+v0.6.0 - unreleased
+-------------------
+
+### Changed
+
+- Renamed `Filter::filter` to `Filter::filter_ev` because RFC 2124 added
+  `filter` method to `Option` (our `Filter` is implemented for `Option<Event>`).
+
+### Fixed
+
+- Linux: Fixed axis value normalization if neither minimal value is 0 nor
+  midpoint is 0.
+- Linux: Ensure that axis values are clamped after normalization.
+
+v0.5.0 - 2017-09-24
 -------------------
 
 ### Added
