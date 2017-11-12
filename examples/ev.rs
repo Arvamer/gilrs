@@ -13,7 +13,7 @@ fn main() {
     let repeat_filter = Repeat::new();
 
     loop {
-        while let Some(ev) = gilrs.next_event().filter(&repeat_filter, &gilrs) {
+        while let Some(ev) = Filter::filter(&gilrs.next_event(), &repeat_filter, &gilrs) {
             gilrs.update(&ev);
             println!("{:?}", ev);
         }

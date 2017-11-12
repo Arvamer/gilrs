@@ -118,10 +118,15 @@ impl Gilrs {
         if self.default_filters {
             let jitter_filter = Jitter::new();
             loop {
-                let ev = self.next_event_priv()
-                    .filter(&axis_dpad_to_button, self)
-                    .filter(&jitter_filter, self)
-                    .filter(&deadzone, self);
+                let ev = Filter::filter(
+                    &Filter::filter(
+                        &Filter::filter(&self.next_event_priv(), &axis_dpad_to_button, self),
+                        &jitter_filter,
+                        self,
+                    ),
+                    &deadzone,
+                    self,
+                );
 
                 // Skip all dropped events, there is no reason to return them
                 match ev {
