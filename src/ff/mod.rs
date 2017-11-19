@@ -142,7 +142,8 @@ impl Effect {
             }
         }
 
-        self.tx.send(Message::SetGamepads { id: self.id, gamepads })?;
+        self.tx
+            .send(Message::SetGamepads { id: self.id, gamepads })?;
 
         Ok(())
     }
@@ -193,7 +194,8 @@ impl Effect {
     /// Changes position of the source of effect.
     pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> Result<(), Error> {
         let position = position.into();
-        self.tx.send(Message::SetPosition { id: self.id, position })?;
+        self.tx
+            .send(Message::SetPosition { id: self.id, position })?;
 
         Ok(())
     }

@@ -11,11 +11,7 @@ fn main() {
     let mut gilrs = Gilrs::new();
     let support_ff = gilrs
         .gamepads()
-        .filter_map(|(id, gp)| if gp.is_ff_supported() {
-            Some(id)
-        } else {
-            None
-        })
+        .filter_map(|(id, gp)| if gp.is_ff_supported() { Some(id) } else { None })
         .collect::<Vec<_>>();
 
     let duration = Ticks::from_ms(150);

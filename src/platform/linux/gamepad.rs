@@ -616,7 +616,7 @@ impl Gamepad {
         let range = (axes_info.maximum - axes_info.minimum) as f32;
         let mut val = (val - axes_info.minimum) as f32;
         if axis == ABS_HAT1X || axis == ABS_HAT1Y || axis == ABS_HAT2X || axis == ABS_HAT2Y
-        || axis == ABS_Z || axis == ABS_RZ
+            || axis == ABS_Z || axis == ABS_RZ
         {
             // Triggers are normalized to [0.0, 1.0]
             val = val / range;
