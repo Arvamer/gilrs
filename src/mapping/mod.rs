@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 #![cfg_attr(target_os = "windows", allow(dead_code))]
 
+mod parser;
+
 use gamepad::{Axis, Button, NativeEvCode};
 use platform::{self, native_ev_codes as nec};
 use std::collections::HashMap;
@@ -13,8 +15,10 @@ use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::{Index, IndexMut};
-use uuid::{ParseError as UuidError, Uuid};
+use uuid::Uuid;
 use vec_map::VecMap;
+
+use self::parser::{Error as ParserError, Parser, Token};
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -157,306 +161,64 @@ impl Mapping {
         buttons: &[NativeEvCode],
         axes: &[NativeEvCode],
     ) -> Result<Self, ParseSdlMappingError> {
-        let mut parts = line.split(',');
-
-        let _ = match parts.next() {
-            Some(uuid) => uuid,
-            None => return Err(ParseSdlMappingError::MissingGuid),
-        };
-
-        let name = match parts.next() {
-            Some(name) => name,
-            None => return Err(ParseSdlMappingError::MissingName),
-        };
-
         let mut mapping = Mapping::new();
-        mapping.name = name.to_owned();
+        let mut parser = Parser::new(line);
 
-        for pair in parts {
-            let mut pair = pair.split(':');
+        while let Some(token) = parser.next_token() {
+            let token = token?;
 
-            let key = pair.next().ok_or(ParseSdlMappingError::InvalidPair)?;
-
-            let val = match pair.next() {
-                Some(val) => val,
-                None => continue,
-            };
-
-            if val.is_empty() {
-                continue;
-            }
-
-            let m_btns = &mut mapping.btns;
-            let m_axes = &mut mapping.axes;
-
-            match key {
-                "platform" => if val != platform::NAME {
-                    return Err(ParseSdlMappingError::NotTargetPlatform);
+            match token {
+                Token::Platform(platform) => if platform != platform::NAME {
+                    warn!("Mappings for different platform – {}", platform);
                 },
-                "x" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::West)?;
+                Token::Uuid(_) => (),
+                Token::Name(name) => mapping.name = name.to_owned(),
+                Token::AxisMapping { from, to, .. } => {
+                    let axis = axes.get(from as usize)
+                        .cloned()
+                        .ok_or(ParseSdlMappingError::InvalidAxis)?;
+                    mapping.axes.insert(axis as usize, to);
                 }
-                "a" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::South)?;
+                Token::ButtonMapping { from, to } => {
+                    let btn = buttons
+                        .get(from as usize)
+                        .cloned()
+                        .ok_or(ParseSdlMappingError::InvalidButton)?;
+                    mapping.btns.insert(btn as usize, to);
                 }
-                "b" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::East)?;
+                Token::HatMapping { hat, direction, to } => {
+                    if hat != 0 || !to.is_dpad() {
+                        warn!(
+                            "Hat mappings are only supported for dpads (requested to map hat \
+                             {}.{} to {:?}",
+                            hat,
+                            direction,
+                            to
+                        );
+                    } else {
+                        // We  don't have anything like "hat" in gilrs, so let's jus assume that
+                        // user want to map dpad axes
+                        let from = match direction {
+                            1 | 4 => nec::AXIS_DPADY,
+                            2 | 8 => nec::AXIS_DPADX,
+                            _ => return Err(ParseSdlMappingError::UnknownHatDirection),
+                        };
+
+                        let to = match to {
+                            Button::DPadLeft | Button::DPadRight => Axis::DPadX,
+                            Button::DPadUp | Button::DPadDown => Axis::DPadY,
+                            _ => unreachable!(),
+                        };
+
+                        mapping.axes.insert(from as usize, to);
+                    }
                 }
-                "y" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::North)?;
-                }
-                "c" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::C)?;
-                }
-                "z" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::Z)?;
-                }
-                "back" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::Select)?;
-                }
-                "guide" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::Mode)?;
-                }
-                "start" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::Start)?;
-                }
-                "leftstick" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::LeftThumb)?;
-                }
-                "rightstick" => {
-                    Mapping::insert_btn(val, buttons, m_btns, Button::RightThumb)?;
-                }
-                "leftx" => {
-                    Mapping::insert_axis(val, axes, m_axes, Axis::LeftStickX)?;
-                }
-                "lefty" => {
-                    Mapping::insert_axis(val, axes, m_axes, Axis::LeftStickY)?;
-                }
-                "rightx" => {
-                    Mapping::insert_axis(val, axes, m_axes, Axis::RightStickX)?;
-                }
-                "righty" => {
-                    Mapping::insert_axis(val, axes, m_axes, Axis::RightStickY)?;
-                }
-                "leftz" => {
-                    Mapping::insert_axis(val, axes, m_axes, Axis::LeftZ)?;
-                }
-                "rightz" => {
-                    Mapping::insert_axis(val, axes, m_axes, Axis::RightZ)?;
-                }
-                "leftshoulder" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::LeftTrigger,
-                        Axis::LeftTrigger,
-                    )?;
-                }
-                "lefttrigger" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::LeftTrigger2,
-                        Axis::LeftTrigger2,
-                    )?;
-                }
-                "rightshoulder" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::RightTrigger,
-                        Axis::RightTrigger,
-                    )?;
-                }
-                "righttrigger" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::RightTrigger2,
-                        Axis::RightTrigger2,
-                    )?;
-                }
-                "dpleft" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::DPadLeft,
-                        Axis::DPadX,
-                    )?;
-                }
-                "dpright" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::DPadRight,
-                        Axis::DPadX,
-                    )?;
-                }
-                "dpup" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::DPadUp,
-                        Axis::DPadY,
-                    )?;
-                }
-                "dpdown" => {
-                    Mapping::insert_btn_or_axis(
-                        val,
-                        buttons,
-                        axes,
-                        m_btns,
-                        m_axes,
-                        Button::DPadDown,
-                        Axis::DPadY,
-                    )?;
-                }
-                _ => (),
             }
         }
 
         mapping.unmap_not_mapped_axes();
 
         Ok(mapping)
-    }
-
-    fn get_btn(val: &str, buttons: &[NativeEvCode]) -> Result<NativeEvCode, ParseSdlMappingError> {
-        let (ident, val) = val.split_at(1);
-        if ident != "b" {
-            return Err(ParseSdlMappingError::InvalidValue);
-        }
-        let val = match val.parse::<usize>() {
-            Ok(val) => val,
-            Err(_) => return Err(ParseSdlMappingError::InvalidValue),
-        };
-        buttons
-            .get(val)
-            .cloned()
-            .ok_or(ParseSdlMappingError::InvalidBtn)
-    }
-
-    fn get_axis(val: &str, axes: &[NativeEvCode]) -> Result<NativeEvCode, ParseSdlMappingError> {
-        let (ident, val) = val.split_at(1);
-        if ident == "a" {
-            let val = match val.parse::<usize>() {
-                Ok(val) => val,
-                Err(_) => return Err(ParseSdlMappingError::InvalidValue),
-            };
-            axes.get(val)
-                .cloned()
-                .ok_or(ParseSdlMappingError::InvalidAxis)
-        } else if ident == "h" {
-            let mut val_it = val.split('.');
-
-            match val_it.next().and_then(|s| s.parse::<u16>().ok()) {
-                Some(hat) if hat == 0 => hat,
-                _ => return Err(ParseSdlMappingError::InvalidValue),
-            };
-
-            let dir = match val_it.next().and_then(|s| s.parse().ok()) {
-                Some(dir) => dir,
-                None => return Err(ParseSdlMappingError::InvalidValue),
-            };
-
-            match dir {
-                1 | 4 => Ok(nec::AXIS_DPADY),
-                2 | 8 => Ok(nec::AXIS_DPADX),
-                _ => Err(ParseSdlMappingError::InvalidValue),
-            }
-        } else {
-            Err(ParseSdlMappingError::InvalidValue)
-        }
-    }
-
-    fn get_btn_or_axis(
-        val: &str,
-        buttons: &[NativeEvCode],
-        axes: &[NativeEvCode],
-    ) -> Result<BtnOrAxis, ParseSdlMappingError> {
-        if let Some(c) = val.as_bytes().get(0) {
-            match *c as char {
-                'a' | 'h' => Mapping::get_axis(val, axes).and_then(|val| Ok(BtnOrAxis::Axis(val))),
-                'b' => Mapping::get_btn(val, buttons).and_then(|val| Ok(BtnOrAxis::Button(val))),
-                _ => Err(ParseSdlMappingError::InvalidValue),
-            }
-        } else {
-            Err(ParseSdlMappingError::InvalidValue)
-        }
-    }
-
-    fn insert_btn(
-        s: &str,
-        btns: &[NativeEvCode],
-        map: &mut VecMap<Button>,
-        btn: Button,
-    ) -> Result<(), ParseSdlMappingError> {
-        match Mapping::get_btn(s, btns) {
-            Ok(code) => {
-                map.insert(code as usize, btn);
-            }
-            Err(ParseSdlMappingError::InvalidBtn) => (),
-            Err(e) => return Err(e),
-        };
-        Ok(())
-    }
-
-    fn insert_axis(
-        s: &str,
-        axes: &[NativeEvCode],
-        map: &mut VecMap<Axis>,
-        axis: Axis,
-    ) -> Result<(), ParseSdlMappingError> {
-        match Mapping::get_axis(s, axes) {
-            Ok(code) => {
-                map.insert(code as usize, axis);
-            }
-            Err(ParseSdlMappingError::InvalidAxis) => (),
-            Err(e) => return Err(e),
-        };
-        Ok(())
-    }
-
-    fn insert_btn_or_axis(
-        s: &str,
-        btns: &[u16],
-        axes: &[u16],
-        map_btns: &mut VecMap<Button>,
-        map_axes: &mut VecMap<Axis>,
-        btn: Button,
-        axis: Axis,
-    ) -> Result<(), ParseSdlMappingError> {
-        match Mapping::get_btn_or_axis(s, btns, axes) {
-            Ok(BtnOrAxis::Button(code)) => {
-                map_btns.insert(code as usize, btn);
-            }
-            Ok(BtnOrAxis::Axis(code)) => {
-                map_axes.insert(code as usize, axis);
-            }
-            Err(ParseSdlMappingError::InvalidAxis) => (),
-            Err(e) => return Err(e),
-        };
-        Ok(())
     }
 
     fn add_button(
@@ -605,53 +367,50 @@ impl Default for Mapping {
     }
 }
 
-enum BtnOrAxis {
-    Axis(u16),
-    Button(u16),
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ParseSdlMappingError {
-    MissingGuid,
-    InvalidGuid,
-    MissingName,
-    InvalidPair,
-    NotTargetPlatform,
-    InvalidValue,
-    InvalidBtn,
+    InvalidButton,
     InvalidAxis,
+    UnknownHatDirection,
+    ParseError(ParserError),
 }
 
-impl ParseSdlMappingError {
-    fn into_str(self) -> &'static str {
-        match self {
-            ParseSdlMappingError::MissingGuid => "GUID is missing",
-            ParseSdlMappingError::InvalidGuid => "GUID is invalid",
-            ParseSdlMappingError::MissingName => "device name is missing",
-            ParseSdlMappingError::InvalidPair => "key-value pair is invalid",
-            ParseSdlMappingError::NotTargetPlatform => "mapping for different OS than target",
-            ParseSdlMappingError::InvalidValue => "value is invalid",
-            ParseSdlMappingError::InvalidBtn => "gamepad doesn't have requested button",
-            ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
-        }
+impl From<ParserError> for ParseSdlMappingError {
+    fn from(f: ParserError) -> Self {
+        ParseSdlMappingError::ParseError(f)
     }
 }
 
 impl Error for ParseSdlMappingError {
     fn description(&self) -> &str {
-        self.into_str()
+        match self {
+            &ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
+            &ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
+            &ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
+            &ParseSdlMappingError::ParseError(_) => "parsing error",
+        }
+    }
+
+    fn cause(&self) -> Option<&Error> {
+        if let &ParseSdlMappingError::ParseError(ref err) = self {
+            Some(err)
+        } else {
+            None
+        }
     }
 }
 
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        fmt.write_str(self.into_str())
-    }
-}
-
-impl From<UuidError> for ParseSdlMappingError {
-    fn from(_: UuidError) -> Self {
-        ParseSdlMappingError::InvalidGuid
+        match self {
+            &ParseSdlMappingError::InvalidButton |
+            &ParseSdlMappingError::InvalidAxis |
+            &ParseSdlMappingError::UnknownHatDirection => fmt.write_str(self.description()),
+            &ParseSdlMappingError::ParseError(ref err) => fmt.write_fmt(format_args!(
+                "Error while parsing gamepad mapping: {}.",
+                err
+            )),
+        }
     }
 }
 
@@ -663,7 +422,9 @@ pub struct MappingDb {
 impl MappingDb {
     pub fn without_env() -> Self {
         let mut db = MappingDb { mappings: HashMap::new() };
-        db.insert(include_str!("../SDL_GameControllerDB/gamecontrollerdb.txt"));
+        db.insert(include_str!(
+            "../../SDL_GameControllerDB/gamecontrollerdb.txt"
+        ));
 
         db
     }
