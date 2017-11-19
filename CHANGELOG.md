@@ -4,8 +4,14 @@ Change Log
 v0.6.0 - unreleased
 -------------------
 
+### Added
+
+- Support for parsing SLD 2.0.6 mappings.
+
 ### Changed
 
+- Gilrs now require Rust 1.20.0 or newer.
+- Updated bundled mappings.
 - Renamed `Filter::filter` to `Filter::filter_ev` because RFC 2124 added
   `filter` method to `Option` (our `Filter` is implemented for `Option<Event>`).
 
