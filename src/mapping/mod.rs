@@ -18,7 +18,7 @@ use std::ops::{Index, IndexMut};
 use uuid::Uuid;
 use vec_map::VecMap;
 
-use self::parser::{Error as ParserError, Parser, Token};
+use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, Token};
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -165,6 +165,12 @@ impl Mapping {
         let mut parser = Parser::new(line);
 
         while let Some(token) = parser.next_token() {
+            if let Err(ref e) = token {
+                if e.kind() == &ParserErrorKind::EmptyValue {
+                    continue;
+                }
+            }
+
             let token = token?;
 
             match token {
@@ -201,7 +207,7 @@ impl Mapping {
                         let from = match direction {
                             1 | 4 => nec::AXIS_DPADY,
                             2 | 8 => nec::AXIS_DPADX,
-                            0 => continue,  // FIXME: I have no idea what 0 means here
+                            0 => continue, // FIXME: I have no idea what 0 means here
                             _ => return Err(ParseSdlMappingError::UnknownHatDirection),
                         };
 
@@ -725,7 +731,9 @@ mod tests {
         let db = MappingDb::without_env();
 
         // All possible buttons and axes
-        let elements = (0..(u16::max_value() as u32)).map(|x| x as u16).collect::<Vec<_>>();
+        let elements = (0..(u16::max_value() as u32))
+            .map(|x| x as u16)
+            .collect::<Vec<_>>();
 
         for mapping in db.mappings.values() {
             if let Err(e) = Mapping::parse_sdl_mapping(mapping, &elements, &elements) {

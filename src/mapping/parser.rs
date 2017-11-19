@@ -104,6 +104,10 @@ impl<'a> Parser<'a> {
             return Err(Error::new(ErrorKind::InvalidKeyValPair, pos));
         }
 
+        if value.is_empty() {
+            return Err(Error::new(ErrorKind::EmptyValue, pos));
+        }
+
         if key == "platform" {
             return Ok(Token::Platform(value));
         }
@@ -261,6 +265,10 @@ impl Error {
     pub fn new(kind: ErrorKind, position: usize) -> Self {
         Error { position, kind }
     }
+
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -268,6 +276,7 @@ pub enum ErrorKind {
     InvalidGuid,
     InvalidKeyValPair,
     InvalidValue,
+    EmptyValue,
     UnknownAxis,
     UnknownButton,
     InvalidParserState,
@@ -280,6 +289,7 @@ impl StdError for Error {
             ErrorKind::InvalidGuid => "GUID is invalid",
             ErrorKind::InvalidKeyValPair => "expected key value pair",
             ErrorKind::InvalidValue => "value is not valid",
+            ErrorKind::EmptyValue => "value is empty",
             ErrorKind::UnknownAxis => "invalid axis name",
             ErrorKind::UnknownButton => "invalid button name",
             ErrorKind::InvalidParserState => "attempt to parse after unrecoverable error",
