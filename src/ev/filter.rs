@@ -137,12 +137,13 @@ pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
             time,
         }) => {
             let gp = gilrs.gamepad(id);
+            let threshold = gp.deadzone(nec).expect("Got event with not existing axis");
             let val = match axis {
-                LeftStickY => apply_deadzone(val, gp.value(LeftStickX), gp.deadzone(nec)),
-                LeftStickX => apply_deadzone(val, gp.value(LeftStickY), gp.deadzone(nec)),
-                RightStickY => apply_deadzone(val, gp.value(RightStickX), gp.deadzone(nec)),
-                RightStickX => apply_deadzone(val, gp.value(RightStickY), gp.deadzone(nec)),
-                _ => apply_deadzone(val, 0.0, gp.deadzone(nec)),
+                LeftStickY => apply_deadzone(val, gp.value(LeftStickX), threshold),
+                LeftStickX => apply_deadzone(val, gp.value(LeftStickY), threshold),
+                RightStickY => apply_deadzone(val, gp.value(RightStickX), threshold),
+                RightStickX => apply_deadzone(val, gp.value(RightStickY), threshold),
+                _ => apply_deadzone(val, 0.0, threshold),
             }.0;
 
             Some(if gp.state().value(nec) == val {

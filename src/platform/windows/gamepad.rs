@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
+use ev::AxisInfo;
 use gamepad::{self, Axis, Button, Event, EventType, GamepadImplExt, NativeEvCode, PowerInfo,
               Status};
 
@@ -439,15 +440,10 @@ impl Gamepad {
         self.name = name.to_owned();
     }
 
-    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
-        use self::native_ev_codes::*;
-
-        match axis {
-            AXIS_LSTICKX | AXIS_LSTICKY => xi::XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as f32 / 65535.0,
-            AXIS_RSTICKX | AXIS_RSTICKY => xi::XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as f32 / 65535.0,
-            AXIS_LT2 | AXIS_RT2 => xi::XINPUT_GAMEPAD_TRIGGER_THRESHOLD as f32 / 255.0,
-            _ => 0.1,
-        }
+    pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
+        native_ev_codes::AXES_INFO
+            .get(nec as usize)
+            .and_then(|o| o.as_ref())
     }
 }
 
@@ -476,6 +472,14 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
 }
 
 pub mod native_ev_codes {
+    use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
+    use std::u8::{MAX as U8_MAX, MIN as U8_MIN};
+
+    use winapi::xinput::{XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
+                         XINPUT_GAMEPAD_TRIGGER_THRESHOLD};
+
+    use ev::AxisInfo;
+
     pub const BTN_SOUTH: u16 = 0;
     pub const BTN_EAST: u16 = 1;
     pub const BTN_C: u16 = 2;
@@ -522,5 +526,56 @@ pub mod native_ev_codes {
         AXIS_RSTICKY,
         AXIS_RT2,
         AXIS_LT2,
+    ];
+
+    pub(super) static AXES_INFO: [Option<AxisInfo>; 12] = [
+        // LeftStickX
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32,
+        }),
+        // LeftStickY
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32,
+        }),
+        // LeftZ
+        None,
+        // RightStickX
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32,
+        }),
+        // RightStickY
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32,
+        }),
+        // RightZ
+        None,
+        // DPadX
+        None,
+        // DPadY
+        None,
+        // RightTrigger
+        None,
+        // LeftTrigger
+        None,
+        // RightTrigger2
+        Some(AxisInfo {
+            min: U8_MIN as i32,
+            max: U8_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32,
+        }),
+        // LeftTrigger2
+        Some(AxisInfo {
+            min: U8_MIN as i32,
+            max: U8_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32,
+        }),
     ];
 }

@@ -709,8 +709,8 @@ impl Gamepad {
     }
 
     /// Returns area in which axis events should be ignored.
-    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
-        self.inner.deadzone(axis)
+    pub fn deadzone(&self, axis: NativeEvCode) -> Option<f32> {
+        self.inner.axis_info(axis).map(|i| i.deadzone())
     }
 
     /// Returns ID of gamepad.

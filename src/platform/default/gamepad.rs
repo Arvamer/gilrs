@@ -7,6 +7,7 @@
 #![allow(unused_variables)]
 
 use super::FfDevice;
+use ev::AxisInfo;
 use gamepad::{self, Event, GamepadImplExt, NativeEvCode, PowerInfo, Status};
 use uuid::Uuid;
 
@@ -80,11 +81,11 @@ impl Gamepad {
         &[]
     }
 
-    pub fn set_name(&mut self, name: &str) {}
-
-    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
-        0.1
+    pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
+        None
     }
+
+    pub fn set_name(&mut self, name: &str) {}
 }
 
 pub mod native_ev_codes {

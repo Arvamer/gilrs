@@ -10,6 +10,7 @@ use super::ioctl;
 use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
+use ev::AxisInfo;
 use gamepad::{Axis, Button, Event, EventType, Gamepad as MainGamepad, GamepadImplExt,
               NativeEvCode, PowerInfo, Status};
 use utils::{clamp, test_bit};
@@ -211,14 +212,15 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct AxesInfo {
-    info: VecMap<input_absinfo>,
+    info: VecMap<AxisInfo>,
 }
 
 impl AxesInfo {
     fn new(fd: i32) -> Self {
         let mut map = VecMap::new();
+
         unsafe {
             let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
             ioctl::eviocgbit(
@@ -227,24 +229,27 @@ impl AxesInfo {
                 abs_bits.len() as i32,
                 abs_bits.as_mut_ptr(),
             );
+
             for axis in Gamepad::find_axes(&abs_bits) {
                 let mut info = input_absinfo::default();
                 ioctl::eviocgabs(fd, axis as u32, &mut info);
-                map.insert(axis as usize, info);
+                map.insert(
+                    axis as usize,
+                    AxisInfo {
+                        min: info.minimum,
+                        max: info.maximum,
+                        deadzone: info.flat as u32,
+                    },
+                );
             }
         }
-        AxesInfo { info: map }
-    }
 
-    fn deadzone(&self, idx: u16) -> f32 {
-        self.info
-            .get(idx as usize)
-            .map_or(0.1, |i| i.flat as f32 / i.maximum as f32)
+        AxesInfo { info: map }
     }
 }
 
 impl Index<u16> for AxesInfo {
-    type Output = input_absinfo;
+    type Output = AxisInfo;
 
     fn index(&self, i: u16) -> &Self::Output {
         &self.info[i as usize]
@@ -536,7 +541,7 @@ impl Gamepad {
                 EV_ABS => {
                     let axis_info = &self.axes_info[event.code];
                     self.axes_values.insert(event.code as usize, event.value);
-                    let val = Self::axis_value(*axis_info, event.value, event.code);
+                    let val = Self::axis_value(axis_info, event.value, event.code);
 
                     Some(EventType::AxisChanged(Axis::Unknown, val, event.code))
                 }
@@ -612,9 +617,9 @@ impl Gamepad {
         }
     }
 
-    fn axis_value(axes_info: input_absinfo, val: i32, axis: u16) -> f32 {
-        let range = (axes_info.maximum - axes_info.minimum) as f32;
-        let mut val = (val - axes_info.minimum) as f32;
+    fn axis_value(axes_info: &AxisInfo, val: i32, axis: u16) -> f32 {
+        let range = (axes_info.max - axes_info.min) as f32;
+        let mut val = (val - axes_info.min) as f32;
         if axis == ABS_HAT1X || axis == ABS_HAT1Y || axis == ABS_HAT2X || axis == ABS_HAT2Y
             || axis == ABS_Z || axis == ABS_RZ
         {
@@ -729,8 +734,8 @@ impl Gamepad {
         &self.axes
     }
 
-    pub fn deadzone(&self, axis: NativeEvCode) -> f32 {
-        self.axes_info.deadzone(axis)
+    pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
+        self.axes_info.info.get(nec as usize)
     }
 }
 

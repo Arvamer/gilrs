@@ -14,6 +14,7 @@ v0.6.0 - unreleased
 - Updated bundled mappings.
 - Renamed `Filter::filter` to `Filter::filter_ev` because RFC 2124 added
   `filter` method to `Option` (our `Filter` is implemented for `Option<Event>`).
+- `Gamepad::deadzone()` now returns `Option<f32>` instead of `f32`.
 
 ### Fixed
 

@@ -151,6 +151,7 @@ pub struct AxisData {
     value: f32,
 }
 
+
 impl AxisData {
     pub(crate) fn new(value: f32, counter: u64, time: SystemTime) -> Self {
         AxisData {
@@ -172,6 +173,23 @@ impl AxisData {
     /// Returns when axis value last changed.
     pub fn timestamp(&self) -> SystemTime {
         self.last_event_ts
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct AxisInfo {
+    pub min: i32,
+    pub max: i32,
+    pub deadzone: u32,
+}
+
+impl AxisInfo {
+    pub fn deadzone(&self) -> f32 {
+        let range = self.max as f32 - self.min as f32;
+
+        debug_assert!(range != 0.0);
+
+        self.deadzone as f32 / range
     }
 }
 
