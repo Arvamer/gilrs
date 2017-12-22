@@ -5,6 +5,18 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Module which exports the platform-specific types.
+//!
+//! Each backend has to provide:
+//!
+//! * A `FfDevice` (a struct which handles force feedback)
+//! * A `Gilrs` context
+//! * A `Gamepad` struct
+//! * A static `str` which specifies the name of the SDL input mapping
+//! * A module with the platform-specific constants for common gamepad buttons
+//!   called `native_ev_codes`
+//!
+
 pub use self::platform::*;
 
 #[cfg(target_os = "linux")]
