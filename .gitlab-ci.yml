@@ -41,6 +41,8 @@ build:i686-unknown-linux-gnu:
 
 test:i686-unknown-linux-gnu:
   stage: test
+  variables:
+    PKG_CONFIG_ALLOW_CROSS: 1
   before_script: *i386_before
   script:
     - cargo test --verbose --target=i686-unknown-linux-gnu
