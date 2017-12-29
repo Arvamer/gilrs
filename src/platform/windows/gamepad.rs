@@ -436,10 +436,6 @@ impl Gamepad {
         &native_ev_codes::AXES
     }
 
-    pub fn set_name(&mut self, name: &str) {
-        self.name = name.to_owned();
-    }
-
     pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
         native_ev_codes::AXES_INFO
             .get(nec as usize)

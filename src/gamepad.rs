@@ -162,9 +162,6 @@ impl Gilrs {
                                 ).ok()
                             })
                             .unwrap_or_default();
-                        if !mapping.name().is_empty() {
-                            gamepad.inner.set_name(mapping.name())
-                        }
                         gamepad.mapping = mapping;
 
                         if gamepad.id == usize::max_value() {
@@ -480,8 +477,25 @@ impl Gamepad {
         }
     }
 
-    /// Returns gamepad's name.
+    /// Returns the mapping name if it exists otherwise returns the os provided name.
+    /// Warning: May change from os provided name to mapping name after the first call of event_next.
     pub fn name(&self) -> &str {
+        let map_name = self.map_name();
+        if map_name.is_empty() {
+            self.os_name()
+        } else {
+            map_name
+        }
+    }
+
+    /// Returns the name of the mapping used by the gamepad.
+    /// Warning: Is an empty string until the first call of event_next.
+    pub fn map_name(&self) -> &str {
+        &self.mapping.name()
+    }
+
+    /// Returns the name of the gamepad supplied by the OS.
+    pub fn os_name(&self) -> &str {
         self.inner.name()
     }
 

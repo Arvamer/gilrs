@@ -710,10 +710,6 @@ impl Gamepad {
         &self.name
     }
 
-    pub fn set_name(&mut self, name: &str) {
-        self.name = name.to_owned()
-    }
-
     pub fn uuid(&self) -> Uuid {
         self.uuid
     }

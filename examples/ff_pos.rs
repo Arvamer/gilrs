@@ -1,7 +1,7 @@
 extern crate env_logger;
 extern crate gilrs;
 
-use gilrs::{Axis, Button, Event, EventType, Gilrs};
+use gilrs::{Axis, Button, EventType, Gilrs};
 use gilrs::ff::{BaseEffect, BaseEffectType, DistanceModel, EffectBuilder};
 
 use std::io::{self, Write};

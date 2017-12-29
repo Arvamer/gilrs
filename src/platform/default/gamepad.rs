@@ -84,8 +84,6 @@ impl Gamepad {
     pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
         None
     }
-
-    pub fn set_name(&mut self, name: &str) {}
 }
 
 pub mod native_ev_codes {
