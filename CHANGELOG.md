@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+v0.5.2 – 2017-12-30
+
+### Fixed
+
+- linux: Fixed compilation on platforms with `c_char = u8` (for example ARM).
+
 v0.5.1 – 2017-11-12
 
 ### Fixed
