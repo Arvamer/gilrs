@@ -8,6 +8,7 @@
 use libc as c;
 use libudev_sys as ud;
 use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use std::ptr;
 
 #[derive(Debug)]
@@ -207,13 +208,13 @@ impl Monitor {
     pub fn new(udev: &Udev) -> Option<Self> {
         unsafe {
             let monitor =
-                ud::udev_monitor_new_from_netlink(udev.0, b"udev\0".as_ptr() as *const i8);
+                ud::udev_monitor_new_from_netlink(udev.0, b"udev\0".as_ptr() as *const c_char);
             if monitor.is_null() {
                 None
             } else {
                 ud::udev_monitor_filter_add_match_subsystem_devtype(
                     monitor,
-                    b"input\0".as_ptr() as *const i8,
+                    b"input\0".as_ptr() as *const c_char,
                     ptr::null(),
                 );
                 ud::udev_monitor_enable_receiving(monitor);
