@@ -25,6 +25,7 @@ use std::mem;
 use std::ops::Index;
 use std::str;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::os::raw::c_char;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -198,7 +199,7 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
         let mut r_ptr = r.as_ptr();
         let end = r_ptr.offset(r.len() as isize);
         while *l_ptr != 0 && r_ptr != end {
-            if *l_ptr != *r_ptr as i8 {
+            if *l_ptr != *r_ptr as c_char {
                 return false;
             }
             l_ptr = l_ptr.offset(1);
@@ -300,7 +301,7 @@ impl Gamepad {
             None => return None,
         };
 
-        if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const i8).is_null() } {
+        if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const c_char).is_null() } {
             info!("Device {:?} is js interface, ignoring.", path);
             return None;
         }
@@ -395,7 +396,7 @@ impl Gamepad {
                 None
             } else {
                 Some(
-                    CStr::from_ptr(namebuff.as_ptr() as *const i8)
+                    CStr::from_ptr(namebuff.as_ptr() as *const c_char)
                         .to_string_lossy()
                         .into_owned(),
                 )
