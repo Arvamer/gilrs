@@ -427,13 +427,14 @@ pub struct MappingDb {
 }
 
 impl MappingDb {
-    pub fn without_env() -> Self {
-        let mut db = MappingDb { mappings: HashMap::new() };
-        db.insert(include_str!(
+    pub fn new() -> Self {
+        MappingDb { mappings: HashMap::new() }
+    }
+
+    pub fn add_included_mappings(&mut self) {
+        self.insert(include_str!(
             "../../SDL_GameControllerDB/gamecontrollerdb.txt"
         ));
-
-        db
     }
 
     pub fn add_env_mappings(&mut self) {
@@ -716,7 +717,8 @@ mod tests {
             "\nShould be ignored\nThis also should,be ignored\n\n{}",
             TEST_STR
         );
-        let mut db = MappingDb::without_env();
+        let mut db = MappingDb::new();
+        db.add_included_mappings();
         db.insert(&mappings);
 
         assert_eq!(
@@ -728,7 +730,8 @@ mod tests {
     #[test]
     #[ignore]
     fn check_bundled_mappings() {
-        let db = MappingDb::without_env();
+        let mut db = MappingDb::new();
+        db.add_included_mappings();
 
         // All possible buttons and axes
         let elements = (0..(u16::max_value() as u32))

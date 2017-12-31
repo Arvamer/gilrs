@@ -108,7 +108,7 @@ impl Gilrs {
     /// Creates new `Gilrs` with default settings. See [`GilrsBuilder`](struct.GilrsBuilder.html)
     /// for more details.
     pub fn new() -> Self {
-        GilrsBuilder::new().build()
+        GilrsBuilder::new().add_included_mappings().build()
     }
 
     /// Returns next pending event.
@@ -364,7 +364,7 @@ impl GilrsBuilder {
     /// Create builder with default settings. Use `build()` to create `Gilrs`.
     pub fn new() -> Self {
         GilrsBuilder {
-            mappings: MappingDb::without_env(),
+            mappings: MappingDb::new(),
             default_filters: true,
         }
     }
@@ -385,10 +385,22 @@ impl GilrsBuilder {
         self
     }
 
-    /// Creates `Gilrs`.
-    pub fn build(mut self) -> Gilrs {
+    /// Adds SDL mappings from env.
+    pub fn add_env_mappings(mut self) -> Self {
         self.mappings.add_env_mappings();
 
+        self
+    }
+
+    /// Adds SDL mappings included from https://github.com/gabomdq/SDL_GameControllerDB
+    pub fn add_included_mappings(mut self) -> Self {
+        self.mappings.add_included_mappings();
+
+        self
+    }
+
+    /// Creates `Gilrs`.
+    pub fn build(self) -> Gilrs {
         let mut gilrs = Gilrs {
             inner: platform::Gilrs::new(),
             next_id: 0,
