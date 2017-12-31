@@ -7,8 +7,9 @@
 #![allow(unused_variables)]
 
 use super::FfDevice;
-use ev::AxisInfo;
-use gamepad::{self, Event, GamepadImplExt, NativeEvCode, PowerInfo, Status};
+use ev::{Event, NativeEvCode};
+use ev::state::AxisInfo;
+use gamepad::{self, GamepadImplExt, PowerInfo, Status};
 use uuid::Uuid;
 
 #[derive(Debug)]

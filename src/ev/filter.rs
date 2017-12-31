@@ -83,7 +83,8 @@
 //! `FilterFn` is also implemented for all `Fn(Option<Event>, &Gilrs) -> Option<Event>`, so above
 //! example could be simplified to passing closure to `filter()` function.
 
-use gamepad::{Axis, Button, Event, EventType, Gamepad, Gilrs};
+use ev::{Axis, Button, Event, EventType};
+use gamepad::{Gamepad, Gilrs};
 
 use std::time::{Duration, SystemTime};
 
@@ -128,7 +129,7 @@ fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
 
 /// Drops events in dead zone and remaps value to keep it in standard range.
 pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
-    use gamepad::Axis::*;
+    use ev::Axis::*;
 
     match ev {
         Some(Event {

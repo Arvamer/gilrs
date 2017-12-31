@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 
 use uuid::Uuid;
 
-use gamepad::{Axis, Button};
+use ev::{Axis, Button};
 
 // Must be sorted!
 static BUTTONS_SDL: [&'static str; 19] = [

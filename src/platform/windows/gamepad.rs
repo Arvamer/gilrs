@@ -6,9 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
-use ev::AxisInfo;
-use gamepad::{self, Axis, Button, Event, EventType, GamepadImplExt, NativeEvCode, PowerInfo,
-              Status};
+use ev::state::AxisInfo;
+use ev::{Axis, Button, Event, EventType, NativeEvCode};
+use gamepad::{self, GamepadImplExt, PowerInfo, Status};
 
 use uuid::Uuid;
 use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
@@ -474,7 +474,7 @@ pub mod native_ev_codes {
     use winapi::xinput::{XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
                          XINPUT_GAMEPAD_TRIGGER_THRESHOLD};
 
-    use ev::AxisInfo;
+    use ev::state::AxisInfo;
 
     pub const BTN_SOUTH: u16 = 0;
     pub const BTN_EAST: u16 = 1;

@@ -11,8 +11,9 @@ use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
 use ev::state::AxisInfo;
-use gamepad::{Axis, Button, Event, EventType, Gamepad as MainGamepad, GamepadImplExt,
-              NativeEvCode, PowerInfo, Status};
+use ev::NativeEvCode;
+use ev::{Axis, Button, Event, EventType};
+use gamepad::{Gamepad as MainGamepad, GamepadImplExt, PowerInfo, Status};
 use utils::{clamp, test_bit};
 
 use libc as c;

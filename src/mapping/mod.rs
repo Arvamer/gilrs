@@ -8,7 +8,8 @@
 
 mod parser;
 
-use gamepad::{Axis, Button, NativeEvCode};
+use ev::{Axis, Button};
+use ev::NativeEvCode;
 use platform::{self, native_ev_codes as nec};
 use std::collections::HashMap;
 use std::env;
@@ -602,7 +603,7 @@ impl Display for MappingError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gamepad::{Axis, Button};
+    use ev::{Axis, Button};
     use uuid::Uuid;
     // Do not include platform, mapping from (with UUID modified)
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
