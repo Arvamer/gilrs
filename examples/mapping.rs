@@ -12,12 +12,12 @@ fn main() {
         println!(
             "{}: {} (mapping source: {:?})",
             id,
-            gp.name(),
+            gp.os_name(),
             gp.mapping_source()
         );
     }
 
-    println!("Pleas select id:");
+    println!("Please select id:");
     let mut id = String::new();
     io::stdin()
         .read_line(&mut id)
