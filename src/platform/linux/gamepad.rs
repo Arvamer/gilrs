@@ -10,7 +10,7 @@ use super::ioctl;
 use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
-use ev::AxisInfo;
+use ev::state::AxisInfo;
 use gamepad::{Axis, Button, Event, EventType, Gamepad as MainGamepad, GamepadImplExt,
               NativeEvCode, PowerInfo, Status};
 use utils::{clamp, test_bit};

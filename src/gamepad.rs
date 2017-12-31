@@ -7,7 +7,7 @@
 
 use AsInner;
 use constants::*;
-use ev::{AxisData, ButtonData, GamepadState};
+use ev::state::{AxisData, ButtonData, GamepadState};
 use ff::Error as FfError;
 use ff::server::{self, Message};
 use mapping::{Mapping, MappingData, MappingDb, MappingError};
