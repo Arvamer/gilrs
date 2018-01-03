@@ -10,11 +10,9 @@ use super::ioctl;
 use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
-use ev::state::AxisInfo;
-use ev::NativeEvCode;
-use ev::{Axis, Button, Event, EventType};
+use ev::{AxisInfo, RawEvent, RawEventType, NativeEvCode};
 use gamepad::{Gamepad as MainGamepad, GamepadImplExt, PowerInfo, Status};
-use utils::{clamp, test_bit};
+use utils;
 
 use libc as c;
 use uuid::Uuid;
@@ -34,7 +32,7 @@ pub struct Gilrs {
     monitor: Option<Monitor>,
     not_observed: MainGamepad,
     event_counter: usize,
-    additional_events: VecDeque<Event>,
+    additional_events: VecDeque<RawEvent>,
 }
 
 impl Gilrs {
@@ -65,7 +63,7 @@ impl Gilrs {
                 if let Some(gamepad) = Gamepad::open(&dev) {
                     gamepads.push(MainGamepad::from_inner_status(gamepad, Status::Connected));
                     additional_events
-                        .push_back(Event::new(gamepads.len() - 1, EventType::Connected));
+                        .push_back(RawEvent::new(gamepads.len() - 1, RawEventType::Connected));
                 }
             }
         }
@@ -94,7 +92,7 @@ impl Gilrs {
         }
     }
 
-    pub fn next_event(&mut self) -> Option<Event> {
+    pub(crate) fn next_event(&mut self) -> Option<RawEvent> {
         if let Some(event) = self.additional_events.pop_front() {
             return Some(event);
         }
@@ -118,7 +116,7 @@ impl Gilrs {
             }
 
             match gamepad.as_inner_mut().event() {
-                Some((event, time)) => return Some(Event { id: self.event_counter, event, time }),
+                Some((event, time)) => return Some(RawEvent { id: self.event_counter, event, time }),
                 None => {
                     self.event_counter += 1;
                     continue;
@@ -139,7 +137,7 @@ impl Gilrs {
         self.gamepads.len()
     }
 
-    fn handle_hotplug(&mut self) -> Option<Event> {
+    fn handle_hotplug(&mut self) -> Option<RawEvent> {
         let monitor = match self.monitor {
             Some(ref m) => m,
             None => return None,
@@ -169,11 +167,11 @@ impl Gilrs {
                         }) {
                             self.gamepads[id] =
                                 MainGamepad::from_inner_status(gamepad, Status::Connected);
-                            return Some(Event::new(id, EventType::Connected));
+                            return Some(RawEvent::new(id, RawEventType::Connected));
                         } else {
                             self.gamepads
                                 .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
-                            return Some(Event::new(self.gamepads.len() - 1, EventType::Connected));
+                            return Some(RawEvent::new(self.gamepads.len() - 1, RawEventType::Connected));
                         }
                     }
                 } else if action == cstr_new(b"remove\0") {
@@ -182,7 +180,7 @@ impl Gilrs {
                             is_eq_cstr_str(devnode, &gp.as_inner().devpath) && gp.is_connected()
                         }) {
                             self.gamepads[id].as_inner_mut().disconnect();
-                            return Some(Event::new(id, EventType::Disconnected));
+                            return Some(RawEvent::new(id, RawEventType::Disconnected));
                         } else {
                             info!("Could not find disconnect gamepad {:?}", devnode);
                         }
@@ -409,8 +407,8 @@ impl Gamepad {
         unsafe {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
-                if test_bit(FF_SQUARE, &ff_bits) && test_bit(FF_TRIANGLE, &ff_bits)
-                    && test_bit(FF_SINE, &ff_bits) && test_bit(FF_GAIN, &ff_bits)
+                if utils::test_bit(FF_SQUARE, &ff_bits) && utils::test_bit(FF_TRIANGLE, &ff_bits)
+                    && utils::test_bit(FF_SINE, &ff_bits) && utils::test_bit(FF_GAIN, &ff_bits)
                 {
                     true
                 } else {
@@ -446,24 +444,24 @@ impl Gamepad {
         let mut buttons = Vec::with_capacity(16);
 
         for bit in BTN_MISC..BTN_MOUSE {
-            if test_bit(bit, &key_bits) {
+            if utils::test_bit(bit, &key_bits) {
                 buttons.push(bit);
             }
         }
         for bit in BTN_JOYSTICK..(key_bits.len() as u16 * 8) {
-            if test_bit(bit, &key_bits) {
+            if utils::test_bit(bit, &key_bits) {
                 buttons.push(bit);
             }
         }
 
         if !only_gamepad_btns {
             for bit in 0..BTN_MISC {
-                if test_bit(bit, &key_bits) {
+                if utils::test_bit(bit, &key_bits) {
                     buttons.push(bit);
                 }
             }
             for bit in BTN_MOUSE..BTN_JOYSTICK {
-                if test_bit(bit, &key_bits) {
+                if utils::test_bit(bit, &key_bits) {
                     buttons.push(bit);
                 }
             }
@@ -476,7 +474,7 @@ impl Gamepad {
         let mut axes = Vec::with_capacity(8);
 
         for bit in 0..(abs_bits.len() * 8) {
-            if test_bit(bit as u16, &abs_bits) {
+            if utils::test_bit(bit as u16, &abs_bits) {
                 axes.push(bit as u16);
             }
         }
@@ -507,7 +505,7 @@ impl Gamepad {
         (-1, -1)
     }
 
-    pub fn event(&mut self) -> Option<(EventType, SystemTime)> {
+    fn event(&mut self) -> Option<(RawEventType, SystemTime)> {
         let mut skip = false;
         // Skip all unknown events and return Option on first know event or when there is no more
         // events to read. Returning None on unknown event breaks iterators.
@@ -533,19 +531,17 @@ impl Gamepad {
                 EV_KEY => {
                     self.buttons_values
                         .insert(event.code as usize, event.value == 1);
-                    let btn = Button::Unknown;
                     match event.value {
-                        0 => Some(EventType::ButtonReleased(btn, event.code)),
-                        1 => Some(EventType::ButtonPressed(btn, event.code)),
+                        0 => Some(RawEventType::ButtonReleased(event.code)),
+                        1 => Some(RawEventType::ButtonPressed(event.code)),
                         _ => None,
                     }
                 }
                 EV_ABS => {
-                    let axis_info = &self.axes_info[event.code];
                     self.axes_values.insert(event.code as usize, event.value);
-                    let val = Self::axis_value(axis_info, event.value, event.code);
+                    let val = Self::axis_value(event.value, event.code);
 
-                    Some(EventType::AxisChanged(Axis::Unknown, val, event.code))
+                    Some(RawEventType::AxisValueChanged(val, event.code))
                 }
                 _ => None,
             };
@@ -603,7 +599,7 @@ impl Gamepad {
         }
 
         for btn in self.buttons.iter().cloned() {
-            let val = test_bit(btn, &buf);
+            let val = utils::test_bit(btn, &buf);
             if self.buttons_values
                 .get(btn as usize)
                 .cloned()
@@ -619,20 +615,7 @@ impl Gamepad {
         }
     }
 
-    fn axis_value(axes_info: &AxisInfo, val: i32, axis: u16) -> f32 {
-        let range = (axes_info.max - axes_info.min) as f32;
-        let mut val = (val - axes_info.min) as f32;
-        if axis == ABS_HAT1X || axis == ABS_HAT1Y || axis == ABS_HAT2X || axis == ABS_HAT2Y
-            || axis == ABS_Z || axis == ABS_RZ
-        {
-            // Triggers are normalized to [0.0, 1.0]
-            val = val / range;
-            val = clamp(val, 0.0, 1.0);
-        } else {
-            // Otherwise, normalize to [-1.0, 1.0]
-            val = val / range * 2.0 - 1.0;
-            val = clamp(val, -1.0, 1.0);
-        }
+    fn axis_value(val: i32, axis: u16) -> i32 {
         if axis == ABS_Y || axis == ABS_RY || axis == ABS_HAT0Y {
             -val
         } else {
@@ -893,3 +876,4 @@ mod tests {
         assert_eq!(x, y);
     }
 }
+

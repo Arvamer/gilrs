@@ -13,6 +13,7 @@ pub mod state;
 use std::time::SystemTime;
 
 use constants::*;
+use utils;
 
 /// Platform specific event code.
 ///
@@ -86,9 +87,37 @@ pub enum EventType {
     Dropped,
 }
 
+/// Holds information about gamepad event.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub(crate) struct RawEvent {
+    /// Id of gamepad.
+    pub id: usize,
+    /// Event's data.
+    pub event: RawEventType,
+    /// Time when event was emitted.
+    pub time: SystemTime,
+}
+
+impl RawEvent {
+    /// Creates new event with current time.
+    pub fn new(id: usize, event: RawEventType) -> Self {
+        RawEvent { id, event, time: SystemTime::now() }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Gamepad event.
+pub(crate) enum RawEventType {
+    ButtonPressed(NativeEvCode),
+    ButtonReleased(NativeEvCode),
+    AxisValueChanged(i32, NativeEvCode),
+    Connected,
+    Disconnected,
+}
+
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-/// Gamepad's elements which state can be represented by `bool`.
+/// Gamepad's elements which state can be represented by value from 0.0 to 1.0.
 ///
 /// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
 pub enum Button {
@@ -197,7 +226,7 @@ impl Default for Button {
 
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-/// Gamepad's elements which state can be represented by `f32`.
+/// Gamepad's elements which state can be represented by value from -1.0 to 1.0.
 ///
 /// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
 pub enum Axis {
@@ -230,6 +259,40 @@ impl Axis {
         match self {
             LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 | LeftZ | RightZ => true,
             _ => false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct AxisInfo {
+    pub min: i32,
+    pub max: i32,
+    pub deadzone: u32,
+}
+
+impl AxisInfo {
+    pub fn deadzone(&self) -> f32 {
+        let range = self.max as f32 - self.min as f32;
+
+        debug_assert!(range != 0.0);
+
+        self.deadzone as f32 / range
+    }
+
+    pub(crate) fn value(&self, val: i32, is_axis: bool) -> f32 {
+        let range = (self.max - self.min) as f32;
+        let mut val = (val - self.min) as f32;
+
+        if !is_axis {
+            // Buttons are normalized to [0.0, 1.0]
+            val = val / range;
+
+            utils::clamp(val, 0.0, 1.0)
+        } else {
+            // Otherwise, normalize to [-1.0, 1.0]
+            val = val / range * 2.0 - 1.0;
+
+            utils::clamp(val, -1.0, 1.0)
         }
     }
 }

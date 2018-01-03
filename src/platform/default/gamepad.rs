@@ -7,8 +7,8 @@
 #![allow(unused_variables)]
 
 use super::FfDevice;
-use ev::{Event, NativeEvCode};
-use ev::state::AxisInfo;
+use ev::{RawEvent, NativeEvCode};
+use ev::AxisInfo;
 use gamepad::{self, GamepadImplExt, PowerInfo, Status};
 use uuid::Uuid;
 
@@ -25,7 +25,7 @@ impl Gilrs {
         }
     }
 
-    pub fn next_event(&mut self) -> Option<Event> {
+    pub(crate) fn next_event(&mut self) -> Option<RawEvent> {
         None
     }
 

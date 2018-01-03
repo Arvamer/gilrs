@@ -7,7 +7,7 @@
 
 use AsInner;
 use ev::state::{AxisData, ButtonData, GamepadState};
-use ev::{Axis, Button, Event, EventType, NativeEvCode};
+use ev::{Axis, Button, Event, EventType, NativeEvCode, RawEvent, RawEventType};
 use ff::Error as FfError;
 use ff::server::{self, Message};
 use mapping::{Mapping, MappingData, MappingDb, MappingError};
@@ -137,20 +137,24 @@ impl Gilrs {
     /// Returns next pending event.
     fn next_event_priv(&mut self) -> Option<Event> {
         match self.inner.next_event() {
-            Some(Event { id, mut event, time }) => {
-                debug!("Original event: {:?}", Event { id, event, time });
+            Some(RawEvent { id, event, time }) => {
+                debug!("Original event: {:?}", RawEvent { id, event, time });
                 let gamepad = self.inner.gamepad_mut(id);
-                match event {
-                    EventType::ButtonPressed(_, nec) => {
-                        event = EventType::ButtonPressed(gamepad.button_name(nec), nec);
+                let event = match event {
+                    RawEventType::ButtonPressed(nec) => {
+                        EventType::ButtonPressed(gamepad.button_name(nec), nec)
                     }
-                    EventType::ButtonReleased(_, nec) => {
-                        event = EventType::ButtonReleased(gamepad.button_name(nec), nec);
+                    RawEventType::ButtonReleased(nec) => {
+                        EventType::ButtonReleased(gamepad.button_name(nec), nec)
                     }
-                    EventType::AxisChanged(_, val, nec) => {
-                        event = EventType::AxisChanged(gamepad.axis_name(nec), val, nec);
+                    RawEventType::AxisValueChanged(val, nec) => {
+                        let axis = gamepad.axis_name(nec);
+                        // Can be only `None` if `nec` is invalid
+                        let val = gamepad.inner.axis_info(nec).unwrap().value(val, true);
+
+                        EventType::AxisChanged(axis, val, nec)
                     }
-                    EventType::Connected => {
+                    RawEventType::Connected => {
                         gamepad.status = Status::Connected;
                         let mapping = self.mappings
                             .get(gamepad.uuid())
@@ -172,12 +176,15 @@ impl Gilrs {
                                 let _ = self.tx.send(Message::Open { id, device });
                             }
                         }
+
+                        EventType::Connected
                     }
-                    EventType::Disconnected => {
+                    RawEventType::Disconnected => {
                         gamepad.status = Status::Disconnected;
                         let _ = self.tx.send(Message::Close { id });
+
+                        EventType::Disconnected
                     }
-                    _ => (),
                 };
 
                 Some(Event { id, event, time })
