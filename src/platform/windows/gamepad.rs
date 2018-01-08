@@ -368,7 +368,6 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    name: String,
     uuid: Uuid,
     id: u32,
 }
@@ -376,14 +375,13 @@ pub struct Gamepad {
 impl Gamepad {
     fn none() -> Self {
         Gamepad {
-            name: String::new(),
             uuid: Uuid::nil(),
             id: u32::MAX,
         }
     }
 
     pub fn name(&self) -> &str {
-        &self.name
+        "Xbox Controller"
     }
 
     pub fn uuid(&self) -> Uuid {
@@ -450,7 +448,6 @@ fn is_mask_eq(l: u16, r: u16, mask: u16) -> bool {
 
 fn gamepad_new(id: u32) -> gamepad::Gamepad {
     let gamepad = Gamepad {
-        name: format!("XInput Controller {}", id + 1),
         uuid: Uuid::nil(),
         id,
     };
