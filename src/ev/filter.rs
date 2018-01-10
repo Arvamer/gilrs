@@ -109,7 +109,7 @@ impl FilterFn for Jitter {
                 id,
                 ..
             }) => match gilrs.gamepad(id).state().axis_data(axis) {
-                Some(data) if (val - data.value()).abs() < self.threshold => Some(Event::dropped()),
+                Some(data) if val != 0.0 && (val - data.value()).abs() < self.threshold => Some(Event::dropped()),
                 _ => ev,
             },
             _ => ev,
