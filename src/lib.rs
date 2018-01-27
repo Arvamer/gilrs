@@ -105,6 +105,7 @@ extern crate xinput;
 extern crate log;
 extern crate uuid;
 extern crate vec_map;
+extern crate fnv;
 
 mod gamepad;
 mod platform;

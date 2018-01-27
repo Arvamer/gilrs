@@ -5,44 +5,44 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ev::NativeEvCode;
+use ev::EvCode;
 
-use vec_map::{self, VecMap};
+use fnv::FnvHashMap;
 
+use std::collections::hash_map;
 use std::iter::Iterator;
 use std::time::SystemTime;
 
 /// Cached gamepad state.
 #[derive(Clone, Debug)]
 pub struct GamepadState {
-    // Indexed by NativeEvCode (nec)
-    buttons: VecMap<ButtonData>,
-    // Indexed by NativeEvCode (nec)
-    axes: VecMap<AxisData>,
-    // Mappings, will be dynamically created while we are processing new events.
+    // Indexed by EvCode (nec)
+    buttons: FnvHashMap<EvCode, ButtonData>,
+    // Indexed by EvCode (nec)
+    axes: FnvHashMap<EvCode, AxisData>,
 }
 
 impl GamepadState {
     pub(crate) fn new() -> Self {
         GamepadState {
-            buttons: VecMap::new(),
-            axes: VecMap::new(),
+            buttons: FnvHashMap::default(),
+            axes: FnvHashMap::default(),
         }
     }
 
     /// Returns `true` if given button is pressed. Returns `false` if there is no information about
     /// `btn` or it is not pressed.
-    pub fn is_pressed(&self, btn: NativeEvCode) -> bool {
+    pub fn is_pressed(&self, btn: &EvCode) -> bool {
         self.buttons
-            .get(btn as usize)
+            .get(btn)
             .map(|s| s.is_pressed())
             .unwrap_or(false)
     }
 
     /// Returns value of axis or 0.0 when there is no information about axis.
-    pub fn value(&self, axis: NativeEvCode) -> f32 {
+    pub fn value(&self, axis: &EvCode) -> f32 {
         self.axes
-            .get(axis as usize)
+            .get(axis)
             .map(|s| s.value())
             .unwrap_or(0.0)
     }
@@ -58,43 +58,43 @@ impl GamepadState {
     }
 
     /// Returns button state and when it changed.
-    pub fn button_data(&self, btn: NativeEvCode) -> Option<&ButtonData> {
-        self.buttons.get(btn as usize)
+    pub fn button_data(&self, btn: &EvCode) -> Option<&ButtonData> {
+        self.buttons.get(btn)
     }
 
     /// Returns axis state and when it changed.
-    pub fn axis_data(&self, axis: NativeEvCode) -> Option<&AxisData> {
-        self.axes.get(axis as usize)
+    pub fn axis_data(&self, axis: &EvCode) -> Option<&AxisData> {
+        self.axes.get(axis)
     }
 
-    pub(crate) fn update_btn(&mut self, btn: NativeEvCode, data: ButtonData) {
-        self.buttons.insert(btn as usize, data);
+    pub(crate) fn update_btn(&mut self, btn: EvCode, data: ButtonData) {
+        self.buttons.insert(btn, data);
     }
 
-    pub(crate) fn update_axis(&mut self, axis: NativeEvCode, data: AxisData) {
-        self.axes.insert(axis as usize, data);
+    pub(crate) fn update_axis(&mut self, axis: EvCode, data: AxisData) {
+        self.axes.insert(axis, data);
     }
 }
 
 /// Iterator over `ButtonData`.
-pub struct ButtonDataIter<'a>(vec_map::Iter<'a, ButtonData>);
+pub struct ButtonDataIter<'a>(hash_map::Iter<'a, EvCode, ButtonData>);
 
 /// Iterator over `AxisData`.
-pub struct AxisDataIter<'a>(vec_map::Iter<'a, AxisData>);
+pub struct AxisDataIter<'a>(hash_map::Iter<'a, EvCode, AxisData>);
 
 impl<'a> Iterator for ButtonDataIter<'a> {
-    type Item = (usize, &'a ButtonData);
+    type Item = (EvCode, &'a ButtonData);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        self.0.next().map(|(k, v)| (*k, v))
     }
 }
 
 impl<'a> Iterator for AxisDataIter<'a> {
-    type Item = (usize, &'a AxisData);
+    type Item = (EvCode, &'a AxisData);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        self.0.next().map(|(k, v)| (*k, v))
     }
 }
 

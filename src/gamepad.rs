@@ -7,7 +7,7 @@
 
 use AsInner;
 use ev::state::{AxisData, ButtonData, GamepadState};
-use ev::{Axis, Button, Event, EventType, NativeEvCode, RawEvent, RawEventType};
+use ev::{Axis, AxisOrBtn, Button, Event, EventType, EvCode, RawEvent, RawEventType};
 use ff::Error as FfError;
 use ff::server::{self, Message};
 use mapping::{Mapping, MappingData, MappingDb, MappingError};
@@ -142,17 +142,37 @@ impl Gilrs {
                 let gamepad = self.inner.gamepad_mut(id);
                 let event = match event {
                     RawEventType::ButtonPressed(nec) => {
-                        EventType::ButtonPressed(gamepad.button_name(nec), nec)
+                        let nec = EvCode(nec);
+                        let elem = match gamepad.axis_or_btn_name(nec) {
+                            Some(AxisOrBtn::Btn(b)) => b,
+                            Some(AxisOrBtn::Axis(_)) => unimplemented!(),
+                            None => Button::Unknown,
+                        };
+
+                        EventType::ButtonPressed(elem, nec)
                     }
                     RawEventType::ButtonReleased(nec) => {
-                        EventType::ButtonReleased(gamepad.button_name(nec), nec)
+                        let nec = EvCode(nec);
+                        let elem = match gamepad.axis_or_btn_name(nec) {
+                            Some(AxisOrBtn::Btn(b)) => b,
+                            Some(AxisOrBtn::Axis(_)) => unimplemented!(),
+                            None => Button::Unknown,
+                        };
+
+                        EventType::ButtonReleased(elem, nec)
                     }
                     RawEventType::AxisValueChanged(val, nec) => {
-                        let axis = gamepad.axis_name(nec);
                         // Can be only `None` if `nec` is invalid
                         let val = gamepad.inner.axis_info(nec).unwrap().value(val, true);
+                        let nec = EvCode(nec);
 
-                        EventType::AxisChanged(axis, val, nec)
+                        let elem = match gamepad.axis_or_btn_name(nec) {
+                            Some(AxisOrBtn::Btn(_)) => unimplemented!(),
+                            Some(AxisOrBtn::Axis(a)) => a,
+                            None => Axis::Unknown,
+                        };
+
+                        EventType::AxisChanged(elem, val, nec)
                     }
                     RawEventType::Connected => {
                         gamepad.status = Status::Connected;
@@ -544,11 +564,11 @@ impl Gamepad {
     /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
     /// represented by axis returns true if value is not equal to 0.0. Panics if `btn` is `Unknown`.
     pub fn is_pressed(&self, btn: Button) -> bool {
-        assert!(btn != Button::Unknown);
+        assert_ne!(btn, Button::Unknown);
 
         self.button_code(btn)
             .or_else(|| btn.to_nec())
-            .map(|nec| self.state.is_pressed(nec))
+            .map(|nec| self.state.is_pressed(&nec))
             .unwrap_or(false)
     }
 
@@ -556,23 +576,23 @@ impl Gamepad {
     /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Panics if `axis` is
     /// `Unknown`.
     pub fn value(&self, axis: Axis) -> f32 {
-        assert!(axis != Axis::Unknown);
+        assert_ne!(axis, Axis::Unknown);
 
         self.axis_code(axis)
-            .map(|nec| self.state.value(nec))
+            .map(|nec| self.state.value(&nec))
             .unwrap_or(0.0)
     }
 
     /// Returns button state and when it changed.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
         self.button_code(btn)
-            .and_then(|nec| self.state.button_data(nec))
+            .and_then(|nec| self.state.button_data(&nec))
     }
 
     /// Returns axis state and when it changed.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
         self.axis_code(axis)
-            .and_then(|nec| self.state.axis_data(nec))
+            .and_then(|nec| self.state.axis_data(&nec))
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.
@@ -613,7 +633,7 @@ impl Gamepad {
     ///
     /// This function return error if `name` contains comma, `mapping` have axis and button entry
     /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
-    /// not have any element with `NativeEvCode` used in mapping. `Button::Unknown` and
+    /// not have any element with `EvCode` used in mapping. `Button::Unknown` and
     /// `Axis::Unknown` are not allowd as keys to `mapping` – in this case,
     /// `MappingError::UnknownElement` is returned.
     ///
@@ -626,7 +646,6 @@ impl Gamepad {
     ///
     /// # let mut gilrs = gilrs::Gilrs::new();
     /// let mut data = Mapping::new();
-    /// data[Button::South] = 213;
     /// // …
     ///
     /// // or `match gilrs[0].set_mapping(&data, None) {`
@@ -634,19 +653,6 @@ impl Gamepad {
     ///     Ok(sdl) => println!("SDL2 mapping: {}", sdl),
     ///     Err(e) => println!("Failed to set mapping: {}", e),
     /// };
-    /// ```
-    ///
-    /// Example with `MappingError::DuplicatedEntry`:
-    ///
-    /// ```no_run
-    /// use gilrs::{Mapping, Button, Axis, MappingError};
-    ///
-    /// # let mut gilrs = gilrs::Gilrs::new();
-    /// let mut data = Mapping::new();
-    /// data[Button::RightTrigger2] = 2;
-    /// data[Axis::RightTrigger2] = 2;
-    ///
-    /// assert_eq!(gilrs[0].set_mapping(&data, None), Err(MappingError::DuplicatedEntry));
     /// ```
     ///
     /// See also `examples/mapping.rs`.
@@ -721,29 +727,24 @@ impl Gamepad {
         }
     }
 
-    /// Returns `Button` mapped to `nec`.
-    pub fn button_name(&self, nec: NativeEvCode) -> Button {
-        self.mapping.map_button(nec)
+    /// Returns `AxisOrBtn` mapped to `EvCode`.
+    pub fn axis_or_btn_name(&self, ec: EvCode) -> Option<AxisOrBtn> {
+        self.mapping.map(&ec.0)
     }
 
-    /// Returns `Axis` mapped to `nec`.
-    pub fn axis_name(&self, nec: NativeEvCode) -> Axis {
-        self.mapping.map_axis(nec)
+    /// Returns `EvCode` associated with `btn`.
+    pub fn button_code(&self, btn: Button) -> Option<EvCode> {
+        self.mapping.map_rev(&AxisOrBtn::Btn(btn)).map(|nec| EvCode(nec))
     }
 
-    /// Returns `NativeEvCode` associated with `btn`.
-    pub fn button_code(&self, btn: Button) -> Option<NativeEvCode> {
-        self.mapping.map_rev_button(btn)
-    }
-
-    /// Returns `NativeEvCode` associated with `axis`.
-    pub fn axis_code(&self, axis: Axis) -> Option<NativeEvCode> {
-        self.mapping.map_rev_axis(axis)
+    /// Returns `EvCode` associated with `axis`.
+    pub fn axis_code(&self, axis: Axis) -> Option<EvCode> {
+        self.mapping.map_rev(&AxisOrBtn::Axis(axis)).map(|nec| EvCode(nec))
     }
 
     /// Returns area in which axis events should be ignored.
-    pub fn deadzone(&self, axis: NativeEvCode) -> Option<f32> {
-        self.inner.axis_info(axis).map(|i| i.deadzone())
+    pub fn deadzone(&self, axis: EvCode) -> Option<f32> {
+        self.inner.axis_info(axis.0).map(|i| i.deadzone())
     }
 
     /// Returns ID of gamepad.

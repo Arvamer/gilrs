@@ -18,6 +18,7 @@ gitlab = { repository = "Arvamer/gilrs" }
 vec_map = "0.8"
 uuid = "0.5"
 log = "0.3"
+fnv = "1.0"
 
 [dev-dependencies]
 env_logger = "0.4"

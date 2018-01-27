@@ -12,6 +12,8 @@ use ev::AxisInfo;
 use gamepad::{self, GamepadImplExt, PowerInfo, Status};
 use uuid::Uuid;
 
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 #[derive(Debug)]
 pub struct Gilrs {
     not_observed: gamepad::Gamepad,
@@ -84,6 +86,15 @@ impl Gamepad {
 
     pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
         None
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct EvCode(u16);
+
+impl Display for EvCode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

@@ -68,22 +68,12 @@
 //!         }
 //!     }
 //! }
-//!
-//! let gilrs = Gilrs::new();
-//!
-//! let unknown = Event::new(0, EventType::ButtonPressed(Button::Unknown, 0));
-//! let south = Event::new(0, EventType::ButtonPressed(Button::South, 0));
-//!
-//! let ev = unknown.filter_ev(&UnknownSlayer, &gilrs).unwrap();
-//! assert_eq!(ev.is_dropped(), true);
-//! let ev = south.filter_ev(&UnknownSlayer, &gilrs).unwrap();
-//! assert_eq!(ev.is_dropped(), false);
 //! ```
 //!
 //! `FilterFn` is also implemented for all `Fn(Option<Event>, &Gilrs) -> Option<Event>`, so above
 //! example could be simplified to passing closure to `filter()` function.
 
-use ev::{Axis, Button, Event, EventType};
+use ev::{Axis, Button, Event, EventType, EvCode, AxisOrBtn};
 use gamepad::{Gamepad, Gilrs};
 
 use std::time::{Duration, SystemTime};
@@ -108,7 +98,7 @@ impl FilterFn for Jitter {
                 event: EventType::AxisChanged(_, val, axis),
                 id,
                 ..
-            }) => match gilrs.gamepad(id).state().axis_data(axis) {
+            }) => match gilrs.gamepad(id).state().axis_data(&axis) {
                 Some(data) if val != 0.0 && (val - data.value()).abs() < self.threshold => Some(Event::dropped()),
                 _ => ev,
             },
@@ -147,7 +137,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 _ => apply_deadzone(val, 0.0, threshold),
             }.0;
 
-            Some(if gp.state().value(nec) == val {
+            Some(if gp.state().value(&nec) == val {
                 Event::dropped()
             } else {
                 Event {
@@ -169,10 +159,10 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
     use platform::native_ev_codes as necs;
 
     fn can_map(gp: &Gamepad) -> bool {
-        gp.button_name(necs::BTN_DPAD_RIGHT) == Button::Unknown
-            && gp.button_name(necs::BTN_DPAD_LEFT) == Button::Unknown
-            && gp.button_name(necs::BTN_DPAD_DOWN) == Button::Unknown
-            && gp.button_name(necs::BTN_DPAD_UP) == Button::Unknown
+        gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_RIGHT)).is_none()
+            && gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_LEFT)).is_none()
+            && gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_DOWN)).is_none()
+            && gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_UP)).is_none()
             && gp.button_code(Button::DPadRight).is_none()
     }
 
@@ -187,25 +177,25 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadRight, necs::BTN_DPAD_RIGHT),
+                    event: EventType::ButtonPressed(Button::DPadRight, EvCode(necs::BTN_DPAD_RIGHT)),
                 }
             } else if val == -1.0 {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadLeft, necs::BTN_DPAD_LEFT),
+                    event: EventType::ButtonPressed(Button::DPadLeft, EvCode(necs::BTN_DPAD_LEFT)),
                 }
-            } else if gilrs.gamepad(id).state().is_pressed(necs::BTN_DPAD_RIGHT) {
+            } else if gilrs.gamepad(id).state().is_pressed(&EvCode(necs::BTN_DPAD_RIGHT)) {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadRight, necs::BTN_DPAD_RIGHT),
+                    event: EventType::ButtonReleased(Button::DPadRight, EvCode(necs::BTN_DPAD_RIGHT)),
                 }
             } else {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadLeft, necs::BTN_DPAD_LEFT),
+                    event: EventType::ButtonReleased(Button::DPadLeft, EvCode(necs::BTN_DPAD_LEFT)),
                 }
             })
         }
@@ -219,25 +209,25 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadUp, necs::BTN_DPAD_UP),
+                    event: EventType::ButtonPressed(Button::DPadUp, EvCode(necs::BTN_DPAD_UP)),
                 }
             } else if val == -1.0 {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadDown, necs::BTN_DPAD_DOWN),
+                    event: EventType::ButtonPressed(Button::DPadDown, EvCode(necs::BTN_DPAD_DOWN)),
                 }
-            } else if gilrs.gamepad(id).state().is_pressed(necs::BTN_DPAD_UP) {
+            } else if gilrs.gamepad(id).state().is_pressed(&EvCode(necs::BTN_DPAD_UP)) {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadUp, necs::BTN_DPAD_UP),
+                    event: EventType::ButtonReleased(Button::DPadUp, EvCode(necs::BTN_DPAD_UP)),
                 }
             } else {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadDown, necs::BTN_DPAD_DOWN),
+                    event: EventType::ButtonReleased(Button::DPadDown, EvCode(necs::BTN_DPAD_DOWN)),
                 }
             })
         }
@@ -270,23 +260,36 @@ impl FilterFn for Repeat {
                 let now = SystemTime::now();
                 for (id, gamepad) in gilrs.gamepads() {
                     for (nec, btn_data) in gamepad.state().buttons() {
-                        let nec = nec as u16;
                         match (
                             btn_data.is_pressed(),
                             btn_data.is_repeating(),
                             now.duration_since(btn_data.timestamp()),
                         ) {
                             (true, false, Ok(dur)) if dur >= self.after => {
+                                let btn_name = match gamepad.axis_or_btn_name(nec) {
+                                    Some(AxisOrBtn::Btn(b)) => b,
+                                    e => panic!("Got {:?} from element that was button in state. \
+                                        Please report this as \
+                                        https://gitlab.com/Arvamer/gilrs/issues.", e),
+                                };
+
                                 return Some(Event {
                                     id,
-                                    event: EventType::ButtonRepeated(gamepad.button_name(nec), nec),
+                                    event: EventType::ButtonRepeated(btn_name, nec),
                                     time: btn_data.timestamp() + self.after,
                                 })
                             }
                             (true, true, Ok(dur)) if dur >= self.every => {
+                                let btn_name = match gamepad.axis_or_btn_name(nec) {
+                                    Some(AxisOrBtn::Btn(b)) => b,
+                                    e => panic!("Got {:?} from element that was button in state. \
+                                        Please report this as \
+                                        https://gitlab.com/Arvamer/gilrs/issues.", e),
+                                };
+
                                 return Some(Event {
                                     id,
-                                    event: EventType::ButtonRepeated(gamepad.button_name(nec), nec),
+                                    event: EventType::ButtonRepeated(btn_name, nec),
                                     time: btn_data.timestamp() + self.every,
                                 })
                             }

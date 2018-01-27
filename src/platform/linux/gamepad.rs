@@ -10,7 +10,7 @@ use super::ioctl;
 use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
-use ev::{AxisInfo, RawEvent, RawEventType, NativeEvCode};
+use ev::{AxisInfo, RawEvent, RawEventType};
 use gamepad::{Gamepad as MainGamepad, GamepadImplExt, PowerInfo, Status};
 use utils;
 
@@ -25,6 +25,7 @@ use std::ops::Index;
 use std::str;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::os::raw::c_char;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -232,9 +233,9 @@ impl AxesInfo {
 
             for axis in Gamepad::find_axes(&abs_bits) {
                 let mut info = input_absinfo::default();
-                ioctl::eviocgabs(fd, axis as u32, &mut info);
+                ioctl::eviocgabs(fd, axis.code as u32, &mut info);
                 map.insert(
-                    axis as usize,
+                    axis.code as usize,
                     AxisInfo {
                         min: info.minimum,
                         max: info.maximum,
@@ -271,8 +272,8 @@ pub struct Gamepad {
     axes_values: VecMap<i32>,
     buttons_values: VecMap<bool>,
     dropped_events: Vec<input_event>,
-    axes: Vec<u16>,
-    buttons: Vec<u16>,
+    axes: Vec<EvCode>,
+    buttons: Vec<EvCode>,
 }
 
 impl Gamepad {
@@ -440,29 +441,29 @@ impl Gamepad {
         Some(create_uuid(iid))
     }
 
-    fn find_buttons(key_bits: &[u8], only_gamepad_btns: bool) -> Vec<u16> {
+    fn find_buttons(key_bits: &[u8], only_gamepad_btns: bool) -> Vec<EvCode> {
         let mut buttons = Vec::with_capacity(16);
 
         for bit in BTN_MISC..BTN_MOUSE {
             if utils::test_bit(bit, &key_bits) {
-                buttons.push(bit);
+                buttons.push(EvCode::new(EV_KEY, bit));
             }
         }
         for bit in BTN_JOYSTICK..(key_bits.len() as u16 * 8) {
             if utils::test_bit(bit, &key_bits) {
-                buttons.push(bit);
+                buttons.push(EvCode::new(EV_KEY, bit));
             }
         }
 
         if !only_gamepad_btns {
             for bit in 0..BTN_MISC {
                 if utils::test_bit(bit, &key_bits) {
-                    buttons.push(bit);
+                    buttons.push(EvCode::new(EV_KEY, bit));
                 }
             }
             for bit in BTN_MOUSE..BTN_JOYSTICK {
                 if utils::test_bit(bit, &key_bits) {
-                    buttons.push(bit);
+                    buttons.push(EvCode::new(EV_KEY, bit));
                 }
             }
         }
@@ -470,12 +471,12 @@ impl Gamepad {
         buttons
     }
 
-    fn find_axes(abs_bits: &[u8]) -> Vec<u16> {
+    fn find_axes(abs_bits: &[u8]) -> Vec<EvCode> {
         let mut axes = Vec::with_capacity(8);
 
         for bit in 0..(abs_bits.len() * 8) {
             if utils::test_bit(bit as u16, &abs_bits) {
-                axes.push(bit as u16);
+                axes.push(EvCode::new(EV_ABS, bit as u16));
             }
         }
 
@@ -532,8 +533,8 @@ impl Gamepad {
                     self.buttons_values
                         .insert(event.code as usize, event.value == 1);
                     match event.value {
-                        0 => Some(RawEventType::ButtonReleased(event.code)),
-                        1 => Some(RawEventType::ButtonPressed(event.code)),
+                        0 => Some(RawEventType::ButtonReleased(event.into())),
+                        1 => Some(RawEventType::ButtonPressed(event.into())),
                         _ => None,
                     }
                 }
@@ -541,7 +542,7 @@ impl Gamepad {
                     self.axes_values.insert(event.code as usize, event.value);
                     let val = Self::axis_value(event.value, event.code);
 
-                    Some(RawEventType::AxisValueChanged(val, event.code))
+                    Some(RawEventType::AxisValueChanged(val, event.into()))
                 }
                 _ => None,
             };
@@ -579,15 +580,15 @@ impl Gamepad {
         for axis in self.axes.iter().cloned() {
             let value = unsafe {
                 let mut absinfo = mem::uninitialized();
-                ioctl::eviocgabs(self.fd, axis as u32, &mut absinfo);
+                ioctl::eviocgabs(self.fd, axis.code as u32, &mut absinfo);
                 absinfo.value
             };
 
-            if self.axes_values.get(axis as usize).cloned().unwrap_or(0) != value {
+            if self.axes_values.get(axis.code as usize).cloned().unwrap_or(0) != value {
                 self.dropped_events.push(input_event {
                     type_: EV_ABS,
-                    code: axis,
-                    value: value,
+                    code: axis.code,
+                    value,
                     ..Default::default()
                 });
             }
@@ -599,15 +600,15 @@ impl Gamepad {
         }
 
         for btn in self.buttons.iter().cloned() {
-            let val = utils::test_bit(btn, &buf);
+            let val = utils::test_bit(btn.code, &buf);
             if self.buttons_values
-                .get(btn as usize)
+                .get(btn.code as usize)
                 .cloned()
                 .unwrap_or(false) != val
             {
                 self.dropped_events.push(input_event {
                     type_: EV_KEY,
-                    code: btn,
+                    code: btn.code,
                     value: val as i32,
                     ..Default::default()
                 });
@@ -707,16 +708,20 @@ impl Gamepad {
         }
     }
 
-    pub fn buttons(&self) -> &[NativeEvCode] {
+    pub fn buttons(&self) -> &[EvCode] {
         &self.buttons
     }
 
-    pub fn axes(&self) -> &[NativeEvCode] {
+    pub fn axes(&self) -> &[EvCode] {
         &self.axes
     }
 
-    pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
-        self.axes_info.info.get(nec as usize)
+    pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
+        if nec.kind != EV_ABS {
+            None
+        } else {
+            self.axes_info.info.get(nec.code as usize)
+        }
     }
 }
 
@@ -759,6 +764,43 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
 
 unsafe fn cstr_new(bytes: &[u8]) -> &CStr {
     CStr::from_bytes_with_nul_unchecked(bytes)
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct EvCode {
+    kind: u16,
+    code: u16,
+}
+
+impl EvCode {
+    fn new(kind: u16, code: u16) -> Self {
+        EvCode {kind, code }
+    }
+}
+
+impl From<input_event> for EvCode {
+    fn from(f: input_event) -> Self {
+        EvCode {
+            kind: f.type_,
+            code: f.code,
+        }
+    }
+}
+
+impl Display for EvCode {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match self.kind {
+            EV_SYN => f.write_str("SYN")?,
+            EV_KEY => f.write_str("KEY")?,
+            0x02 => f.write_str("REL")?,
+            EV_ABS => f.write_str("ABS")?,
+            0x04 => f.write_str("MSC")?,
+            0x05 => f.write_str("SW")?,
+            kind => f.write_fmt(format_args!("EV_TYPE_{}", kind))?,
+        }
+
+        f.write_fmt(format_args!("({})", self.code))
+    }
 }
 
 const KEY_MAX: u16 = 0x2ff;
@@ -819,43 +861,40 @@ const FF_SINE: u16 = 0x5a;
 const FF_GAIN: u16 = 0x60;
 
 pub mod native_ev_codes {
-    pub const BTN_SOUTH: u16 = super::BTN_SOUTH;
-    pub const BTN_EAST: u16 = super::BTN_EAST;
-    #[allow(dead_code)]
-    pub const BTN_C: u16 = super::BTN_C;
-    pub const BTN_NORTH: u16 = super::BTN_NORTH;
-    pub const BTN_WEST: u16 = super::BTN_WEST;
-    #[allow(dead_code)]
-    pub const BTN_Z: u16 = super::BTN_Z;
-    pub const BTN_LT: u16 = super::BTN_TL;
-    pub const BTN_RT: u16 = super::BTN_TR;
-    pub const BTN_LT2: u16 = super::BTN_TL2;
-    pub const BTN_RT2: u16 = super::BTN_TR2;
-    pub const BTN_SELECT: u16 = super::BTN_SELECT;
-    pub const BTN_START: u16 = super::BTN_START;
-    pub const BTN_MODE: u16 = super::BTN_MODE;
-    pub const BTN_LTHUMB: u16 = super::BTN_THUMBL;
-    pub const BTN_RTHUMB: u16 = super::BTN_THUMBR;
+    use super::*;
 
-    pub const BTN_DPAD_UP: u16 = super::BTN_DPAD_UP;
-    pub const BTN_DPAD_DOWN: u16 = super::BTN_DPAD_DOWN;
-    pub const BTN_DPAD_LEFT: u16 = super::BTN_DPAD_LEFT;
-    pub const BTN_DPAD_RIGHT: u16 = super::BTN_DPAD_RIGHT;
+    pub const BTN_SOUTH: EvCode = EvCode { kind: EV_KEY, code: super::BTN_SOUTH };
+    pub const BTN_EAST: EvCode = EvCode { kind: EV_KEY, code: super::BTN_EAST };
+    pub const BTN_C: EvCode = EvCode { kind: EV_KEY, code: super::BTN_C };
+    pub const BTN_NORTH: EvCode = EvCode { kind: EV_KEY, code: super::BTN_NORTH };
+    pub const BTN_WEST: EvCode = EvCode { kind: EV_KEY, code: super::BTN_WEST };
+    pub const BTN_Z: EvCode = EvCode { kind: EV_KEY, code: super::BTN_Z };
+    pub const BTN_LT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TL };
+    pub const BTN_RT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TR };
+    pub const BTN_LT2: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TL2 };
+    pub const BTN_RT2: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TR2 };
+    pub const BTN_SELECT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_SELECT };
+    pub const BTN_START: EvCode = EvCode { kind: EV_KEY, code: super::BTN_START };
+    pub const BTN_MODE: EvCode = EvCode { kind: EV_KEY, code: super::BTN_MODE };
+    pub const BTN_LTHUMB: EvCode = EvCode { kind: EV_KEY, code: super::BTN_THUMBL };
+    pub const BTN_RTHUMB: EvCode = EvCode { kind: EV_KEY, code: super::BTN_THUMBR };
+    pub const BTN_DPAD_UP: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_UP };
+    pub const BTN_DPAD_DOWN: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_DOWN };
+    pub const BTN_DPAD_LEFT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_LEFT };
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_RIGHT };
 
-    pub const AXIS_LSTICKX: u16 = super::ABS_X;
-    pub const AXIS_LSTICKY: u16 = super::ABS_Y;
-    #[allow(dead_code)]
-    pub const AXIS_LEFTZ: u16 = super::ABS_Z;
-    pub const AXIS_RSTICKX: u16 = super::ABS_RX;
-    pub const AXIS_RSTICKY: u16 = super::ABS_RY;
-    #[allow(dead_code)]
-    pub const AXIS_RIGHTZ: u16 = super::ABS_RZ;
-    pub const AXIS_DPADX: u16 = super::ABS_HAT0X;
-    pub const AXIS_DPADY: u16 = super::ABS_HAT0Y;
-    pub const AXIS_RT: u16 = super::ABS_HAT1X;
-    pub const AXIS_LT: u16 = super::ABS_HAT1Y;
-    pub const AXIS_RT2: u16 = super::ABS_HAT2X;
-    pub const AXIS_LT2: u16 = super::ABS_HAT2Y;
+    pub const AXIS_LSTICKX: EvCode = EvCode { kind: EV_ABS, code: super::ABS_X };
+    pub const AXIS_LSTICKY: EvCode = EvCode { kind: EV_ABS, code: super::ABS_Y };
+    pub const AXIS_LEFTZ: EvCode = EvCode { kind: EV_ABS, code: super::ABS_Z };
+    pub const AXIS_RSTICKX: EvCode = EvCode { kind: EV_ABS, code: super::ABS_RX };
+    pub const AXIS_RSTICKY: EvCode = EvCode { kind: EV_ABS, code: super::ABS_RY };
+    pub const AXIS_RIGHTZ: EvCode = EvCode { kind: EV_ABS, code: super::ABS_RZ };
+    pub const AXIS_DPADX: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT0X };
+    pub const AXIS_DPADY: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT0Y };
+    pub const AXIS_RT: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT1X };
+    pub const AXIS_LT: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT1Y };
+    pub const AXIS_RT2: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT2X };
+    pub const AXIS_LT2: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT2Y };
 }
 
 #[cfg(test)]
