@@ -7,7 +7,7 @@
 
 use super::FfDevice;
 use ev::AxisInfo;
-use ev::{RawEvent, RawEventType, NativeEvCode};
+use ev::{RawEvent, RawEventType};
 use gamepad::{self, GamepadImplExt, PowerInfo, Status};
 
 use uuid::Uuid;
@@ -25,6 +25,7 @@ use std::{mem, thread, u16, u32};
 use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -416,17 +417,17 @@ impl Gamepad {
         Some(FfDevice::new(self.id))
     }
 
-    pub fn buttons(&self) -> &[NativeEvCode] {
+    pub fn buttons(&self) -> &[EvCode] {
         &native_ev_codes::BUTTONS
     }
 
-    pub fn axes(&self) -> &[NativeEvCode] {
+    pub fn axes(&self) -> &[EvCode] {
         &native_ev_codes::AXES
     }
 
-    pub(crate) fn axis_info(&self, nec: NativeEvCode) -> Option<&AxisInfo> {
+    pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
         native_ev_codes::AXES_INFO
-            .get(nec as usize)
+            .get(nec.0 as usize)
             .and_then(|o| o.as_ref())
     }
 }
@@ -454,6 +455,16 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
     gamepad::Gamepad::from_inner_status(gamepad, status)
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct EvCode(u8);
+
+impl Display for EvCode {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        self.0.fmt(f)
+    }
+}
+
+
 pub mod native_ev_codes {
     use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
     use std::u8::{MAX as U8_MAX, MIN as U8_MIN};
@@ -462,47 +473,48 @@ pub mod native_ev_codes {
                          XINPUT_GAMEPAD_TRIGGER_THRESHOLD};
 
     use ev::AxisInfo;
+    use super::EvCode;
 
-    pub const BTN_SOUTH: u16 = 0;
-    pub const BTN_EAST: u16 = 1;
-    pub const BTN_C: u16 = 2;
-    pub const BTN_NORTH: u16 = 3;
-    pub const BTN_WEST: u16 = 4;
-    pub const BTN_Z: u16 = 5;
-    pub const BTN_LT: u16 = 6;
-    pub const BTN_RT: u16 = 7;
-    pub const BTN_LT2: u16 = 8;
-    pub const BTN_RT2: u16 = 9;
-    pub const BTN_SELECT: u16 = 10;
-    pub const BTN_START: u16 = 11;
-    pub const BTN_MODE: u16 = 12;
-    pub const BTN_LTHUMB: u16 = 13;
-    pub const BTN_RTHUMB: u16 = 14;
+    pub const AXIS_LSTICKX: EvCode = EvCode(0);
+    pub const AXIS_LSTICKY: EvCode = EvCode(1);
+    pub const AXIS_LEFTZ: EvCode = EvCode(2);
+    pub const AXIS_RSTICKX: EvCode = EvCode(3);
+    pub const AXIS_RSTICKY: EvCode = EvCode(4);
+    pub const AXIS_RIGHTZ: EvCode = EvCode(5);
+    pub const AXIS_DPADX: EvCode = EvCode(6);
+    pub const AXIS_DPADY: EvCode = EvCode(7);
+    pub const AXIS_RT: EvCode = EvCode(8);
+    pub const AXIS_LT: EvCode = EvCode(9);
+    pub const AXIS_RT2: EvCode = EvCode(10);
+    pub const AXIS_LT2: EvCode = EvCode(11);
 
-    pub const BTN_DPAD_UP: u16 = 15;
-    pub const BTN_DPAD_DOWN: u16 = 16;
-    pub const BTN_DPAD_LEFT: u16 = 17;
-    pub const BTN_DPAD_RIGHT: u16 = 18;
+    pub const BTN_SOUTH: EvCode = EvCode(12);
+    pub const BTN_EAST: EvCode = EvCode(13);
+    pub const BTN_C: EvCode = EvCode(14);
+    pub const BTN_NORTH: EvCode = EvCode(15);
+    pub const BTN_WEST: EvCode = EvCode(16);
+    pub const BTN_Z: EvCode = EvCode(17);
+    pub const BTN_LT: EvCode = EvCode(18);
+    pub const BTN_RT: EvCode = EvCode(19);
+    pub const BTN_LT2: EvCode = EvCode(20);
+    pub const BTN_RT2: EvCode = EvCode(21);
+    pub const BTN_SELECT: EvCode = EvCode(22);
+    pub const BTN_START: EvCode = EvCode(23);
+    pub const BTN_MODE: EvCode = EvCode(24);
+    pub const BTN_LTHUMB: EvCode = EvCode(25);
+    pub const BTN_RTHUMB: EvCode = EvCode(26);
 
-    pub const AXIS_LSTICKX: u16 = 0;
-    pub const AXIS_LSTICKY: u16 = 1;
-    pub const AXIS_LEFTZ: u16 = 2;
-    pub const AXIS_RSTICKX: u16 = 3;
-    pub const AXIS_RSTICKY: u16 = 4;
-    pub const AXIS_RIGHTZ: u16 = 5;
-    pub const AXIS_DPADX: u16 = 6;
-    pub const AXIS_DPADY: u16 = 7;
-    pub const AXIS_RT: u16 = 8;
-    pub const AXIS_LT: u16 = 9;
-    pub const AXIS_RT2: u16 = 10;
-    pub const AXIS_LT2: u16 = 11;
+    pub const BTN_DPAD_UP: EvCode = EvCode(27);
+    pub const BTN_DPAD_DOWN: EvCode = EvCode(28);
+    pub const BTN_DPAD_LEFT: EvCode = EvCode(29);
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode(30);
 
-    pub(super) static BUTTONS: [u16; 15] = [
+    pub(super) static BUTTONS: [EvCode; 15] = [
         BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST, BTN_LT, BTN_RT, BTN_SELECT, BTN_START, BTN_MODE,
         BTN_LTHUMB, BTN_RTHUMB, BTN_DPAD_UP, BTN_DPAD_DOWN, BTN_DPAD_LEFT, BTN_DPAD_RIGHT,
     ];
 
-    pub(super) static AXES: [u16; 6] = [
+    pub(super) static AXES: [EvCode; 6] = [
         AXIS_LSTICKX,
         AXIS_LSTICKY,
         AXIS_RSTICKX,
