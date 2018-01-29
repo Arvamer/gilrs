@@ -20,12 +20,12 @@ use vec_map::VecMap;
 
 use std::collections::VecDeque;
 use std::ffi::CStr;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::mem;
 use std::ops::Index;
+use std::os::raw::c_char;
 use std::str;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::os::raw::c_char;
-use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -117,7 +117,13 @@ impl Gilrs {
             }
 
             match gamepad.as_inner_mut().event() {
-                Some((event, time)) => return Some(RawEvent { id: self.event_counter, event, time }),
+                Some((event, time)) => {
+                    return Some(RawEvent {
+                        id: self.event_counter,
+                        event,
+                        time,
+                    })
+                }
                 None => {
                     self.event_counter += 1;
                     continue;
@@ -172,7 +178,10 @@ impl Gilrs {
                         } else {
                             self.gamepads
                                 .push(MainGamepad::from_inner_status(gamepad, Status::Connected));
-                            return Some(RawEvent::new(self.gamepads.len() - 1, RawEventType::Connected));
+                            return Some(RawEvent::new(
+                                self.gamepads.len() - 1,
+                                RawEventType::Connected,
+                            ));
                         }
                     }
                 } else if action == cstr_new(b"remove\0") {
@@ -323,7 +332,6 @@ impl Gamepad {
             }
         };
 
-
         let name = Self::get_name(fd).unwrap_or_else(|| {
             error!("Failed to get name od device {:?}", path);
             "Unknown".into()
@@ -387,8 +395,6 @@ impl Gamepad {
         self.axes = Self::find_axes(&abs_bits);
     }
 
-
-
     fn get_name(fd: i32) -> Option<String> {
         unsafe {
             let mut namebuff = mem::uninitialized::<[u8; 128]>();
@@ -409,7 +415,8 @@ impl Gamepad {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
             if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
                 if utils::test_bit(FF_SQUARE, &ff_bits) && utils::test_bit(FF_TRIANGLE, &ff_bits)
-                    && utils::test_bit(FF_SINE, &ff_bits) && utils::test_bit(FF_GAIN, &ff_bits)
+                    && utils::test_bit(FF_SINE, &ff_bits)
+                    && utils::test_bit(FF_GAIN, &ff_bits)
                 {
                     true
                 } else {
@@ -584,7 +591,11 @@ impl Gamepad {
                 absinfo.value
             };
 
-            if self.axes_values.get(axis.code as usize).cloned().unwrap_or(0) != value {
+            if self.axes_values
+                .get(axis.code as usize)
+                .cloned()
+                .unwrap_or(0) != value
+            {
                 self.dropped_events.push(input_event {
                     type_: EV_ABS,
                     code: axis.code,
@@ -757,7 +768,14 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
         vendor,
         0,
         &[
-            (product >> 8) as u8, product as u8, 0, 0, (version >> 8) as u8, version as u8, 0, 0
+            (product >> 8) as u8,
+            product as u8,
+            0,
+            0,
+            (version >> 8) as u8,
+            version as u8,
+            0,
+            0,
         ],
     ).unwrap()
 }
@@ -774,7 +792,7 @@ pub struct EvCode {
 
 impl EvCode {
     fn new(kind: u16, code: u16) -> Self {
-        EvCode {kind, code }
+        EvCode { kind, code }
     }
 }
 
@@ -863,38 +881,131 @@ const FF_GAIN: u16 = 0x60;
 pub mod native_ev_codes {
     use super::*;
 
-    pub const BTN_SOUTH: EvCode = EvCode { kind: EV_KEY, code: super::BTN_SOUTH };
-    pub const BTN_EAST: EvCode = EvCode { kind: EV_KEY, code: super::BTN_EAST };
-    pub const BTN_C: EvCode = EvCode { kind: EV_KEY, code: super::BTN_C };
-    pub const BTN_NORTH: EvCode = EvCode { kind: EV_KEY, code: super::BTN_NORTH };
-    pub const BTN_WEST: EvCode = EvCode { kind: EV_KEY, code: super::BTN_WEST };
-    pub const BTN_Z: EvCode = EvCode { kind: EV_KEY, code: super::BTN_Z };
-    pub const BTN_LT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TL };
-    pub const BTN_RT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TR };
-    pub const BTN_LT2: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TL2 };
-    pub const BTN_RT2: EvCode = EvCode { kind: EV_KEY, code: super::BTN_TR2 };
-    pub const BTN_SELECT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_SELECT };
-    pub const BTN_START: EvCode = EvCode { kind: EV_KEY, code: super::BTN_START };
-    pub const BTN_MODE: EvCode = EvCode { kind: EV_KEY, code: super::BTN_MODE };
-    pub const BTN_LTHUMB: EvCode = EvCode { kind: EV_KEY, code: super::BTN_THUMBL };
-    pub const BTN_RTHUMB: EvCode = EvCode { kind: EV_KEY, code: super::BTN_THUMBR };
-    pub const BTN_DPAD_UP: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_UP };
-    pub const BTN_DPAD_DOWN: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_DOWN };
-    pub const BTN_DPAD_LEFT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_LEFT };
-    pub const BTN_DPAD_RIGHT: EvCode = EvCode { kind: EV_KEY, code: super::BTN_DPAD_RIGHT };
+    pub const BTN_SOUTH: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_SOUTH,
+    };
+    pub const BTN_EAST: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_EAST,
+    };
+    pub const BTN_C: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_C,
+    };
+    pub const BTN_NORTH: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_NORTH,
+    };
+    pub const BTN_WEST: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_WEST,
+    };
+    pub const BTN_Z: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_Z,
+    };
+    pub const BTN_LT: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_TL,
+    };
+    pub const BTN_RT: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_TR,
+    };
+    pub const BTN_LT2: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_TL2,
+    };
+    pub const BTN_RT2: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_TR2,
+    };
+    pub const BTN_SELECT: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_SELECT,
+    };
+    pub const BTN_START: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_START,
+    };
+    pub const BTN_MODE: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_MODE,
+    };
+    pub const BTN_LTHUMB: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_THUMBL,
+    };
+    pub const BTN_RTHUMB: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_THUMBR,
+    };
+    pub const BTN_DPAD_UP: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_DPAD_UP,
+    };
+    pub const BTN_DPAD_DOWN: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_DPAD_DOWN,
+    };
+    pub const BTN_DPAD_LEFT: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_DPAD_LEFT,
+    };
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode {
+        kind: EV_KEY,
+        code: super::BTN_DPAD_RIGHT,
+    };
 
-    pub const AXIS_LSTICKX: EvCode = EvCode { kind: EV_ABS, code: super::ABS_X };
-    pub const AXIS_LSTICKY: EvCode = EvCode { kind: EV_ABS, code: super::ABS_Y };
-    pub const AXIS_LEFTZ: EvCode = EvCode { kind: EV_ABS, code: super::ABS_Z };
-    pub const AXIS_RSTICKX: EvCode = EvCode { kind: EV_ABS, code: super::ABS_RX };
-    pub const AXIS_RSTICKY: EvCode = EvCode { kind: EV_ABS, code: super::ABS_RY };
-    pub const AXIS_RIGHTZ: EvCode = EvCode { kind: EV_ABS, code: super::ABS_RZ };
-    pub const AXIS_DPADX: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT0X };
-    pub const AXIS_DPADY: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT0Y };
-    pub const AXIS_RT: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT1X };
-    pub const AXIS_LT: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT1Y };
-    pub const AXIS_RT2: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT2X };
-    pub const AXIS_LT2: EvCode = EvCode { kind: EV_ABS, code: super::ABS_HAT2Y };
+    pub const AXIS_LSTICKX: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_X,
+    };
+    pub const AXIS_LSTICKY: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_Y,
+    };
+    pub const AXIS_LEFTZ: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_Z,
+    };
+    pub const AXIS_RSTICKX: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_RX,
+    };
+    pub const AXIS_RSTICKY: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_RY,
+    };
+    pub const AXIS_RIGHTZ: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_RZ,
+    };
+    pub const AXIS_DPADX: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_HAT0X,
+    };
+    pub const AXIS_DPADY: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_HAT0Y,
+    };
+    pub const AXIS_RT: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_HAT1X,
+    };
+    pub const AXIS_LT: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_HAT1Y,
+    };
+    pub const AXIS_RT2: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_HAT2X,
+    };
+    pub const AXIS_LT2: EvCode = EvCode {
+        kind: EV_ABS,
+        code: super::ABS_HAT2Y,
+    };
 }
 
 #[cfg(test)]
@@ -915,4 +1026,3 @@ mod tests {
         assert_eq!(x, y);
     }
 }
-

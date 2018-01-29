@@ -41,10 +41,7 @@ impl GamepadState {
 
     /// Returns value of axis or 0.0 when there is no information about axis.
     pub fn value(&self, axis: &EvCode) -> f32 {
-        self.axes
-            .get(axis)
-            .map(|s| s.value())
-            .unwrap_or(0.0)
+        self.axes.get(axis).map(|s| s.value()).unwrap_or(0.0)
     }
 
     /// Iterate over buttons data.
@@ -145,7 +142,6 @@ pub struct AxisData {
     last_event_c: u64,
     value: f32,
 }
-
 
 impl AxisData {
     pub(crate) fn new(value: f32, counter: u64, time: SystemTime) -> Self {

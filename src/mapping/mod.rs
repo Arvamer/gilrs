@@ -8,17 +8,17 @@
 
 mod parser;
 
-use ev::{self, Axis, Button, AxisOrBtn};
-use platform::EvCode;
+use ev::{self, Axis, AxisOrBtn, Button};
 use platform::{self, native_ev_codes as nec};
+use platform::EvCode;
 
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use uuid::Uuid;
 use fnv::FnvHashMap;
+use uuid::Uuid;
 use vec_map::VecMap;
 
 use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, Token};
@@ -120,10 +120,6 @@ impl Mapping {
                     AXIS_LSTICKY => add_axis("lefty", ev_code, Axis::LeftStickY)?,
                     AXIS_RSTICKX => add_axis("rightx", ev_code, Axis::RightStickX)?,
                     AXIS_RSTICKY => add_axis("righty", ev_code, Axis::RightStickY)?,
-                    AXIS_RT => add_axis("rightshoulder", ev_code, Axis::RightTrigger)?,
-                    AXIS_LT => add_axis("leftshoulder", ev_code, Axis::LeftTrigger)?,
-                    AXIS_RT2 => add_axis("righttrigger", ev_code, Axis::RightTrigger2)?,
-                    AXIS_LT2 => add_axis("lefttrigger", ev_code, Axis::LeftTrigger2)?,
                     AXIS_LEFTZ => add_axis("leftz", ev_code, Axis::LeftZ)?,
                     AXIS_RIGHTZ => add_axis("rightz", ev_code, Axis::RightZ)?,
                     AXIS_UNKNOWN => return Err(MappingError::UnknownElement),
@@ -182,9 +178,7 @@ impl Mapping {
                         warn!(
                             "Hat mappings are only supported for dpads (requested to map hat \
                              {}.{} to {:?}",
-                            hat,
-                            direction,
-                            to
+                            hat, direction, to
                         );
                     } else {
                         // We  don't have anything like "hat" in gilrs, so let's jus assume that
@@ -249,16 +243,11 @@ impl Mapping {
     }
 
     pub fn map(&self, code: &EvCode) -> Option<AxisOrBtn> {
-        self.mappings
-            .get(code)
-            .cloned()
+        self.mappings.get(code).cloned()
     }
 
     pub fn map_rev(&self, el: &AxisOrBtn) -> Option<EvCode> {
-        self.mappings
-            .iter()
-            .find(|x| x.1 == el)
-            .map(|x| *x.0)
+        self.mappings.iter().find(|x| x.1 == el).map(|x| *x.0)
     }
 
     pub fn is_default(&self) -> bool {
@@ -268,8 +257,8 @@ impl Mapping {
 
 impl Default for Mapping {
     fn default() -> Self {
-        use self::AxisOrBtn::*;
         use self::Axis as Ax;
+        use self::AxisOrBtn::*;
 
         macro_rules! fnv_map {
             ( $( $key:expr => $elem:expr ),* ) => {
@@ -312,11 +301,7 @@ impl Default for Mapping {
             nec::AXIS_RSTICKY => Axis(Ax::RightStickY),
             nec::AXIS_RIGHTZ => Axis(Ax::RightZ),
             nec::AXIS_DPADX => Axis(Ax::DPadX),
-            nec::AXIS_DPADY => Axis(Ax::DPadY),
-            nec::AXIS_RT => Axis(Ax::RightTrigger),
-            nec::AXIS_LT => Axis(Ax::LeftTrigger),
-            nec::AXIS_RT2 => Axis(Ax::RightTrigger2),
-            nec::AXIS_LT2 => Axis(Ax::LeftTrigger2)
+            nec::AXIS_DPADY => Axis(Ax::DPadY)
         ];
 
         Mapping {
@@ -363,9 +348,9 @@ impl Error for ParseSdlMappingError {
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            &ParseSdlMappingError::InvalidButton |
-            &ParseSdlMappingError::InvalidAxis |
-            &ParseSdlMappingError::UnknownHatDirection => fmt.write_str(self.description()),
+            &ParseSdlMappingError::InvalidButton
+            | &ParseSdlMappingError::InvalidAxis
+            | &ParseSdlMappingError::UnknownHatDirection => fmt.write_str(self.description()),
             &ParseSdlMappingError::ParseError(ref err) => fmt.write_fmt(format_args!(
                 "Error while parsing gamepad mapping: {}.",
                 err
@@ -381,7 +366,9 @@ pub struct MappingDb {
 
 impl MappingDb {
     pub fn new() -> Self {
-        MappingDb { mappings: HashMap::new() }
+        MappingDb {
+            mappings: HashMap::new(),
+        }
     }
 
     pub fn add_included_mappings(&mut self) {
@@ -436,22 +423,32 @@ impl MappingData {
 
     /// Returns `EvCode` associated with button index.
     pub fn button(&self, idx: Button) -> Option<ev::EvCode> {
-        self.buttons.get(idx as usize).cloned().map(|nec| ev::EvCode(nec))
+        self.buttons
+            .get(idx as usize)
+            .cloned()
+            .map(|nec| ev::EvCode(nec))
     }
 
     /// Returns `EvCode` associated with axis index.
     pub fn axis(&self, idx: Axis) -> Option<ev::EvCode> {
-        self.axes.get(idx as usize).cloned().map(|nec| ev::EvCode(nec))
+        self.axes
+            .get(idx as usize)
+            .cloned()
+            .map(|nec| ev::EvCode(nec))
     }
 
     /// Inserts new button mapping.
     pub fn insert_btn(&mut self, from: ev::EvCode, to: Button) -> Option<ev::EvCode> {
-        self.buttons.insert(to as usize, from.0).map(|nec| ev::EvCode(nec))
+        self.buttons
+            .insert(to as usize, from.0)
+            .map(|nec| ev::EvCode(nec))
     }
 
     /// Inserts new axis mapping.
     pub fn insert_axis(&mut self, from: ev::EvCode, to: Axis) -> Option<ev::EvCode> {
-        self.axes.insert(to as usize, from.0).map(|nec| ev::EvCode(nec))
+        self.axes
+            .insert(to as usize, from.0)
+            .map(|nec| ev::EvCode(nec))
     }
 
     /// Removes button and returns associated `NativEvCode`.
@@ -582,10 +579,6 @@ mod tests {
         data.insert_axis(axes[3], Axis::RightStickX);
         data.insert_axis(axes[4], Axis::RightStickY);
         data.insert_axis(axes[5], Axis::RightZ);
-        data.insert_axis(axes[6], Axis::LeftTrigger);
-        data.insert_axis(axes[7], Axis::LeftTrigger2);
-        data.insert_axis(axes[8], Axis::RightTrigger);
-        data.insert_axis(axes[9], Axis::RightTrigger2);
 
         data.insert_btn(buttons[0], Button::South);
         data.insert_btn(buttons[1], Button::East);
@@ -607,7 +600,10 @@ mod tests {
 
         data.insert_btn(ev::EvCode(nec::BTN_DPAD_RIGHT), Button::DPadRight);
         let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid);
-        assert_eq!(Err(MappingError::InvalidCode(ev::EvCode(nec::BTN_DPAD_RIGHT))), incorrect_mappings);
+        assert_eq!(
+            Err(MappingError::InvalidCode(ev::EvCode(nec::BTN_DPAD_RIGHT))),
+            incorrect_mappings
+        );
 
         data.insert_btn(ev::EvCode(BUTTONS[3]), Button::Unknown);
         let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid);

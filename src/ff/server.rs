@@ -19,19 +19,54 @@ use vec_map::VecMap;
 
 #[derive(Debug)]
 pub(crate) enum Message {
-    Create { id: usize, effect: Box<EffectSource> },
-    HandleCloned { id: usize },
-    HandleDropped { id: usize },
-    Play { id: usize },
-    Open { id: usize, device: FfDevice },
-    Close { id: usize },
-    SetListenerPosition { id: usize, position: [f32; 3] },
-    SetGamepads { id: usize, gamepads: VecMap<()> },
-    AddGamepad { id: usize, gamepad_id: usize },
-    SetRepeat { id: usize, repeat: Repeat },
-    SetDistanceModel { id: usize, model: DistanceModel },
-    SetPosition { id: usize, position: [f32; 3] },
-    SetGain { id: usize, gain: f32 },
+    Create {
+        id: usize,
+        effect: Box<EffectSource>,
+    },
+    HandleCloned {
+        id: usize,
+    },
+    HandleDropped {
+        id: usize,
+    },
+    Play {
+        id: usize,
+    },
+    Open {
+        id: usize,
+        device: FfDevice,
+    },
+    Close {
+        id: usize,
+    },
+    SetListenerPosition {
+        id: usize,
+        position: [f32; 3],
+    },
+    SetGamepads {
+        id: usize,
+        gamepads: VecMap<()>,
+    },
+    AddGamepad {
+        id: usize,
+        gamepad_id: usize,
+    },
+    SetRepeat {
+        id: usize,
+        repeat: Repeat,
+    },
+    SetDistanceModel {
+        id: usize,
+        model: DistanceModel,
+    },
+    SetPosition {
+        id: usize,
+        position: [f32; 3],
+    },
+    SetGain {
+        id: usize,
+        gain: f32,
+    },
 }
 
 #[derive(Debug)]

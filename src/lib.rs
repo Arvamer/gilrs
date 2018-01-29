@@ -101,11 +101,11 @@ extern crate winapi;
 #[cfg(target_os = "windows")]
 extern crate xinput;
 
+extern crate fnv;
 #[macro_use]
 extern crate log;
 extern crate uuid;
 extern crate vec_map;
-extern crate fnv;
 
 mod gamepad;
 mod platform;
@@ -116,11 +116,10 @@ mod utils;
 pub mod ff;
 pub mod ev;
 
-pub use ev::filter::Filter;
 pub use ev::{Axis, Button, Event, EventType};
-pub use gamepad::{ConnectedGamepadsIterator, ConnectedGamepadsMutIterator,
-                  Gamepad, Gilrs, GilrsBuilder, MappingSource, PowerInfo,
-                  Status};
+pub use ev::filter::Filter;
+pub use gamepad::{ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Gamepad, Gilrs,
+                  GilrsBuilder, MappingSource, PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};
 
 trait AsInner<T> {

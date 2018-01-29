@@ -27,17 +27,39 @@ pub enum DistanceModel {
     /// Effect is not attenuated by distance.
     None,
     /// Linear distance model.
-    Linear { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    Linear {
+        ref_distance: f32,
+        rolloff_factor: f32,
+        max_distance: f32,
+    },
     /// Linear distance clamped model.
-    LinearClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    LinearClamped {
+        ref_distance: f32,
+        rolloff_factor: f32,
+        max_distance: f32,
+    },
     /// Inverse distance model.
-    Inverse { ref_distance: f32, rolloff_factor: f32 },
+    Inverse {
+        ref_distance: f32,
+        rolloff_factor: f32,
+    },
     /// Inverse distance clamped model.
-    InverseClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    InverseClamped {
+        ref_distance: f32,
+        rolloff_factor: f32,
+        max_distance: f32,
+    },
     /// Exponential distance model.
-    Exponential { ref_distance: f32, rolloff_factor: f32 },
+    Exponential {
+        ref_distance: f32,
+        rolloff_factor: f32,
+    },
     /// Exponential distance clamped model.
-    ExponentialClamped { ref_distance: f32, rolloff_factor: f32, max_distance: f32 },
+    ExponentialClamped {
+        ref_distance: f32,
+        rolloff_factor: f32,
+        max_distance: f32,
+    },
 }
 
 impl DistanceModel {
@@ -66,9 +88,10 @@ impl DistanceModel {
 
                 (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
             }
-            DistanceModel::Inverse { ref_distance, rolloff_factor } => {
-                ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance))
-            }
+            DistanceModel::Inverse {
+                ref_distance,
+                rolloff_factor,
+            } => ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance)),
             DistanceModel::InverseClamped {
                 ref_distance,
                 max_distance,
@@ -79,9 +102,10 @@ impl DistanceModel {
 
                 ref_distance / (ref_distance + rolloff_factor * (distance - ref_distance))
             }
-            DistanceModel::Exponential { ref_distance, rolloff_factor } => {
-                (distance / ref_distance).powf(-rolloff_factor)
-            }
+            DistanceModel::Exponential {
+                ref_distance,
+                rolloff_factor,
+            } => (distance / ref_distance).powf(-rolloff_factor),
             DistanceModel::ExponentialClamped {
                 ref_distance,
                 max_distance,
@@ -98,7 +122,10 @@ impl DistanceModel {
 
     pub(crate) fn validate(self) -> Result<(), DistanceModelError> {
         let (ref_distance, rolloff_factor, max_distance) = match self {
-            DistanceModel::Inverse { ref_distance, rolloff_factor } => {
+            DistanceModel::Inverse {
+                ref_distance,
+                rolloff_factor,
+            } => {
                 if ref_distance <= 0.0 {
                     return Err(DistanceModelError::InvalidModelParameter);
                 }
@@ -138,7 +165,10 @@ impl DistanceModel {
 
                 (ref_distance, rolloff_factor, max_distance)
             }
-            DistanceModel::Exponential { ref_distance, rolloff_factor } => {
+            DistanceModel::Exponential {
+                ref_distance,
+                rolloff_factor,
+            } => {
                 if ref_distance <= 0.0 {
                     return Err(DistanceModelError::InvalidModelParameter);
                 }
@@ -307,10 +337,21 @@ impl Mul<f32> for Magnitude {
     fn mul(self, rhs: f32) -> Self::Output {
         debug_assert!(rhs >= 0.0);
         let strong = self.strong as f32 * rhs;
-        let strong = if strong > u16::MAX as f32 { u16::MAX } else { strong as u16 };
+        let strong = if strong > u16::MAX as f32 {
+            u16::MAX
+        } else {
+            strong as u16
+        };
         let weak = self.weak as f32 * rhs;
-        let weak = if weak > u16::MAX as f32 { u16::MAX } else { weak as u16 };
-        Magnitude { strong: strong, weak: weak }
+        let weak = if weak > u16::MAX as f32 {
+            u16::MAX
+        } else {
+            weak as u16
+        };
+        Magnitude {
+            strong: strong,
+            weak: weak,
+        }
     }
 }
 

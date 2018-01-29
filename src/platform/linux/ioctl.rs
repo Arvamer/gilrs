@@ -49,11 +49,7 @@ impl ::std::fmt::Debug for input_event {
         write!(
             f,
             "input_event {{ time: {{ tv_sec: {}, tv_usec: {} }}, type_: {}, code: {}, value: {}",
-            self.time.tv_sec,
-            self.time.tv_usec,
-            self.type_,
-            self.code,
-            self.value
+            self.time.tv_sec, self.time.tv_usec, self.type_, self.code, self.value
         )
     }
 }
@@ -160,6 +156,8 @@ pub struct ff_effect {
     pub trigger: ff_trigger,
     pub replay: ff_replay,
     // FIXME this is actually a union
-    #[cfg(target_pointer_width = "64")] pub u: [u64; 4],
-    #[cfg(target_pointer_width = "32")] pub u: [u32; 7],
+    #[cfg(target_pointer_width = "64")]
+    pub u: [u64; 4],
+    #[cfg(target_pointer_width = "32")]
+    pub u: [u32; 7],
 }

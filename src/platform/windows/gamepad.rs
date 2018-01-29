@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
-use ev::AxisInfo;
 use ev::{RawEvent, RawEventType};
+use ev::AxisInfo;
 use gamepad::{self, GamepadImplExt, PowerInfo, Status};
 
 use uuid::Uuid;
@@ -23,9 +23,9 @@ use xinput;
 
 use std::{mem, thread, u16, u32};
 use std::collections::VecDeque;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
-use std::fmt::{Display, Formatter, Result as FmtResult};
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -135,55 +135,37 @@ impl Gilrs {
         if g.bLeftTrigger != pg.bLeftTrigger {
             let _ = tx.send(RawEvent::new(
                 id,
-                RawEventType::AxisValueChanged(
-                    g.bLeftTrigger as i32,
-                    native_ev_codes::AXIS_LT2,
-                ),
+                RawEventType::AxisValueChanged(g.bLeftTrigger as i32, native_ev_codes::AXIS_LT2),
             ));
         }
         if g.bRightTrigger != pg.bRightTrigger {
             let _ = tx.send(RawEvent::new(
                 id,
-                RawEventType::AxisValueChanged(
-                    g.bRightTrigger as i32,
-                    native_ev_codes::AXIS_RT2,
-                ),
+                RawEventType::AxisValueChanged(g.bRightTrigger as i32, native_ev_codes::AXIS_RT2),
             ));
         }
         if g.sThumbLX != pg.sThumbLX {
             let _ = tx.send(RawEvent::new(
                 id,
-                RawEventType::AxisValueChanged(
-                    g.sThumbLX as i32,
-                    native_ev_codes::AXIS_LSTICKX,
-                ),
+                RawEventType::AxisValueChanged(g.sThumbLX as i32, native_ev_codes::AXIS_LSTICKX),
             ));
         }
         if g.sThumbLY != pg.sThumbLY {
             let _ = tx.send(RawEvent::new(
                 id,
-                RawEventType::AxisValueChanged(
-                    g.sThumbLY as i32,
-                    native_ev_codes::AXIS_LSTICKY,
-                ),
+                RawEventType::AxisValueChanged(g.sThumbLY as i32, native_ev_codes::AXIS_LSTICKY),
             ));
         }
         if g.sThumbRX != pg.sThumbRX {
             let _ = tx.send(RawEvent::new(
                 id,
-                RawEventType::AxisValueChanged(
-                    g.sThumbRX as i32,
-                    native_ev_codes::AXIS_RSTICKX,
-                ),
+                RawEventType::AxisValueChanged(g.sThumbRX as i32, native_ev_codes::AXIS_RSTICKX),
             ));
         }
         if g.sThumbRY != pg.sThumbRY {
             let _ = tx.send(RawEvent::new(
                 id,
-                RawEventType::AxisValueChanged(
-                    g.sThumbRY as i32,
-                    native_ev_codes::AXIS_RSTICKY,
-                ),
+                RawEventType::AxisValueChanged(g.sThumbRY as i32, native_ev_codes::AXIS_RSTICKY),
             ));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
@@ -464,7 +446,6 @@ impl Display for EvCode {
     }
 }
 
-
 pub mod native_ev_codes {
     use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
     use std::u8::{MAX as U8_MAX, MIN as U8_MIN};
@@ -472,8 +453,8 @@ pub mod native_ev_codes {
     use winapi::xinput::{XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
                          XINPUT_GAMEPAD_TRIGGER_THRESHOLD};
 
-    use ev::AxisInfo;
     use super::EvCode;
+    use ev::AxisInfo;
 
     pub const AXIS_LSTICKX: EvCode = EvCode(0);
     pub const AXIS_LSTICKY: EvCode = EvCode(1);
@@ -510,8 +491,21 @@ pub mod native_ev_codes {
     pub const BTN_DPAD_RIGHT: EvCode = EvCode(30);
 
     pub(super) static BUTTONS: [EvCode; 15] = [
-        BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST, BTN_LT, BTN_RT, BTN_SELECT, BTN_START, BTN_MODE,
-        BTN_LTHUMB, BTN_RTHUMB, BTN_DPAD_UP, BTN_DPAD_DOWN, BTN_DPAD_LEFT, BTN_DPAD_RIGHT,
+        BTN_SOUTH,
+        BTN_EAST,
+        BTN_NORTH,
+        BTN_WEST,
+        BTN_LT,
+        BTN_RT,
+        BTN_SELECT,
+        BTN_START,
+        BTN_MODE,
+        BTN_LTHUMB,
+        BTN_RTHUMB,
+        BTN_DPAD_UP,
+        BTN_DPAD_DOWN,
+        BTN_DPAD_LEFT,
+        BTN_DPAD_RIGHT,
     ];
 
     pub(super) static AXES: [EvCode; 6] = [

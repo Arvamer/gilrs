@@ -73,7 +73,7 @@
 //! `FilterFn` is also implemented for all `Fn(Option<Event>, &Gilrs) -> Option<Event>`, so above
 //! example could be simplified to passing closure to `filter()` function.
 
-use ev::{Axis, Button, Event, EventType, EvCode, AxisOrBtn};
+use ev::{Axis, AxisOrBtn, Button, EvCode, Event, EventType};
 use gamepad::{Gamepad, Gilrs};
 
 use std::time::{Duration, SystemTime};
@@ -99,7 +99,9 @@ impl FilterFn for Jitter {
                 id,
                 ..
             }) => match gilrs.gamepad(id).state().axis_data(&axis) {
-                Some(data) if val != 0.0 && (val - data.value()).abs() < self.threshold => Some(Event::dropped()),
+                Some(data) if val != 0.0 && (val - data.value()).abs() < self.threshold => {
+                    Some(Event::dropped())
+                }
                 _ => ev,
             },
             _ => ev,
@@ -177,7 +179,10 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadRight, EvCode(necs::BTN_DPAD_RIGHT)),
+                    event: EventType::ButtonPressed(
+                        Button::DPadRight,
+                        EvCode(necs::BTN_DPAD_RIGHT),
+                    ),
                 }
             } else if val == -1.0 {
                 Event {
@@ -185,11 +190,18 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                     time,
                     event: EventType::ButtonPressed(Button::DPadLeft, EvCode(necs::BTN_DPAD_LEFT)),
                 }
-            } else if gilrs.gamepad(id).state().is_pressed(&EvCode(necs::BTN_DPAD_RIGHT)) {
+            } else if gilrs
+                .gamepad(id)
+                .state()
+                .is_pressed(&EvCode(necs::BTN_DPAD_RIGHT))
+            {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadRight, EvCode(necs::BTN_DPAD_RIGHT)),
+                    event: EventType::ButtonReleased(
+                        Button::DPadRight,
+                        EvCode(necs::BTN_DPAD_RIGHT),
+                    ),
                 }
             } else {
                 Event {
@@ -217,7 +229,11 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                     time,
                     event: EventType::ButtonPressed(Button::DPadDown, EvCode(necs::BTN_DPAD_DOWN)),
                 }
-            } else if gilrs.gamepad(id).state().is_pressed(&EvCode(necs::BTN_DPAD_UP)) {
+            } else if gilrs
+                .gamepad(id)
+                .state()
+                .is_pressed(&EvCode(necs::BTN_DPAD_UP))
+            {
                 Event {
                     id,
                     time,
@@ -268,30 +284,34 @@ impl FilterFn for Repeat {
                             (true, false, Ok(dur)) if dur >= self.after => {
                                 let btn_name = match gamepad.axis_or_btn_name(nec) {
                                     Some(AxisOrBtn::Btn(b)) => b,
-                                    e => panic!("Got {:?} from element that was button in state. \
-                                        Please report this as \
-                                        https://gitlab.com/Arvamer/gilrs/issues.", e),
+                                    e => panic!(
+                                        "Got {:?} from element that was button in state. Please \
+                                         report this as https://gitlab.com/Arvamer/gilrs/issues.",
+                                        e
+                                    ),
                                 };
 
                                 return Some(Event {
                                     id,
                                     event: EventType::ButtonRepeated(btn_name, nec),
                                     time: btn_data.timestamp() + self.after,
-                                })
+                                });
                             }
                             (true, true, Ok(dur)) if dur >= self.every => {
                                 let btn_name = match gamepad.axis_or_btn_name(nec) {
                                     Some(AxisOrBtn::Btn(b)) => b,
-                                    e => panic!("Got {:?} from element that was button in state. \
-                                        Please report this as \
-                                        https://gitlab.com/Arvamer/gilrs/issues.", e),
+                                    e => panic!(
+                                        "Got {:?} from element that was button in state. Please \
+                                         report this as https://gitlab.com/Arvamer/gilrs/issues.",
+                                        e
+                                    ),
                                 };
 
                                 return Some(Event {
                                     id,
                                     event: EventType::ButtonRepeated(btn_name, nec),
                                     time: btn_data.timestamp() + self.every,
-                                })
+                                });
                             }
                             _ => (),
                         }

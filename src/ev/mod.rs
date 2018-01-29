@@ -10,12 +10,12 @@
 pub mod filter;
 pub mod state;
 
-use std::time::SystemTime;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::time::SystemTime;
 
 use constants::*;
-use utils;
 use platform;
+use utils;
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -41,7 +41,11 @@ pub struct Event {
 impl Event {
     /// Creates new event with current time.
     pub fn new(id: usize, event: EventType) -> Self {
-        Event { id, event, time: SystemTime::now() }
+        Event {
+            id,
+            event,
+            time: SystemTime::now(),
+        }
     }
 
     /// Returns `Event` with `EventType::Dropped`.
@@ -75,8 +79,9 @@ pub enum EventType {
     ButtonRepeated(Button, EvCode),
     /// Previously pressed button has been released.
     ButtonReleased(Button, EvCode),
-    /// Value of axis has changed. Value can be in range [-1.0, 1.0] for sticks and [0.0, 1.0] for
-    /// triggers.
+    /// Value of button has changed. Value can be in range [0.0, 1.0].
+    ButtonChanged(Button, f32, EvCode),
+    /// Value of axis has changed. Value can be in range [-1.0, 1.0].
     AxisChanged(Axis, f32, EvCode),
     /// Gamepad has been connected. If gamepad's UUID doesn't match one of disconnected gamepads,
     /// newly connected gamepad will get new ID. This event is also emitted when creating `Gilrs`
@@ -102,7 +107,11 @@ pub(crate) struct RawEvent {
 impl RawEvent {
     /// Creates new event with current time.
     pub fn new(id: usize, event: RawEventType) -> Self {
-        RawEvent { id, event, time: SystemTime::now() }
+        RawEvent {
+            id,
+            event,
+            time: SystemTime::now(),
+        }
     }
 }
 
@@ -239,10 +248,6 @@ pub enum Axis {
     RightZ = AXIS_RIGHTZ,
     DPadX = AXIS_DPADX,
     DPadY = AXIS_DPADY,
-    LeftTrigger = AXIS_LT,
-    LeftTrigger2 = AXIS_LT2,
-    RightTrigger = AXIS_RT,
-    RightTrigger2 = AXIS_RT2,
     Unknown = AXIS_UNKNOWN,
 }
 
@@ -251,14 +256,6 @@ impl Axis {
         use Axis::*;
         match self {
             LeftStickX | LeftStickY | RightStickX | RightStickY => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_trigger(self) -> bool {
-        use Axis::*;
-        match self {
-            LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 | LeftZ | RightZ => true,
             _ => false,
         }
     }
@@ -280,21 +277,20 @@ impl AxisInfo {
         self.deadzone as f32 / range
     }
 
-    pub(crate) fn value(&self, val: i32, is_axis: bool) -> f32 {
+    pub(crate) fn value_axis(&self, val: i32) -> f32 {
         let range = (self.max - self.min) as f32;
         let mut val = (val - self.min) as f32;
+        val = val / range * 2.0 - 1.0;
 
-        if !is_axis {
-            // Buttons are normalized to [0.0, 1.0]
-            val = val / range;
+        utils::clamp(val, -1.0, 1.0)
+    }
 
-            utils::clamp(val, 0.0, 1.0)
-        } else {
-            // Otherwise, normalize to [-1.0, 1.0]
-            val = val / range * 2.0 - 1.0;
+    pub(crate) fn value_btn(&self, val: i32) -> f32 {
+        let range = (self.max - self.min) as f32;
+        let mut val = (val - self.min) as f32;
+        val = val / range;
 
-            utils::clamp(val, -1.0, 1.0)
-        }
+        utils::clamp(val, 0.0, 1.0)
     }
 }
 
