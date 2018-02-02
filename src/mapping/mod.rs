@@ -164,7 +164,7 @@ impl Mapping {
                     let axis = axes.get(from as usize)
                         .cloned()
                         .ok_or(ParseSdlMappingError::InvalidAxis)?;
-                    mapping.mappings.insert(axis, AxisOrBtn::Axis(to));
+                    mapping.mappings.insert(axis, to);
                 }
                 Token::ButtonMapping { from, to } => {
                     let btn = buttons
@@ -293,6 +293,11 @@ impl Default for Mapping {
             nec::BTN_DPAD_DOWN => Btn(Button::DPadDown),
             nec::BTN_DPAD_LEFT => Btn(Button::DPadLeft),
             nec::BTN_DPAD_RIGHT => Btn(Button::DPadRight),
+
+            nec::AXIS_LT => Btn(Button::LeftTrigger),
+            nec::AXIS_RT => Btn(Button::RightTrigger),
+            nec::AXIS_LT2 => Btn(Button::LeftTrigger2),
+            nec::AXIS_RT2 => Btn(Button::RightTrigger2),
 
             nec::AXIS_LSTICKX => Axis(Ax::LeftStickX),
             nec::AXIS_LSTICKY => Axis(Ax::LeftStickY),

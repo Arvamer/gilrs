@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 
 use uuid::Uuid;
 
-use ev::{Axis, Button};
+use ev::{Axis, AxisOrBtn, Button};
 
 // Must be sorted!
 static BUTTONS_SDL: [&'static str; 19] = [
@@ -50,14 +50,59 @@ static BUTTONS: [Button; 19] = [
 ];
 
 // Must be sorted!
-static AXES_SDL: [&'static str; 6] = ["leftx", "lefty", "leftz", "rightx", "righty", "rightz"];
-static AXES: [Axis; 6] = [
-    Axis::LeftStickX,
-    Axis::LeftStickY,
-    Axis::LeftZ,
-    Axis::RightStickX,
-    Axis::RightStickY,
-    Axis::RightZ,
+static AXES_SDL: [&'static str; 25] = [
+    "a",
+    "b",
+    "back",
+    "c",
+    "dpdown",
+    "dpleft",
+    "dpright",
+    "dpup",
+    "guide",
+    "leftshoulder",
+    "leftstick",
+    "lefttrigger",
+    "leftx",
+    "lefty",
+    "leftz",
+    "rightshoulder",
+    "rightstick",
+    "righttrigger",
+    "rightx",
+    "righty",
+    "rightz",
+    "start",
+    "x",
+    "y",
+    "z",
+];
+static AXES: [AxisOrBtn; 25] = [
+    AxisOrBtn::Btn(Button::South),
+    AxisOrBtn::Btn(Button::East),
+    AxisOrBtn::Btn(Button::Select),
+    AxisOrBtn::Btn(Button::C),
+    AxisOrBtn::Btn(Button::DPadDown),
+    AxisOrBtn::Btn(Button::DPadLeft),
+    AxisOrBtn::Btn(Button::DPadRight),
+    AxisOrBtn::Btn(Button::DPadUp),
+    AxisOrBtn::Btn(Button::Mode),
+    AxisOrBtn::Btn(Button::LeftTrigger),
+    AxisOrBtn::Btn(Button::LeftThumb),
+    AxisOrBtn::Btn(Button::LeftTrigger2),
+    AxisOrBtn::Axis(Axis::LeftStickX),
+    AxisOrBtn::Axis(Axis::LeftStickY),
+    AxisOrBtn::Axis(Axis::LeftZ),
+    AxisOrBtn::Btn(Button::RightTrigger),
+    AxisOrBtn::Btn(Button::RightThumb),
+    AxisOrBtn::Btn(Button::RightTrigger2),
+    AxisOrBtn::Axis(Axis::RightStickX),
+    AxisOrBtn::Axis(Axis::RightStickY),
+    AxisOrBtn::Axis(Axis::RightZ),
+    AxisOrBtn::Btn(Button::Start),
+    AxisOrBtn::Btn(Button::West),
+    AxisOrBtn::Btn(Button::North),
+    AxisOrBtn::Btn(Button::Z),
 ];
 
 pub struct Parser<'a> {
@@ -264,7 +309,7 @@ pub enum Token<'a> {
     Name(&'a str),
     AxisMapping {
         from: u16,
-        to: Axis,
+        to: AxisOrBtn,
         input: AxisRange,
         output: AxisRange,
         inverted: bool,
