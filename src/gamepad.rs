@@ -293,17 +293,18 @@ impl Gilrs {
             ButtonPressed(_, nec) => {
                 gamepad
                     .state
-                    .update_btn(nec, ButtonData::new(true, false, counter, event.time));
+                    .set_btn_pressed(nec, true, counter, event.time);
             }
             ButtonReleased(_, nec) => {
                 gamepad
                     .state
-                    .update_btn(nec, ButtonData::new(false, false, counter, event.time));
+                    .set_btn_pressed(nec, false, counter, event.time);
             }
             ButtonRepeated(_, nec) => {
-                gamepad
-                    .state
-                    .update_btn(nec, ButtonData::new(true, true, counter, event.time));
+                gamepad.state.set_btn_repeating(nec, counter, event.time);
+            }
+            ButtonChanged(_, value, nec) => {
+                gamepad.state.set_btn_value(nec, value, counter, event.time);
             }
             AxisChanged(_, value, nec) => {
                 gamepad

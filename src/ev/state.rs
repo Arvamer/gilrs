@@ -64,8 +64,50 @@ impl GamepadState {
         self.axes.get(axis)
     }
 
-    pub(crate) fn update_btn(&mut self, btn: Code, data: ButtonData) {
-        self.buttons.insert(btn, data);
+    pub(crate) fn set_btn_pressed(
+        &mut self,
+        btn: Code,
+        pressed: bool,
+        counter: u64,
+        timestamp: SystemTime,
+    ) {
+        let data = self.buttons.entry(btn).or_insert_with(|| {
+            ButtonData::new(
+                if pressed { 1.0 } else { 0.0 },
+                pressed,
+                false,
+                counter,
+                timestamp,
+            )
+        });
+        data.is_pressed = pressed;
+        data.is_repeating = false;
+        data.counter = counter;
+        data.last_event_ts = timestamp;
+    }
+
+    pub(crate) fn set_btn_repeating(&mut self, btn: Code, counter: u64, timestamp: SystemTime) {
+        let data = self.buttons
+            .entry(btn)
+            .or_insert_with(|| ButtonData::new(1.0, true, true, counter, timestamp));
+        data.is_repeating = true;
+        data.counter = counter;
+        data.last_event_ts = timestamp;
+    }
+
+    pub(crate) fn set_btn_value(
+        &mut self,
+        btn: Code,
+        value: f32,
+        counter: u64,
+        timestamp: SystemTime,
+    ) {
+        let data = self.buttons
+            .entry(btn)
+            .or_insert_with(|| ButtonData::new(value, false, false, counter, timestamp));
+        data.value = value;
+        data.counter = counter;
+        data.last_event_ts = timestamp;
     }
 
     pub(crate) fn update_axis(&mut self, axis: Code, data: AxisData) {
@@ -99,34 +141,47 @@ impl<'a> Iterator for AxisDataIter<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct ButtonData {
     last_event_ts: SystemTime,
-    state_and_counter: u64,
-    // 2b of state (is pressed, is repeating), 62b of counter
+    counter: u64,
+    value: f32,
+    is_pressed: bool,
+    is_repeating: bool,
 }
 
 impl ButtonData {
-    pub(crate) fn new(pressed: bool, repeating: bool, counter: u64, time: SystemTime) -> Self {
-        debug_assert!(counter <= 0x3FFF_FFFF_FFFF_FFFF);
-
-        let state = ((pressed as u64) << 63) | ((repeating as u64) << 62);
+    pub(crate) fn new(
+        value: f32,
+        pressed: bool,
+        repeating: bool,
+        counter: u64,
+        time: SystemTime,
+    ) -> Self {
         ButtonData {
             last_event_ts: time,
-            state_and_counter: state | counter,
+            counter,
+            value,
+            is_pressed: pressed,
+            is_repeating: repeating,
         }
     }
 
     /// Returns `true` if button is pressed.
     pub fn is_pressed(&self) -> bool {
-        self.state_and_counter >> 63 == 1
+        self.is_pressed
+    }
+
+    /// Returns value of button.
+    pub fn value(&self) -> f32 {
+        self.value
     }
 
     /// Returns `true` if button is repeating.
     pub fn is_repeating(&self) -> bool {
-        self.state_and_counter & 0x4000_0000_0000_0000 != 0
+        self.is_repeating
     }
 
     /// Returns value of counter when button state last changed.
     pub fn counter(&self) -> u64 {
-        self.state_and_counter & 0x3FFF_FFFF_FFFF_FFFF
+        self.counter
     }
 
     /// Returns when button state last changed.
