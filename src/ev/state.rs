@@ -226,34 +226,3 @@ impl AxisData {
         self.last_event_ts
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::SystemTime;
-
-    #[test]
-    fn button_data() {
-        // Who needs rand crate
-        let mut state = 1234567890123456789u64;
-        let mut xorshift = || {
-            let mut x = state;
-            x ^= x >> 12;
-            x ^= x << 25;
-            x ^= x >> 27;
-            state = x;
-
-            x.wrapping_mul(0x2545F4914F6CDD1D)
-        };
-
-        for _ in 0..(1024 * 1024 * 16) {
-            let counter = xorshift() & 0x3FFF_FFFF_FFFF_FFFF;
-            let pressed = xorshift() % 2 == 1;
-            let repeating = xorshift() % 2 == 1;
-            let btn = ButtonData::new(pressed, repeating, counter, SystemTime::now());
-            assert_eq!(btn.is_pressed(), pressed);
-            assert_eq!(btn.is_repeating(), repeating);
-            assert_eq!(btn.counter(), counter);
-        }
-    }
-}

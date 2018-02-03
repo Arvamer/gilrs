@@ -12,7 +12,8 @@ fn main() {
     let mut gilrs = GilrsBuilder::new()
         .add_env_mappings()
         .add_included_mappings()
-        .set_update_state(false);
+        .set_update_state(false)
+        .build();
     let repeat_filter = Repeat::new();
 
     loop {
