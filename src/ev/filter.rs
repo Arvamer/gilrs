@@ -149,6 +149,28 @@ pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 }
             })
         }
+        Some(Event {
+            event: EventType::ButtonChanged(btn, val, nec),
+            id,
+            time,
+        }) => {
+            let gp = gilrs.gamepad(id);
+            let threshold = match gp.deadzone(nec) {
+                Some(t) => t,
+                None => return ev,
+            };
+            let val = apply_deadzone(val, 0.0, threshold).0;
+
+            Some(if gp.state().value(nec) == val {
+                Event::dropped()
+            } else {
+                Event {
+                    id,
+                    time,
+                    event: EventType::ButtonChanged(btn, val, nec),
+                }
+            })
+        }
         _ => ev,
     }
 }
