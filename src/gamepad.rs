@@ -450,6 +450,8 @@ impl IndexMut<usize> for Gilrs {
 pub struct GilrsBuilder {
     mappings: MappingDb,
     default_filters: bool,
+    axis_to_btn_pressed: f32,
+    axis_to_btn_released: f32,
 }
 
 impl GilrsBuilder {
@@ -458,6 +460,8 @@ impl GilrsBuilder {
         GilrsBuilder {
             mappings: MappingDb::new(),
             default_filters: true,
+            axis_to_btn_pressed: 0.75,
+            axis_to_btn_released: 0.65,
         }
     }
 
@@ -491,6 +495,22 @@ impl GilrsBuilder {
         self
     }
 
+
+    /// Sets values on which `ButtonPressed` and `ButtonReleased` events will be emitted. Panics if
+    ///  `pressed ≤ released` or if one of values is outside [0.0, 1.0].
+    ///
+    /// Defaults to 0.75 for `pressed` and 0.65 for `released`.
+    pub fn set_axis_to_btn(mut self, pressed: f32, released: f32) -> Self {
+        assert!(pressed > released);
+        assert!(pressed >= 0.0 && pressed <= 1.0);
+        assert!(released >= 0.0 && released <= 1.0);
+
+        self.axis_to_btn_pressed = pressed;
+        self.axis_to_btn_released = released;
+
+        self
+    }
+
     /// Creates `Gilrs`.
     pub fn build(self) -> Gilrs {
         let mut gilrs = Gilrs {
@@ -501,8 +521,8 @@ impl GilrsBuilder {
             mappings: self.mappings,
             default_filters: self.default_filters,
             events: VecDeque::new(),
-            axis_to_btn_pressed: 0.75,
-            axis_to_btn_released: 0.65,
+            axis_to_btn_pressed: self.axis_to_btn_pressed,
+            axis_to_btn_released: self.axis_to_btn_released,
         };
         gilrs.finish_gamepads_creation();
         gilrs.create_ff_devices();
