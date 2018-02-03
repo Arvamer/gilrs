@@ -39,9 +39,14 @@ impl GamepadState {
             .unwrap_or(false)
     }
 
-    /// Returns value of axis or 0.0 when there is no information about axis.
-    pub fn value(&self, axis: &Code) -> f32 {
-        self.axes.get(axis).map(|s| s.value()).unwrap_or(0.0)
+    /// Returns value of `el` or 0.0 when there is no information about it. `el` can be either axis
+    /// or button.
+    pub fn value(&self, el: &Code) -> f32 {
+        self.axes
+            .get(el)
+            .map(|s| s.value())
+            .or_else(|| self.buttons.get(el).map(|s| s.value()))
+            .unwrap_or(0.0)
     }
 
     /// Iterate over buttons data.

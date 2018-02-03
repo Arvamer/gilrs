@@ -651,6 +651,10 @@ impl Gamepad {
 
     /// Examines cached gamepad state to check if given button is pressed. Panics if `btn` is
     /// `Unknown`.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn is_pressed(&self, btn: Button) -> bool {
         assert_ne!(btn, Button::Unknown);
 
@@ -660,9 +664,11 @@ impl Gamepad {
             .unwrap_or(false)
     }
 
-    /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
-    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Panics if `axis` is
-    /// `Unknown`.
+    /// Examines cached gamepad state to check axis's value. Panics if `axis` is `Unknown`.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn value(&self, axis: Axis) -> f32 {
         assert_ne!(axis, Axis::Unknown);
 
@@ -672,12 +678,20 @@ impl Gamepad {
     }
 
     /// Returns button state and when it changed.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
         self.button_code(btn)
             .and_then(|nec| self.state.button_data(&nec))
     }
 
     /// Returns axis state and when it changed.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
         self.axis_code(axis)
             .and_then(|nec| self.state.axis_data(&nec))
@@ -815,19 +829,19 @@ impl Gamepad {
         }
     }
 
-    /// Returns `AxisOrBtn` mapped to `EvCode`.
+    /// Returns `AxisOrBtn` mapped to `Code`.
     pub fn axis_or_btn_name(&self, ec: Code) -> Option<AxisOrBtn> {
         self.mapping.map(&ec.0)
     }
 
-    /// Returns `EvCode` associated with `btn`.
+    /// Returns `Code` associated with `btn`.
     pub fn button_code(&self, btn: Button) -> Option<Code> {
         self.mapping
             .map_rev(&AxisOrBtn::Btn(btn))
             .map(|nec| Code(nec))
     }
 
-    /// Returns `EvCode` associated with `axis`.
+    /// Returns `Code` associated with `axis`.
     pub fn axis_code(&self, axis: Axis) -> Option<Code> {
         self.mapping
             .map_rev(&AxisOrBtn::Axis(axis))
