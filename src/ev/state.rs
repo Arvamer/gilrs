@@ -32,20 +32,20 @@ impl GamepadState {
 
     /// Returns `true` if given button is pressed. Returns `false` if there is no information about
     /// `btn` or it is not pressed.
-    pub fn is_pressed(&self, btn: &Code) -> bool {
+    pub fn is_pressed(&self, btn: Code) -> bool {
         self.buttons
-            .get(btn)
+            .get(&btn)
             .map(|s| s.is_pressed())
             .unwrap_or(false)
     }
 
     /// Returns value of `el` or 0.0 when there is no information about it. `el` can be either axis
     /// or button.
-    pub fn value(&self, el: &Code) -> f32 {
+    pub fn value(&self, el: Code) -> f32 {
         self.axes
-            .get(el)
+            .get(&el)
             .map(|s| s.value())
-            .or_else(|| self.buttons.get(el).map(|s| s.value()))
+            .or_else(|| self.buttons.get(&el).map(|s| s.value()))
             .unwrap_or(0.0)
     }
 
@@ -60,13 +60,13 @@ impl GamepadState {
     }
 
     /// Returns button state and when it changed.
-    pub fn button_data(&self, btn: &Code) -> Option<&ButtonData> {
-        self.buttons.get(btn)
+    pub fn button_data(&self, btn: Code) -> Option<&ButtonData> {
+        self.buttons.get(&btn)
     }
 
     /// Returns axis state and when it changed.
-    pub fn axis_data(&self, axis: &Code) -> Option<&AxisData> {
-        self.axes.get(axis)
+    pub fn axis_data(&self, axis: Code) -> Option<&AxisData> {
+        self.axes.get(&axis)
     }
 
     pub(crate) fn set_btn_pressed(

@@ -205,7 +205,7 @@ impl Gilrs {
                                     let val = axis_info.value_btn(val);
 
                                     if val >= self.axis_to_btn_pressed
-                                        && !gamepad.state().is_pressed(&nec)
+                                        && !gamepad.state().is_pressed(nec)
                                     {
                                         self.events.push_back(Event {
                                             id,
@@ -215,7 +215,7 @@ impl Gilrs {
 
                                         EventType::ButtonPressed(b, nec)
                                     } else if val <= self.axis_to_btn_released
-                                        && gamepad.state().is_pressed(&nec)
+                                        && gamepad.state().is_pressed(nec)
                                     {
                                         self.events.push_back(Event {
                                             id,
@@ -660,7 +660,7 @@ impl Gamepad {
 
         self.button_code(btn)
             .or_else(|| btn.to_nec())
-            .map(|nec| self.state.is_pressed(&nec))
+            .map(|nec| self.state.is_pressed(nec))
             .unwrap_or(false)
     }
 
@@ -673,7 +673,7 @@ impl Gamepad {
         assert_ne!(axis, Axis::Unknown);
 
         self.axis_code(axis)
-            .map(|nec| self.state.value(&nec))
+            .map(|nec| self.state.value(nec))
             .unwrap_or(0.0)
     }
 
@@ -684,7 +684,7 @@ impl Gamepad {
     /// gamepad.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
         self.button_code(btn)
-            .and_then(|nec| self.state.button_data(&nec))
+            .and_then(|nec| self.state.button_data(nec))
     }
 
     /// Returns axis state and when it changed.
@@ -694,7 +694,7 @@ impl Gamepad {
     /// gamepad.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
         self.axis_code(axis)
-            .and_then(|nec| self.state.axis_data(&nec))
+            .and_then(|nec| self.state.axis_data(nec))
     }
 
     /// Returns device's power supply state. See [`PowerInfo`](enum.PowerInfo.html) for details.

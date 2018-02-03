@@ -98,7 +98,7 @@ impl FilterFn for Jitter {
                 event: EventType::AxisChanged(_, val, axis),
                 id,
                 ..
-            }) => match gilrs.gamepad(id).state().axis_data(&axis) {
+            }) => match gilrs.gamepad(id).state().axis_data(axis) {
                 Some(data) if val != 0.0 && (val - data.value()).abs() < self.threshold => {
                     Some(Event::dropped())
                 }
@@ -139,7 +139,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 _ => apply_deadzone(val, 0.0, threshold),
             }.0;
 
-            Some(if gp.state().value(&nec) == val {
+            Some(if gp.state().value(nec) == val {
                 Event::dropped()
             } else {
                 Event {
@@ -190,7 +190,7 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
             } else if gilrs
                 .gamepad(id)
                 .state()
-                .is_pressed(&Code(necs::BTN_DPAD_RIGHT))
+                .is_pressed(Code(necs::BTN_DPAD_RIGHT))
             {
                 Event {
                     id,
@@ -226,7 +226,7 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
             } else if gilrs
                 .gamepad(id)
                 .state()
-                .is_pressed(&Code(necs::BTN_DPAD_UP))
+                .is_pressed(Code(necs::BTN_DPAD_UP))
             {
                 Event {
                     id,
