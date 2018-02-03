@@ -51,9 +51,9 @@ use std::sync::mpsc::Sender;
 ///
 /// # Cached gamepad state
 ///
-/// `Gilrs` also menage cached gamepad state. To update it, use `update(Event)` method. Updating is
-/// not done automatically, because you probably want the state after filtered events (see
-/// [`ev::filter`](ev/filter/index.html) module), not these from `event_next()`.
+/// `Gilrs` also menage cached gamepad state. Updating state is done automatically, unless it's
+///  disabled by `GilrsBuilder::set_update_state(false)`. However, if you are using custom filters,
+/// you still have to update state manually – to do this call `update()` method.
 ///
 /// To access state you can use `Gamepad::state()` function. Gamepad also implement some state
 /// related functions directly, see [`Gamepad`](struct.Gamepad.html) for more.
@@ -105,6 +105,7 @@ pub struct Gilrs {
     events: VecDeque<Event>,
     axis_to_btn_pressed: f32,
     axis_to_btn_released: f32,
+    update_state: bool,
 }
 
 impl Gilrs {
@@ -118,7 +119,7 @@ impl Gilrs {
     pub fn next_event(&mut self) -> Option<Event> {
         use ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
 
-        if self.default_filters {
+        let ev = if self.default_filters {
             let jitter_filter = Jitter::new();
             loop {
                 let ev = self.next_event_priv()
@@ -134,7 +135,15 @@ impl Gilrs {
             }
         } else {
             self.next_event_priv()
+        };
+
+        if self.update_state {
+            if let Some(ref ev) = ev {
+                self.update(ev);
+            }
         }
+
+        ev
     }
 
     /// Returns next pending event.
@@ -311,7 +320,7 @@ impl Gilrs {
                     .state
                     .update_axis(nec, AxisData::new(value, counter, event.time));
             }
-            _ => (),
+            Disconnected | Connected | Dropped => (),
         }
     }
 
@@ -453,6 +462,7 @@ pub struct GilrsBuilder {
     default_filters: bool,
     axis_to_btn_pressed: f32,
     axis_to_btn_released: f32,
+    update_state: bool,
 }
 
 impl GilrsBuilder {
@@ -463,6 +473,7 @@ impl GilrsBuilder {
             default_filters: true,
             axis_to_btn_pressed: 0.75,
             axis_to_btn_released: 0.65,
+            update_state: true,
         }
     }
 
@@ -511,6 +522,14 @@ impl GilrsBuilder {
         self
     }
 
+    /// Disable or enable automatic state updates. You should use this if you use custom filters;
+    /// in this case you have to update state manually anyway.
+    pub fn set_update_state(mut self, enabled: bool) -> Self {
+        self.update_state = enabled;
+
+        self
+    }
+
     /// Creates `Gilrs`.
     pub fn build(self) -> Gilrs {
         let mut gilrs = Gilrs {
@@ -523,6 +542,7 @@ impl GilrsBuilder {
             events: VecDeque::new(),
             axis_to_btn_pressed: self.axis_to_btn_pressed,
             axis_to_btn_released: self.axis_to_btn_released,
+            update_state: self.update_state,
         };
         gilrs.finish_gamepads_creation();
         gilrs.create_ff_devices();

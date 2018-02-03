@@ -127,7 +127,6 @@ fn main() {
                 }
                 _ => (),
             }
-            gilrs.update(&event);
         }
 
         for &mut (idx, ref mut pos) in &mut listeners {
