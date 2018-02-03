@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use AsInner;
-use ev::{Axis, AxisOrBtn, Button, EvCode, Event, EventType, RawEvent, RawEventType};
+use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType, RawEvent, RawEventType};
 use ev::state::{AxisData, ButtonData, GamepadState};
 use ff::Error as FfError;
 use ff::server::{self, Message};
@@ -148,7 +148,7 @@ impl Gilrs {
                     let gamepad = self.inner.gamepad_mut(id);
                     let event = match event {
                         RawEventType::ButtonPressed(nec) => {
-                            let nec = EvCode(nec);
+                            let nec = Code(nec);
                             match gamepad.axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
                                     self.events.push_back(Event {
@@ -172,7 +172,7 @@ impl Gilrs {
                             }
                         }
                         RawEventType::ButtonReleased(nec) => {
-                            let nec = EvCode(nec);
+                            let nec = Code(nec);
                             match gamepad.axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
                                     self.events.push_back(Event {
@@ -198,7 +198,7 @@ impl Gilrs {
                         RawEventType::AxisValueChanged(val, nec) => {
                             // Let's trust at least our backend code
                             let axis_info = gamepad.inner.axis_info(nec).unwrap();
-                            let nec = EvCode(nec);
+                            let nec = Code(nec);
 
                             match gamepad.axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
@@ -494,7 +494,6 @@ impl GilrsBuilder {
 
         self
     }
-
 
     /// Sets values on which `ButtonPressed` and `ButtonReleased` events will be emitted. Panics if
     ///  `pressed ≤ released` or if one of values is outside [0.0, 1.0].
@@ -816,26 +815,26 @@ impl Gamepad {
     }
 
     /// Returns `AxisOrBtn` mapped to `EvCode`.
-    pub fn axis_or_btn_name(&self, ec: EvCode) -> Option<AxisOrBtn> {
+    pub fn axis_or_btn_name(&self, ec: Code) -> Option<AxisOrBtn> {
         self.mapping.map(&ec.0)
     }
 
     /// Returns `EvCode` associated with `btn`.
-    pub fn button_code(&self, btn: Button) -> Option<EvCode> {
+    pub fn button_code(&self, btn: Button) -> Option<Code> {
         self.mapping
             .map_rev(&AxisOrBtn::Btn(btn))
-            .map(|nec| EvCode(nec))
+            .map(|nec| Code(nec))
     }
 
     /// Returns `EvCode` associated with `axis`.
-    pub fn axis_code(&self, axis: Axis) -> Option<EvCode> {
+    pub fn axis_code(&self, axis: Axis) -> Option<Code> {
         self.mapping
             .map_rev(&AxisOrBtn::Axis(axis))
-            .map(|nec| EvCode(nec))
+            .map(|nec| Code(nec))
     }
 
     /// Returns area in which axis events should be ignored.
-    pub fn deadzone(&self, axis: EvCode) -> Option<f32> {
+    pub fn deadzone(&self, axis: Code) -> Option<f32> {
         self.inner.axis_info(axis.0).map(|i| i.deadzone())
     }
 

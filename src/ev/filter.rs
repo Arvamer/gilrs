@@ -73,7 +73,7 @@
 //! `FilterFn` is also implemented for all `Fn(Option<Event>, &Gilrs) -> Option<Event>`, so above
 //! example could be simplified to passing closure to `filter()` function.
 
-use ev::{Axis, AxisOrBtn, Button, EvCode, Event, EventType};
+use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
 use gamepad::{Gamepad, Gilrs};
 
 use std::time::{Duration, SystemTime};
@@ -161,10 +161,10 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
     use platform::native_ev_codes as necs;
 
     fn can_map(gp: &Gamepad) -> bool {
-        gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_RIGHT)).is_none()
-            && gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_LEFT)).is_none()
-            && gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_DOWN)).is_none()
-            && gp.axis_or_btn_name(EvCode(necs::BTN_DPAD_UP)).is_none()
+        gp.axis_or_btn_name(Code(necs::BTN_DPAD_RIGHT)).is_none()
+            && gp.axis_or_btn_name(Code(necs::BTN_DPAD_LEFT)).is_none()
+            && gp.axis_or_btn_name(Code(necs::BTN_DPAD_DOWN)).is_none()
+            && gp.axis_or_btn_name(Code(necs::BTN_DPAD_UP)).is_none()
             && gp.button_code(Button::DPadRight).is_none()
     }
 
@@ -179,35 +179,29 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(
-                        Button::DPadRight,
-                        EvCode(necs::BTN_DPAD_RIGHT),
-                    ),
+                    event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
                 }
             } else if val == -1.0 {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadLeft, EvCode(necs::BTN_DPAD_LEFT)),
+                    event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
                 }
             } else if gilrs
                 .gamepad(id)
                 .state()
-                .is_pressed(&EvCode(necs::BTN_DPAD_RIGHT))
+                .is_pressed(&Code(necs::BTN_DPAD_RIGHT))
             {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(
-                        Button::DPadRight,
-                        EvCode(necs::BTN_DPAD_RIGHT),
-                    ),
+                    event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
                 }
             } else {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadLeft, EvCode(necs::BTN_DPAD_LEFT)),
+                    event: EventType::ButtonReleased(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
                 }
             })
         }
@@ -221,29 +215,29 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadUp, EvCode(necs::BTN_DPAD_UP)),
+                    event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
                 }
             } else if val == -1.0 {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonPressed(Button::DPadDown, EvCode(necs::BTN_DPAD_DOWN)),
+                    event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
                 }
             } else if gilrs
                 .gamepad(id)
                 .state()
-                .is_pressed(&EvCode(necs::BTN_DPAD_UP))
+                .is_pressed(&Code(necs::BTN_DPAD_UP))
             {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadUp, EvCode(necs::BTN_DPAD_UP)),
+                    event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
                 }
             } else {
                 Event {
                     id,
                     time,
-                    event: EventType::ButtonReleased(Button::DPadDown, EvCode(necs::BTN_DPAD_DOWN)),
+                    event: EventType::ButtonReleased(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
                 }
             })
         }

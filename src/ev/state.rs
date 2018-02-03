@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ev::EvCode;
+use ev::Code;
 
 use fnv::FnvHashMap;
 
@@ -17,9 +17,9 @@ use std::time::SystemTime;
 #[derive(Clone, Debug)]
 pub struct GamepadState {
     // Indexed by EvCode (nec)
-    buttons: FnvHashMap<EvCode, ButtonData>,
+    buttons: FnvHashMap<Code, ButtonData>,
     // Indexed by EvCode (nec)
-    axes: FnvHashMap<EvCode, AxisData>,
+    axes: FnvHashMap<Code, AxisData>,
 }
 
 impl GamepadState {
@@ -32,7 +32,7 @@ impl GamepadState {
 
     /// Returns `true` if given button is pressed. Returns `false` if there is no information about
     /// `btn` or it is not pressed.
-    pub fn is_pressed(&self, btn: &EvCode) -> bool {
+    pub fn is_pressed(&self, btn: &Code) -> bool {
         self.buttons
             .get(btn)
             .map(|s| s.is_pressed())
@@ -40,7 +40,7 @@ impl GamepadState {
     }
 
     /// Returns value of axis or 0.0 when there is no information about axis.
-    pub fn value(&self, axis: &EvCode) -> f32 {
+    pub fn value(&self, axis: &Code) -> f32 {
         self.axes.get(axis).map(|s| s.value()).unwrap_or(0.0)
     }
 
@@ -55,32 +55,32 @@ impl GamepadState {
     }
 
     /// Returns button state and when it changed.
-    pub fn button_data(&self, btn: &EvCode) -> Option<&ButtonData> {
+    pub fn button_data(&self, btn: &Code) -> Option<&ButtonData> {
         self.buttons.get(btn)
     }
 
     /// Returns axis state and when it changed.
-    pub fn axis_data(&self, axis: &EvCode) -> Option<&AxisData> {
+    pub fn axis_data(&self, axis: &Code) -> Option<&AxisData> {
         self.axes.get(axis)
     }
 
-    pub(crate) fn update_btn(&mut self, btn: EvCode, data: ButtonData) {
+    pub(crate) fn update_btn(&mut self, btn: Code, data: ButtonData) {
         self.buttons.insert(btn, data);
     }
 
-    pub(crate) fn update_axis(&mut self, axis: EvCode, data: AxisData) {
+    pub(crate) fn update_axis(&mut self, axis: Code, data: AxisData) {
         self.axes.insert(axis, data);
     }
 }
 
 /// Iterator over `ButtonData`.
-pub struct ButtonDataIter<'a>(hash_map::Iter<'a, EvCode, ButtonData>);
+pub struct ButtonDataIter<'a>(hash_map::Iter<'a, Code, ButtonData>);
 
 /// Iterator over `AxisData`.
-pub struct AxisDataIter<'a>(hash_map::Iter<'a, EvCode, AxisData>);
+pub struct AxisDataIter<'a>(hash_map::Iter<'a, Code, AxisData>);
 
 impl<'a> Iterator for ButtonDataIter<'a> {
-    type Item = (EvCode, &'a ButtonData);
+    type Item = (Code, &'a ButtonData);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(k, v)| (*k, v))
@@ -88,7 +88,7 @@ impl<'a> Iterator for ButtonDataIter<'a> {
 }
 
 impl<'a> Iterator for AxisDataIter<'a> {
-    type Item = (EvCode, &'a AxisData);
+    type Item = (Code, &'a AxisData);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(k, v)| (*k, v))

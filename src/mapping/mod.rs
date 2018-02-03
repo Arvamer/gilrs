@@ -216,7 +216,7 @@ impl Mapping {
         let n_btn = buttons
             .iter()
             .position(|&x| x == ev_code)
-            .ok_or(MappingError::InvalidCode(ev::EvCode(ev_code)))?;
+            .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
         mappings.insert(ev_code, AxisOrBtn::Btn(mapped_btn));
         Ok(())
@@ -232,7 +232,7 @@ impl Mapping {
     ) -> Result<(), MappingError> {
         let n_axis = axes.iter()
             .position(|&x| x == ev_code)
-            .ok_or(MappingError::InvalidCode(ev::EvCode(ev_code)))?;
+            .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
         mappings.insert(ev_code, AxisOrBtn::Axis(mapped_axis));
         Ok(())
@@ -427,43 +427,43 @@ impl MappingData {
     }
 
     /// Returns `EvCode` associated with button index.
-    pub fn button(&self, idx: Button) -> Option<ev::EvCode> {
+    pub fn button(&self, idx: Button) -> Option<ev::Code> {
         self.buttons
             .get(idx as usize)
             .cloned()
-            .map(|nec| ev::EvCode(nec))
+            .map(|nec| ev::Code(nec))
     }
 
     /// Returns `EvCode` associated with axis index.
-    pub fn axis(&self, idx: Axis) -> Option<ev::EvCode> {
+    pub fn axis(&self, idx: Axis) -> Option<ev::Code> {
         self.axes
             .get(idx as usize)
             .cloned()
-            .map(|nec| ev::EvCode(nec))
+            .map(|nec| ev::Code(nec))
     }
 
     /// Inserts new button mapping.
-    pub fn insert_btn(&mut self, from: ev::EvCode, to: Button) -> Option<ev::EvCode> {
+    pub fn insert_btn(&mut self, from: ev::Code, to: Button) -> Option<ev::Code> {
         self.buttons
             .insert(to as usize, from.0)
-            .map(|nec| ev::EvCode(nec))
+            .map(|nec| ev::Code(nec))
     }
 
     /// Inserts new axis mapping.
-    pub fn insert_axis(&mut self, from: ev::EvCode, to: Axis) -> Option<ev::EvCode> {
+    pub fn insert_axis(&mut self, from: ev::Code, to: Axis) -> Option<ev::Code> {
         self.axes
             .insert(to as usize, from.0)
-            .map(|nec| ev::EvCode(nec))
+            .map(|nec| ev::Code(nec))
     }
 
     /// Removes button and returns associated `NativEvCode`.
-    pub fn remove_button(&mut self, idx: Button) -> Option<ev::EvCode> {
-        self.buttons.remove(idx as usize).map(|nec| ev::EvCode(nec))
+    pub fn remove_button(&mut self, idx: Button) -> Option<ev::Code> {
+        self.buttons.remove(idx as usize).map(|nec| ev::Code(nec))
     }
 
     /// Removes axis and returns associated `NativEvCode`.
-    pub fn remove_axis(&mut self, idx: Axis) -> Option<ev::EvCode> {
-        self.axes.remove(idx as usize).map(|nec| ev::EvCode(nec))
+    pub fn remove_axis(&mut self, idx: Axis) -> Option<ev::Code> {
+        self.axes.remove(idx as usize).map(|nec| ev::Code(nec))
     }
 }
 
@@ -471,7 +471,7 @@ impl MappingData {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MappingError {
     /// Gamepad does not have element referenced by `EvCode`.
-    InvalidCode(ev::EvCode),
+    InvalidCode(ev::Code),
     /// Name contains comma (',').
     InvalidName,
     /// This function is not implemented for current platform.
@@ -574,8 +574,8 @@ mod tests {
     fn from_data() {
         let uuid = Uuid::nil();
         let name = "Best Gamepad";
-        let buttons = BUTTONS.iter().cloned().map(ev::EvCode).collect::<Vec<_>>();
-        let axes = AXES.iter().cloned().map(ev::EvCode).collect::<Vec<_>>();
+        let buttons = BUTTONS.iter().cloned().map(ev::Code).collect::<Vec<_>>();
+        let axes = AXES.iter().cloned().map(ev::Code).collect::<Vec<_>>();
 
         let mut data = MappingData::new();
         data.insert_axis(axes[0], Axis::LeftStickX);
@@ -603,14 +603,14 @@ mod tests {
         let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, "Inval,id name", uuid);
         assert_eq!(Err(MappingError::InvalidName), incorrect_mappings);
 
-        data.insert_btn(ev::EvCode(nec::BTN_DPAD_RIGHT), Button::DPadRight);
+        data.insert_btn(ev::Code(nec::BTN_DPAD_RIGHT), Button::DPadRight);
         let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid);
         assert_eq!(
-            Err(MappingError::InvalidCode(ev::EvCode(nec::BTN_DPAD_RIGHT))),
+            Err(MappingError::InvalidCode(ev::Code(nec::BTN_DPAD_RIGHT))),
             incorrect_mappings
         );
 
-        data.insert_btn(ev::EvCode(BUTTONS[3]), Button::Unknown);
+        data.insert_btn(ev::Code(BUTTONS[3]), Button::Unknown);
         let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid);
         assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
     }
