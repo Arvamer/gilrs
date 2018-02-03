@@ -3,29 +3,106 @@ use std::fmt::{self, Display};
 
 use uuid::Uuid;
 
-use ev::{Axis, Button};
+use ev::{Axis, AxisOrBtn, Button};
 
 // Must be sorted!
 static BUTTONS_SDL: [&'static str; 19] = [
-    "a", "b", "back", "c", "dpdown", "dpleft", "dpright", "dpup", "guide", "leftshoulder",
-    "leftstick", "lefttrigger", "rightshoulder", "rightstick", "righttrigger", "start", "x", "y",
+    "a",
+    "b",
+    "back",
+    "c",
+    "dpdown",
+    "dpleft",
+    "dpright",
+    "dpup",
+    "guide",
+    "leftshoulder",
+    "leftstick",
+    "lefttrigger",
+    "rightshoulder",
+    "rightstick",
+    "righttrigger",
+    "start",
+    "x",
+    "y",
     "z",
 ];
 static BUTTONS: [Button; 19] = [
-    Button::South, Button::East, Button::Select, Button::C, Button::DPadDown, Button::DPadLeft,
-    Button::DPadRight, Button::DPadUp, Button::Mode, Button::LeftTrigger, Button::LeftThumb,
-    Button::LeftTrigger2, Button::RightTrigger, Button::RightThumb, Button::RightTrigger2,
-    Button::Start, Button::West, Button::North, Button::Z,
+    Button::South,
+    Button::East,
+    Button::Select,
+    Button::C,
+    Button::DPadDown,
+    Button::DPadLeft,
+    Button::DPadRight,
+    Button::DPadUp,
+    Button::Mode,
+    Button::LeftTrigger,
+    Button::LeftThumb,
+    Button::LeftTrigger2,
+    Button::RightTrigger,
+    Button::RightThumb,
+    Button::RightTrigger2,
+    Button::Start,
+    Button::West,
+    Button::North,
+    Button::Z,
 ];
 
 // Must be sorted!
-static AXES_SDL: [&'static str; 10] = [
-    "leftshoulder", "lefttrigger", "leftx", "lefty", "leftz", "rightshoulder", "righttrigger",
-    "rightx", "righty", "rightz",
+static AXES_SDL: [&'static str; 25] = [
+    "a",
+    "b",
+    "back",
+    "c",
+    "dpdown",
+    "dpleft",
+    "dpright",
+    "dpup",
+    "guide",
+    "leftshoulder",
+    "leftstick",
+    "lefttrigger",
+    "leftx",
+    "lefty",
+    "leftz",
+    "rightshoulder",
+    "rightstick",
+    "righttrigger",
+    "rightx",
+    "righty",
+    "rightz",
+    "start",
+    "x",
+    "y",
+    "z",
 ];
-static AXES: [Axis; 10] = [
-    Axis::LeftTrigger, Axis::LeftTrigger2, Axis::LeftStickX, Axis::LeftStickY, Axis::LeftZ,
-    Axis::RightTrigger, Axis::RightTrigger2, Axis::RightStickX, Axis::RightStickY, Axis::RightZ,
+static AXES: [AxisOrBtn; 25] = [
+    AxisOrBtn::Btn(Button::South),
+    AxisOrBtn::Btn(Button::East),
+    AxisOrBtn::Btn(Button::Select),
+    AxisOrBtn::Btn(Button::C),
+    AxisOrBtn::Btn(Button::DPadDown),
+    AxisOrBtn::Btn(Button::DPadLeft),
+    AxisOrBtn::Btn(Button::DPadRight),
+    AxisOrBtn::Btn(Button::DPadUp),
+    AxisOrBtn::Btn(Button::Mode),
+    AxisOrBtn::Btn(Button::LeftTrigger),
+    AxisOrBtn::Btn(Button::LeftThumb),
+    AxisOrBtn::Btn(Button::LeftTrigger2),
+    AxisOrBtn::Axis(Axis::LeftStickX),
+    AxisOrBtn::Axis(Axis::LeftStickY),
+    AxisOrBtn::Axis(Axis::LeftZ),
+    AxisOrBtn::Btn(Button::RightTrigger),
+    AxisOrBtn::Btn(Button::RightThumb),
+    AxisOrBtn::Btn(Button::RightTrigger2),
+    AxisOrBtn::Axis(Axis::RightStickX),
+    AxisOrBtn::Axis(Axis::RightStickY),
+    AxisOrBtn::Axis(Axis::RightZ),
+    AxisOrBtn::Btn(Button::Start),
+    AxisOrBtn::Btn(Button::West),
+    AxisOrBtn::Btn(Button::North),
+    AxisOrBtn::Btn(Button::Z),
 ];
 
 pub struct Parser<'a> {
@@ -170,7 +247,11 @@ impl<'a> Parser<'a> {
                     .binary_search(&key)
                     .or(Err(Error::new(ErrorKind::UnknownButton, pos)))?;
 
-                return Ok(Token::HatMapping { hat, direction, to: BUTTONS[idx] });
+                return Ok(Token::HatMapping {
+                    hat,
+                    direction,
+                    to: BUTTONS[idx],
+                });
             }
             _ => return Err(Error::new(ErrorKind::InvalidValue, pos)),
         }.parse::<u16>()
@@ -207,7 +288,10 @@ impl<'a> Parser<'a> {
                 .binary_search(&key)
                 .or(Err(Error::new(ErrorKind::UnknownButton, pos)))?;
 
-            Ok(Token::ButtonMapping { from, to: BUTTONS[idx] })
+            Ok(Token::ButtonMapping {
+                from,
+                to: BUTTONS[idx],
+            })
         }
     }
 
@@ -225,12 +309,15 @@ pub enum Token<'a> {
     Name(&'a str),
     AxisMapping {
         from: u16,
-        to: Axis,
+        to: AxisOrBtn,
         input: AxisRange,
         output: AxisRange,
         inverted: bool,
     },
-    ButtonMapping { from: u16, to: Button },
+    ButtonMapping {
+        from: u16,
+        to: Button,
+    },
     // This is just SDL representation, we will convert this to axis mapping later
     HatMapping {
         hat: u16,

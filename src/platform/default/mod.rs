@@ -8,7 +8,7 @@ mod gamepad;
 mod ff;
 
 pub use self::ff::Device as FfDevice;
-pub use self::gamepad::{native_ev_codes, Gamepad, Gilrs};
+pub use self::gamepad::{native_ev_codes, EvCode, Gamepad, Gilrs};
 
 // Platform name used in SDL mappings format
 pub const NAME: &'static str = "Unknown";

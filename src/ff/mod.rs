@@ -60,7 +60,6 @@ pub use self::time::{Repeat, Ticks};
 #[allow(unused_imports)]
 pub(crate) use self::time::TICK_DURATION;
 
-
 use std::{fmt, f32};
 use std::error::Error as StdError;
 use std::hash::{Hash, Hasher};
@@ -102,7 +101,10 @@ impl Hash for Effect {
 impl Clone for Effect {
     fn clone(&self) -> Self {
         let _ = self.tx.send(Message::HandleCloned { id: self.id });
-        Effect { id: self.id, tx: self.tx.clone() }
+        Effect {
+            id: self.id,
+            tx: self.tx.clone(),
+        }
     }
 }
 
@@ -142,8 +144,10 @@ impl Effect {
             }
         }
 
-        self.tx
-            .send(Message::SetGamepads { id: self.id, gamepads })?;
+        self.tx.send(Message::SetGamepads {
+            id: self.id,
+            gamepads,
+        })?;
 
         Ok(())
     }
@@ -169,10 +173,12 @@ impl Effect {
         }
     }
 
-
     /// Changes what should happen to effect when it ends.
     pub fn set_repeat(&self, repeat: Repeat) -> Result<(), Error> {
-        self.tx.send(Message::SetRepeat { id: self.id, repeat })?;
+        self.tx.send(Message::SetRepeat {
+            id: self.id,
+            repeat,
+        })?;
 
         Ok(())
     }
@@ -194,8 +200,10 @@ impl Effect {
     /// Changes position of the source of effect.
     pub fn set_position<Vec3f: Into<[f32; 3]>>(&self, position: Vec3f) -> Result<(), Error> {
         let position = position.into();
-        self.tx
-            .send(Message::SetPosition { id: self.id, position })?;
+        self.tx.send(Message::SetPosition {
+            id: self.id,
+            position,
+        })?;
 
         Ok(())
     }
@@ -313,7 +321,10 @@ impl EffectBuilder {
         );
         let id = gilrs.next_ff_id();
         let tx = gilrs.ff_sender();
-        tx.send(Message::Create { id, effect: Box::new(effect) })?;
+        tx.send(Message::Create {
+            id,
+            effect: Box::new(effect),
+        })?;
         Ok(Effect { id, tx: tx.clone() })
     }
 }

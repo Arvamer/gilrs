@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use AsInner;
+use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType, RawEvent, RawEventType};
 use ev::state::{AxisData, ButtonData, GamepadState};
-use ev::{Axis, Button, Event, EventType, NativeEvCode};
 use ff::Error as FfError;
 use ff::server::{self, Message};
 use mapping::{Mapping, MappingData, MappingDb, MappingError};
@@ -15,9 +15,9 @@ use platform;
 
 use uuid::Uuid;
 
+use std::collections::VecDeque;
 use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
-
 
 /// Main object responsible of managing gamepads.
 ///
@@ -51,9 +51,9 @@ use std::sync::mpsc::Sender;
 ///
 /// # Cached gamepad state
 ///
-/// `Gilrs` also menage cached gamepad state. To update it, use `update(Event)` method. Updating is
-/// not done automatically, because you probably want the state after filtered events (see
-/// [`ev::filter`](ev/filter/index.html) module), not these from `event_next()`.
+/// `Gilrs` also menage cached gamepad state. Updating state is done automatically, unless it's
+///  disabled by `GilrsBuilder::set_update_state(false)`. However, if you are using custom filters,
+/// you still have to update state manually – to do this call `update()` method.
 ///
 /// To access state you can use `Gamepad::state()` function. Gamepad also implement some state
 /// related functions directly, see [`Gamepad`](struct.Gamepad.html) for more.
@@ -102,6 +102,10 @@ pub struct Gilrs {
     counter: u64,
     mappings: MappingDb,
     default_filters: bool,
+    events: VecDeque<Event>,
+    axis_to_btn_pressed: f32,
+    axis_to_btn_released: f32,
+    update_state: bool,
 }
 
 impl Gilrs {
@@ -115,7 +119,7 @@ impl Gilrs {
     pub fn next_event(&mut self) -> Option<Event> {
         use ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
 
-        if self.default_filters {
+        let ev = if self.default_filters {
             let jitter_filter = Jitter::new();
             loop {
                 let ev = self.next_event_priv()
@@ -131,58 +135,155 @@ impl Gilrs {
             }
         } else {
             self.next_event_priv()
+        };
+
+        if self.update_state {
+            if let Some(ref ev) = ev {
+                self.update(ev);
+            }
         }
+
+        ev
     }
 
     /// Returns next pending event.
     fn next_event_priv(&mut self) -> Option<Event> {
-        match self.inner.next_event() {
-            Some(Event { id, mut event, time }) => {
-                debug!("Original event: {:?}", Event { id, event, time });
-                let gamepad = self.inner.gamepad_mut(id);
-                match event {
-                    EventType::ButtonPressed(_, nec) => {
-                        event = EventType::ButtonPressed(gamepad.button_name(nec), nec);
-                    }
-                    EventType::ButtonReleased(_, nec) => {
-                        event = EventType::ButtonReleased(gamepad.button_name(nec), nec);
-                    }
-                    EventType::AxisChanged(_, val, nec) => {
-                        event = EventType::AxisChanged(gamepad.axis_name(nec), val, nec);
-                    }
-                    EventType::Connected => {
-                        gamepad.status = Status::Connected;
-                        let mapping = self.mappings
-                            .get(gamepad.uuid())
-                            .and_then(|s| {
-                                Mapping::parse_sdl_mapping(
-                                    s,
-                                    gamepad.inner.buttons(),
-                                    gamepad.inner.axes(),
-                                ).ok()
-                            })
-                            .unwrap_or_default();
-                        gamepad.mapping = mapping;
+        if let Some(ev) = self.events.pop_front() {
+            Some(ev)
+        } else {
+            match self.inner.next_event() {
+                Some(RawEvent { id, event, time }) => {
+                    debug!("Original event: {:?}", RawEvent { id, event, time });
+                    let gamepad = self.inner.gamepad_mut(id);
+                    let event = match event {
+                        RawEventType::ButtonPressed(nec) => {
+                            let nec = Code(nec);
+                            match gamepad.axis_or_btn_name(nec) {
+                                Some(AxisOrBtn::Btn(b)) => {
+                                    self.events.push_back(Event {
+                                        id,
+                                        time,
+                                        event: EventType::ButtonChanged(b, 1.0, nec),
+                                    });
 
-                        if gamepad.id == usize::max_value() {
-                            gamepad.id = id;
-                            gamepad.tx = self.tx.clone();
+                                    EventType::ButtonPressed(b, nec)
+                                }
+                                Some(AxisOrBtn::Axis(a)) => EventType::AxisChanged(a, 1.0, nec),
+                                None => {
+                                    self.events.push_back(Event {
+                                        id,
+                                        time,
+                                        event: EventType::ButtonChanged(Button::Unknown, 1.0, nec),
+                                    });
 
-                            if let Some(device) = gamepad.inner.ff_device() {
-                                let _ = self.tx.send(Message::Open { id, device });
+                                    EventType::ButtonPressed(Button::Unknown, nec)
+                                }
                             }
                         }
-                    }
-                    EventType::Disconnected => {
-                        gamepad.status = Status::Disconnected;
-                        let _ = self.tx.send(Message::Close { id });
-                    }
-                    _ => (),
-                };
+                        RawEventType::ButtonReleased(nec) => {
+                            let nec = Code(nec);
+                            match gamepad.axis_or_btn_name(nec) {
+                                Some(AxisOrBtn::Btn(b)) => {
+                                    self.events.push_back(Event {
+                                        id,
+                                        time,
+                                        event: EventType::ButtonChanged(b, 0.0, nec),
+                                    });
 
-                Some(Event { id, event, time })
+                                    EventType::ButtonReleased(b, nec)
+                                }
+                                Some(AxisOrBtn::Axis(a)) => EventType::AxisChanged(a, 0.0, nec),
+                                None => {
+                                    self.events.push_back(Event {
+                                        id,
+                                        time,
+                                        event: EventType::ButtonChanged(Button::Unknown, 0.0, nec),
+                                    });
+
+                                    EventType::ButtonReleased(Button::Unknown, nec)
+                                }
+                            }
+                        }
+                        RawEventType::AxisValueChanged(val, nec) => {
+                            // Let's trust at least our backend code
+                            let axis_info = gamepad.inner.axis_info(nec).unwrap();
+                            let nec = Code(nec);
+
+                            match gamepad.axis_or_btn_name(nec) {
+                                Some(AxisOrBtn::Btn(b)) => {
+                                    let val = axis_info.value_btn(val);
+
+                                    if val >= self.axis_to_btn_pressed
+                                        && !gamepad.state().is_pressed(nec)
+                                    {
+                                        self.events.push_back(Event {
+                                            id,
+                                            time,
+                                            event: EventType::ButtonChanged(b, val, nec),
+                                        });
+
+                                        EventType::ButtonPressed(b, nec)
+                                    } else if val <= self.axis_to_btn_released
+                                        && gamepad.state().is_pressed(nec)
+                                    {
+                                        self.events.push_back(Event {
+                                            id,
+                                            time,
+                                            event: EventType::ButtonChanged(b, val, nec),
+                                        });
+
+                                        EventType::ButtonReleased(b, nec)
+                                    } else {
+                                        EventType::ButtonChanged(b, val, nec)
+                                    }
+                                }
+                                Some(AxisOrBtn::Axis(a)) => {
+                                    EventType::AxisChanged(a, axis_info.value_axis(val), nec)
+                                }
+                                None => EventType::AxisChanged(
+                                    Axis::Unknown,
+                                    axis_info.value_axis(val),
+                                    nec,
+                                ),
+                            }
+                        }
+                        RawEventType::Connected => {
+                            gamepad.status = Status::Connected;
+                            let mapping = self.mappings
+                                .get(gamepad.uuid())
+                                .and_then(|s| {
+                                    Mapping::parse_sdl_mapping(
+                                        s,
+                                        gamepad.inner.buttons(),
+                                        gamepad.inner.axes(),
+                                    ).ok()
+                                })
+                                .unwrap_or_default();
+                            gamepad.mapping = mapping;
+
+                            if gamepad.id == usize::max_value() {
+                                gamepad.id = id;
+                                gamepad.tx = self.tx.clone();
+
+                                if let Some(device) = gamepad.inner.ff_device() {
+                                    let _ = self.tx.send(Message::Open { id, device });
+                                }
+                            }
+
+                            EventType::Connected
+                        }
+                        RawEventType::Disconnected => {
+                            gamepad.status = Status::Disconnected;
+                            let _ = self.tx.send(Message::Close { id });
+
+                            EventType::Disconnected
+                        }
+                    };
+
+                    Some(Event { id, event, time })
+                }
+                None => None,
             }
-            None => None,
         }
     }
 
@@ -201,24 +302,25 @@ impl Gilrs {
             ButtonPressed(_, nec) => {
                 gamepad
                     .state
-                    .update_btn(nec, ButtonData::new(true, false, counter, event.time));
+                    .set_btn_pressed(nec, true, counter, event.time);
             }
             ButtonReleased(_, nec) => {
                 gamepad
                     .state
-                    .update_btn(nec, ButtonData::new(false, false, counter, event.time));
+                    .set_btn_pressed(nec, false, counter, event.time);
             }
             ButtonRepeated(_, nec) => {
-                gamepad
-                    .state
-                    .update_btn(nec, ButtonData::new(true, true, counter, event.time));
+                gamepad.state.set_btn_repeating(nec, counter, event.time);
+            }
+            ButtonChanged(_, value, nec) => {
+                gamepad.state.set_btn_value(nec, value, counter, event.time);
             }
             AxisChanged(_, value, nec) => {
                 gamepad
                     .state
                     .update_axis(nec, AxisData::new(value, counter, event.time));
             }
-            _ => (),
+            Disconnected | Connected | Dropped => (),
         }
     }
 
@@ -358,6 +460,9 @@ impl IndexMut<usize> for Gilrs {
 pub struct GilrsBuilder {
     mappings: MappingDb,
     default_filters: bool,
+    axis_to_btn_pressed: f32,
+    axis_to_btn_released: f32,
+    update_state: bool,
 }
 
 impl GilrsBuilder {
@@ -366,6 +471,9 @@ impl GilrsBuilder {
         GilrsBuilder {
             mappings: MappingDb::new(),
             default_filters: true,
+            axis_to_btn_pressed: 0.75,
+            axis_to_btn_released: 0.65,
+            update_state: true,
         }
     }
 
@@ -399,6 +507,29 @@ impl GilrsBuilder {
         self
     }
 
+    /// Sets values on which `ButtonPressed` and `ButtonReleased` events will be emitted. Panics if
+    ///  `pressed ≤ released` or if one of values is outside [0.0, 1.0].
+    ///
+    /// Defaults to 0.75 for `pressed` and 0.65 for `released`.
+    pub fn set_axis_to_btn(mut self, pressed: f32, released: f32) -> Self {
+        assert!(pressed > released);
+        assert!(pressed >= 0.0 && pressed <= 1.0);
+        assert!(released >= 0.0 && released <= 1.0);
+
+        self.axis_to_btn_pressed = pressed;
+        self.axis_to_btn_released = released;
+
+        self
+    }
+
+    /// Disable or enable automatic state updates. You should use this if you use custom filters;
+    /// in this case you have to update state manually anyway.
+    pub fn set_update_state(mut self, enabled: bool) -> Self {
+        self.update_state = enabled;
+
+        self
+    }
+
     /// Creates `Gilrs`.
     pub fn build(self) -> Gilrs {
         let mut gilrs = Gilrs {
@@ -408,6 +539,10 @@ impl GilrsBuilder {
             counter: 0,
             mappings: self.mappings,
             default_filters: self.default_filters,
+            events: VecDeque::new(),
+            axis_to_btn_pressed: self.axis_to_btn_pressed,
+            axis_to_btn_released: self.axis_to_btn_released,
+            update_state: self.update_state,
         };
         gilrs.finish_gamepads_creation();
         gilrs.create_ff_devices();
@@ -534,10 +669,14 @@ impl Gamepad {
         self.status == Status::Connected
     }
 
-    /// Examines cached gamepad state to check if given button is pressed. If `btn` can also be
-    /// represented by axis returns true if value is not equal to 0.0. Panics if `btn` is `Unknown`.
+    /// Examines cached gamepad state to check if given button is pressed. Panics if `btn` is
+    /// `Unknown`.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn is_pressed(&self, btn: Button) -> bool {
-        assert!(btn != Button::Unknown);
+        assert_ne!(btn, Button::Unknown);
 
         self.button_code(btn)
             .or_else(|| btn.to_nec())
@@ -545,11 +684,13 @@ impl Gamepad {
             .unwrap_or(false)
     }
 
-    /// Examines cached gamepad state to check axis's value. If `axis` is represented by button on
-    /// device it value is 0.0 if button is not pressed or 1.0 if is pressed. Panics if `axis` is
-    /// `Unknown`.
+    /// Examines cached gamepad state to check axis's value. Panics if `axis` is `Unknown`.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn value(&self, axis: Axis) -> f32 {
-        assert!(axis != Axis::Unknown);
+        assert_ne!(axis, Axis::Unknown);
 
         self.axis_code(axis)
             .map(|nec| self.state.value(nec))
@@ -557,12 +698,20 @@ impl Gamepad {
     }
 
     /// Returns button state and when it changed.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
         self.button_code(btn)
             .and_then(|nec| self.state.button_data(nec))
     }
 
     /// Returns axis state and when it changed.
+    ///
+    /// If you know `Code` of the element that you want to examine, it's recommended to use methods
+    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// gamepad.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
         self.axis_code(axis)
             .and_then(|nec| self.state.axis_data(nec))
@@ -606,7 +755,7 @@ impl Gamepad {
     ///
     /// This function return error if `name` contains comma, `mapping` have axis and button entry
     /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
-    /// not have any element with `NativeEvCode` used in mapping. `Button::Unknown` and
+    /// not have any element with `EvCode` used in mapping. `Button::Unknown` and
     /// `Axis::Unknown` are not allowd as keys to `mapping` – in this case,
     /// `MappingError::UnknownElement` is returned.
     ///
@@ -619,7 +768,6 @@ impl Gamepad {
     ///
     /// # let mut gilrs = gilrs::Gilrs::new();
     /// let mut data = Mapping::new();
-    /// data[Button::South] = 213;
     /// // …
     ///
     /// // or `match gilrs[0].set_mapping(&data, None) {`
@@ -627,19 +775,6 @@ impl Gamepad {
     ///     Ok(sdl) => println!("SDL2 mapping: {}", sdl),
     ///     Err(e) => println!("Failed to set mapping: {}", e),
     /// };
-    /// ```
-    ///
-    /// Example with `MappingError::DuplicatedEntry`:
-    ///
-    /// ```no_run
-    /// use gilrs::{Mapping, Button, Axis, MappingError};
-    ///
-    /// # let mut gilrs = gilrs::Gilrs::new();
-    /// let mut data = Mapping::new();
-    /// data[Button::RightTrigger2] = 2;
-    /// data[Axis::RightTrigger2] = 2;
-    ///
-    /// assert_eq!(gilrs[0].set_mapping(&data, None), Err(MappingError::DuplicatedEntry));
     /// ```
     ///
     /// See also `examples/mapping.rs`.
@@ -714,29 +849,28 @@ impl Gamepad {
         }
     }
 
-    /// Returns `Button` mapped to `nec`.
-    pub fn button_name(&self, nec: NativeEvCode) -> Button {
-        self.mapping.map_button(nec)
+    /// Returns `AxisOrBtn` mapped to `Code`.
+    pub fn axis_or_btn_name(&self, ec: Code) -> Option<AxisOrBtn> {
+        self.mapping.map(&ec.0)
     }
 
-    /// Returns `Axis` mapped to `nec`.
-    pub fn axis_name(&self, nec: NativeEvCode) -> Axis {
-        self.mapping.map_axis(nec)
+    /// Returns `Code` associated with `btn`.
+    pub fn button_code(&self, btn: Button) -> Option<Code> {
+        self.mapping
+            .map_rev(&AxisOrBtn::Btn(btn))
+            .map(|nec| Code(nec))
     }
 
-    /// Returns `NativeEvCode` associated with `btn`.
-    pub fn button_code(&self, btn: Button) -> Option<NativeEvCode> {
-        self.mapping.map_rev_button(btn)
-    }
-
-    /// Returns `NativeEvCode` associated with `axis`.
-    pub fn axis_code(&self, axis: Axis) -> Option<NativeEvCode> {
-        self.mapping.map_rev_axis(axis)
+    /// Returns `Code` associated with `axis`.
+    pub fn axis_code(&self, axis: Axis) -> Option<Code> {
+        self.mapping
+            .map_rev(&AxisOrBtn::Axis(axis))
+            .map(|nec| Code(nec))
     }
 
     /// Returns area in which axis events should be ignored.
-    pub fn deadzone(&self, axis: NativeEvCode) -> Option<f32> {
-        self.inner.axis_info(axis).map(|i| i.deadzone())
+    pub fn deadzone(&self, axis: Code) -> Option<f32> {
+        self.inner.axis_info(axis.0).map(|i| i.deadzone())
     }
 
     /// Returns ID of gamepad.

@@ -64,7 +64,6 @@ impl Enumerate {
         }
     }
 
-
     pub fn iter(&self) -> DeviceIterator {
         DeviceIterator(unsafe { ud::udev_enumerate_get_list_entry(self.0) })
     }

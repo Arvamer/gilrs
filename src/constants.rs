@@ -28,7 +28,6 @@ pub const BTN_DPAD_DOWN: u16 = 17;
 pub const BTN_DPAD_LEFT: u16 = 18;
 pub const BTN_DPAD_RIGHT: u16 = 19;
 
-
 pub const AXIS_UNKNOWN: u16 = 0;
 
 pub const AXIS_LSTICKX: u16 = 1;
@@ -39,7 +38,3 @@ pub const AXIS_RSTICKY: u16 = 5;
 pub const AXIS_RIGHTZ: u16 = 6;
 pub const AXIS_DPADX: u16 = 7;
 pub const AXIS_DPADY: u16 = 8;
-pub const AXIS_RT: u16 = 9;
-pub const AXIS_LT: u16 = 10;
-pub const AXIS_RT2: u16 = 11;
-pub const AXIS_LT2: u16 = 12;

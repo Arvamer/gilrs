@@ -35,7 +35,10 @@ impl Device {
         if res.is_err() {
             Err(IoError::new(ErrorKind::Other, "Failed to create effect"))
         } else {
-            Ok(Device { effect: effect.id, file: file })
+            Ok(Device {
+                effect: effect.id,
+                file: file,
+            })
         }
     }
 
@@ -61,8 +64,7 @@ impl Device {
                 Err(err) => {
                     error!(
                         "Failed to modify effect of gamepad {:?}, error: {}",
-                        self.file,
-                        err
+                        self.file, err
                     );
                     return;
                 }
@@ -93,8 +95,7 @@ impl Drop for Device {
         match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), self.effect as i32) } {
             Err(err) => error!(
                 "Failed to remove effect of gamepad {:?}: {}",
-                self.file,
-                err
+                self.file, err
             ),
             Ok(_) => (),
         };

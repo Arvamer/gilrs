@@ -8,14 +8,16 @@
 
 mod parser;
 
-use ev::{Axis, Button};
-use ev::NativeEvCode;
+use ev::{self, Axis, AxisOrBtn, Button};
 use platform::{self, native_ev_codes as nec};
+use platform::EvCode;
+
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::ops::{Index, IndexMut};
+
+use fnv::FnvHashMap;
 use uuid::Uuid;
 use vec_map::VecMap;
 
@@ -23,12 +25,11 @@ use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, T
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-/// Store mappings from one `NativeEvCode` (`u16`) to another.
+/// Store mappings from one `EvCode` (`u16`) to another.
 ///
 /// This struct is internal, `MappingData` is exported in public interface as `Mapping`.
 pub struct Mapping {
-    axes: VecMap<Axis>,
-    btns: VecMap<Button>,
+    mappings: FnvHashMap<EvCode, AxisOrBtn>,
     name: String,
     default: bool,
 }
@@ -36,8 +37,7 @@ pub struct Mapping {
 impl Mapping {
     pub fn new() -> Self {
         Mapping {
-            axes: VecMap::new(),
-            btns: VecMap::new(),
+            mappings: FnvHashMap::default(),
             name: String::new(),
             default: false,
         }
@@ -49,8 +49,8 @@ impl Mapping {
 
     pub fn from_data(
         data: &MappingData,
-        buttons: &[u16],
-        axes: &[u16],
+        buttons: &[EvCode],
+        axes: &[EvCode],
         name: &str,
         uuid: Uuid,
     ) -> Result<(Self, String), MappingError> {
@@ -60,20 +60,7 @@ impl Mapping {
             return Err(MappingError::InvalidName);
         }
 
-        if data.axes.contains_key(Axis::LeftTrigger as usize)
-            && data.buttons.contains_key(Button::LeftTrigger as usize)
-            || data.axes.contains_key(Axis::LeftTrigger2 as usize)
-                && data.buttons.contains_key(Button::LeftTrigger2 as usize)
-            || data.axes.contains_key(Axis::RightTrigger as usize)
-                && data.buttons.contains_key(Button::RightTrigger as usize)
-            || data.axes.contains_key(Axis::RightTrigger2 as usize)
-                && data.buttons.contains_key(Button::RightTrigger2 as usize)
-        {
-            return Err(MappingError::DuplicatedEntry);
-        }
-
-        let mut mapped_btns = VecMap::<Button>::new();
-        let mut mapped_axes = VecMap::<Axis>::new();
+        let mut mappings = FnvHashMap::default();
         let mut sdl_mappings = format!("{},{},", uuid.simple(), name);
 
         {
@@ -84,7 +71,7 @@ impl Mapping {
                     mapped_btn,
                     buttons,
                     &mut sdl_mappings,
-                    &mut mapped_btns,
+                    &mut mappings,
                 )
             };
 
@@ -123,7 +110,7 @@ impl Mapping {
                     mapped_axis,
                     axes,
                     &mut sdl_mappings,
-                    &mut mapped_axes,
+                    &mut mappings,
                 )
             };
 
@@ -133,10 +120,6 @@ impl Mapping {
                     AXIS_LSTICKY => add_axis("lefty", ev_code, Axis::LeftStickY)?,
                     AXIS_RSTICKX => add_axis("rightx", ev_code, Axis::RightStickX)?,
                     AXIS_RSTICKY => add_axis("righty", ev_code, Axis::RightStickY)?,
-                    AXIS_RT => add_axis("rightshoulder", ev_code, Axis::RightTrigger)?,
-                    AXIS_LT => add_axis("leftshoulder", ev_code, Axis::LeftTrigger)?,
-                    AXIS_RT2 => add_axis("righttrigger", ev_code, Axis::RightTrigger2)?,
-                    AXIS_LT2 => add_axis("lefttrigger", ev_code, Axis::LeftTrigger2)?,
                     AXIS_LEFTZ => add_axis("leftz", ev_code, Axis::LeftZ)?,
                     AXIS_RIGHTZ => add_axis("rightz", ev_code, Axis::RightZ)?,
                     AXIS_UNKNOWN => return Err(MappingError::UnknownElement),
@@ -145,22 +128,19 @@ impl Mapping {
             }
         }
 
-        let mut mapping = Mapping {
-            axes: mapped_axes,
-            btns: mapped_btns,
+        let mapping = Mapping {
+            mappings,
             name: name.to_owned(),
             default: false,
         };
-
-        mapping.unmap_not_mapped_axes();
 
         Ok((mapping, sdl_mappings))
     }
 
     pub fn parse_sdl_mapping(
         line: &str,
-        buttons: &[NativeEvCode],
-        axes: &[NativeEvCode],
+        buttons: &[EvCode],
+        axes: &[EvCode],
     ) -> Result<Self, ParseSdlMappingError> {
         let mut mapping = Mapping::new();
         let mut parser = Parser::new(line);
@@ -184,23 +164,21 @@ impl Mapping {
                     let axis = axes.get(from as usize)
                         .cloned()
                         .ok_or(ParseSdlMappingError::InvalidAxis)?;
-                    mapping.axes.insert(axis as usize, to);
+                    mapping.mappings.insert(axis, to);
                 }
                 Token::ButtonMapping { from, to } => {
                     let btn = buttons
                         .get(from as usize)
                         .cloned()
                         .ok_or(ParseSdlMappingError::InvalidButton)?;
-                    mapping.btns.insert(btn as usize, to);
+                    mapping.mappings.insert(btn, AxisOrBtn::Btn(to));
                 }
                 Token::HatMapping { hat, direction, to } => {
                     if hat != 0 || !to.is_dpad() {
                         warn!(
                             "Hat mappings are only supported for dpads (requested to map hat \
                              {}.{} to {:?}",
-                            hat,
-                            direction,
-                            to
+                            hat, direction, to
                         );
                     } else {
                         // We  don't have anything like "hat" in gilrs, so let's jus assume that
@@ -218,47 +196,45 @@ impl Mapping {
                             _ => unreachable!(),
                         };
 
-                        mapping.axes.insert(from as usize, to);
+                        mapping.mappings.insert(from, AxisOrBtn::Axis(to));
                     }
                 }
             }
         }
-
-        mapping.unmap_not_mapped_axes();
 
         Ok(mapping)
     }
 
     fn add_button(
         ident: &str,
-        ev_code: u16,
+        ev_code: EvCode,
         mapped_btn: Button,
-        buttons: &[u16],
+        buttons: &[EvCode],
         sdl_mappings: &mut String,
-        mapped_btns: &mut VecMap<Button>,
+        mappings: &mut FnvHashMap<EvCode, AxisOrBtn>,
     ) -> Result<(), MappingError> {
         let n_btn = buttons
             .iter()
             .position(|&x| x == ev_code)
-            .ok_or(MappingError::InvalidCode(ev_code))?;
+            .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
         sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
-        mapped_btns.insert(ev_code as usize, mapped_btn);
+        mappings.insert(ev_code, AxisOrBtn::Btn(mapped_btn));
         Ok(())
     }
 
     fn add_axis(
         ident: &str,
-        ev_code: u16,
+        ev_code: EvCode,
         mapped_axis: Axis,
-        axes: &[u16],
+        axes: &[EvCode],
         sdl_mappings: &mut String,
-        mapped_axes: &mut VecMap<Axis>,
+        mappings: &mut FnvHashMap<EvCode, AxisOrBtn>,
     ) -> Result<(), MappingError> {
         let n_axis = axes.iter()
             .position(|&x| x == ev_code)
-            .ok_or(MappingError::InvalidCode(ev_code))?;
+            .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
-        mapped_axes.insert(ev_code as usize, mapped_axis);
+        mappings.insert(ev_code, AxisOrBtn::Axis(mapped_axis));
         Ok(())
     }
 
@@ -266,47 +242,12 @@ impl Mapping {
         !name.chars().any(|x| x == ',')
     }
 
-    pub fn map_button(&self, code: NativeEvCode) -> Button {
-        self.btns
-            .get(code as usize)
-            .cloned()
-            .unwrap_or(Button::Unknown)
+    pub fn map(&self, code: &EvCode) -> Option<AxisOrBtn> {
+        self.mappings.get(code).cloned()
     }
 
-    pub fn map_axis(&self, code: NativeEvCode) -> Axis {
-        self.axes
-            .get(code as usize)
-            .cloned()
-            .unwrap_or(Axis::Unknown)
-    }
-
-    pub fn map_rev_axis(&self, axis: Axis) -> Option<NativeEvCode> {
-        self.axes
-            .iter()
-            .find(|x| *x.1 == axis)
-            .map(|x| x.0 as NativeEvCode)
-    }
-
-    pub fn map_rev_button(&self, btn: Button) -> Option<NativeEvCode> {
-        self.btns
-            .iter()
-            .find(|x| *x.1 == btn)
-            .map(|x| x.0 as NativeEvCode)
-    }
-
-    fn unmap_not_mapped_axes(&mut self) {
-        let mut mapped_axes = self.axes
-            .iter()
-            .filter(|&(from, &to)| from != to as usize)
-            .map(|(_, &to)| to as u16)
-            .collect::<Vec<_>>();
-        mapped_axes.sort();
-        mapped_axes.dedup();
-        for mapped_axis in mapped_axes.into_iter() {
-            self.axes
-                .entry(mapped_axis as usize)
-                .or_insert(Axis::Unknown);
-        }
+    pub fn map_rev(&self, el: &AxisOrBtn) -> Option<EvCode> {
+        self.mappings.iter().find(|x| x.1 == el).map(|x| *x.0)
     }
 
     pub fn is_default(&self) -> bool {
@@ -316,12 +257,15 @@ impl Mapping {
 
 impl Default for Mapping {
     fn default() -> Self {
-        macro_rules! vec_map {
+        use self::Axis as Ax;
+        use self::AxisOrBtn::*;
+
+        macro_rules! fnv_map {
             ( $( $key:expr => $elem:expr ),* ) => {
                 {
-                    let mut map = VecMap::new();
+                    let mut map = FnvHashMap::default();
                     $(
-                        map.insert($key as usize, $elem);
+                        map.insert($key, $elem);
                     )*
 
                     map
@@ -329,46 +273,44 @@ impl Default for Mapping {
             };
         }
 
-        let btns = vec_map![
-            nec::BTN_SOUTH => Button::South,
-            nec::BTN_EAST => Button::East,
-            nec::BTN_C => Button::C,
-            nec::BTN_NORTH => Button::North,
-            nec::BTN_WEST => Button::West,
-            nec::BTN_Z => Button::Z,
-            nec::BTN_LT => Button::LeftTrigger,
-            nec::BTN_RT => Button::RightTrigger,
-            nec::BTN_LT2 => Button::LeftTrigger2,
-            nec::BTN_RT2 => Button::RightTrigger2,
-            nec::BTN_SELECT => Button::Select,
-            nec::BTN_START => Button::Start,
-            nec::BTN_MODE => Button::Mode,
-            nec::BTN_LTHUMB => Button::LeftThumb,
-            nec::BTN_RTHUMB => Button::RightThumb,
-            nec::BTN_DPAD_UP => Button::DPadUp,
-            nec::BTN_DPAD_DOWN => Button::DPadDown,
-            nec::BTN_DPAD_LEFT => Button::DPadLeft,
-            nec::BTN_DPAD_RIGHT => Button::DPadRight
-        ];
+        let mappings = fnv_map![
+            nec::BTN_SOUTH => Btn(Button::South),
+            nec::BTN_EAST => Btn(Button::East),
+            nec::BTN_C => Btn(Button::C),
+            nec::BTN_NORTH => Btn(Button::North),
+            nec::BTN_WEST => Btn(Button::West),
+            nec::BTN_Z => Btn(Button::Z),
+            nec::BTN_LT => Btn(Button::LeftTrigger),
+            nec::BTN_RT => Btn(Button::RightTrigger),
+            nec::BTN_LT2 => Btn(Button::LeftTrigger2),
+            nec::BTN_RT2 => Btn(Button::RightTrigger2),
+            nec::BTN_SELECT => Btn(Button::Select),
+            nec::BTN_START => Btn(Button::Start),
+            nec::BTN_MODE => Btn(Button::Mode),
+            nec::BTN_LTHUMB => Btn(Button::LeftThumb),
+            nec::BTN_RTHUMB => Btn(Button::RightThumb),
+            nec::BTN_DPAD_UP => Btn(Button::DPadUp),
+            nec::BTN_DPAD_DOWN => Btn(Button::DPadDown),
+            nec::BTN_DPAD_LEFT => Btn(Button::DPadLeft),
+            nec::BTN_DPAD_RIGHT => Btn(Button::DPadRight),
 
-        let axes = vec_map![
-            nec::AXIS_LSTICKX => Axis::LeftStickX,
-            nec::AXIS_LSTICKY => Axis::LeftStickY,
-            nec::AXIS_LEFTZ => Axis::LeftZ,
-            nec::AXIS_RSTICKX => Axis::RightStickX,
-            nec::AXIS_RSTICKY => Axis::RightStickY,
-            nec::AXIS_RIGHTZ => Axis::RightZ,
-            nec::AXIS_DPADX => Axis::DPadX,
-            nec::AXIS_DPADY => Axis::DPadY,
-            nec::AXIS_RT => Axis::RightTrigger,
-            nec::AXIS_LT => Axis::LeftTrigger,
-            nec::AXIS_RT2 => Axis::RightTrigger2,
-            nec::AXIS_LT2 => Axis::LeftTrigger2
+            nec::AXIS_LT => Btn(Button::LeftTrigger),
+            nec::AXIS_RT => Btn(Button::RightTrigger),
+            nec::AXIS_LT2 => Btn(Button::LeftTrigger2),
+            nec::AXIS_RT2 => Btn(Button::RightTrigger2),
+
+            nec::AXIS_LSTICKX => Axis(Ax::LeftStickX),
+            nec::AXIS_LSTICKY => Axis(Ax::LeftStickY),
+            nec::AXIS_LEFTZ => Axis(Ax::LeftZ),
+            nec::AXIS_RSTICKX => Axis(Ax::RightStickX),
+            nec::AXIS_RSTICKY => Axis(Ax::RightStickY),
+            nec::AXIS_RIGHTZ => Axis(Ax::RightZ),
+            nec::AXIS_DPADX => Axis(Ax::DPadX),
+            nec::AXIS_DPADY => Axis(Ax::DPadY)
         ];
 
         Mapping {
-            axes,
-            btns,
+            mappings,
             name: String::new(),
             default: true,
         }
@@ -411,9 +353,9 @@ impl Error for ParseSdlMappingError {
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            &ParseSdlMappingError::InvalidButton |
-            &ParseSdlMappingError::InvalidAxis |
-            &ParseSdlMappingError::UnknownHatDirection => fmt.write_str(self.description()),
+            &ParseSdlMappingError::InvalidButton
+            | &ParseSdlMappingError::InvalidAxis
+            | &ParseSdlMappingError::UnknownHatDirection => fmt.write_str(self.description()),
             &ParseSdlMappingError::ParseError(ref err) => fmt.write_fmt(format_args!(
                 "Error while parsing gamepad mapping: {}.",
                 err
@@ -429,7 +371,9 @@ pub struct MappingDb {
 
 impl MappingDb {
     pub fn new() -> Self {
-        MappingDb { mappings: HashMap::new() }
+        MappingDb {
+            mappings: HashMap::new(),
+        }
     }
 
     pub fn add_included_mappings(&mut self) {
@@ -461,34 +405,16 @@ impl MappingDb {
 
 /// Stores data used to map gamepad buttons and axes.
 ///
-/// To add new element, you should use `IndexMut` operator using `Axis` or `Button` as index (see
-/// example). After you add all mappings, use
+/// After you add all mappings, use
 /// [`Gamepad::set_mapping(…)`](struct.Gamepad.html#method.set_mapping) to change mapping of
 /// existing gamepad.
-///
-/// Example
-/// =======
-///
-/// ```
-/// use gilrs::{Mapping, Button, Axis};
-///
-/// let mut data = Mapping::new();
-/// // map native event code 3 to Axis::LeftStickX
-/// data[Axis::LeftStickX] = 3;
-/// // map native event code 3 to Button::South (although both are 3,
-/// // they refer to different things)
-/// data[Button::South] = 3;
-///
-/// assert_eq!(data.axis(Axis::LeftStickX), Some(3));
-/// assert_eq!(data.button(Button::South), Some(3));
-/// ```
 ///
 /// See `examples/mapping.rs` for more detailed example.
 #[derive(Debug, Clone)]
 // Re-exported as Mapping
 pub struct MappingData {
-    buttons: VecMap<u16>,
-    axes: VecMap<u16>,
+    buttons: VecMap<EvCode>,
+    axes: VecMap<EvCode>,
 }
 
 impl MappingData {
@@ -500,60 +426,52 @@ impl MappingData {
         }
     }
 
-    /// Returns `NativeEvCode` associated with button index.
-    pub fn button(&self, idx: Button) -> Option<NativeEvCode> {
-        self.buttons.get(idx as usize).cloned()
+    /// Returns `EvCode` associated with button index.
+    pub fn button(&self, idx: Button) -> Option<ev::Code> {
+        self.buttons
+            .get(idx as usize)
+            .cloned()
+            .map(|nec| ev::Code(nec))
     }
 
-    /// Returns `NativeEvCode` associated with axis index.
-    pub fn axis(&self, idx: Axis) -> Option<NativeEvCode> {
-        self.axes.get(idx as usize).cloned()
+    /// Returns `EvCode` associated with axis index.
+    pub fn axis(&self, idx: Axis) -> Option<ev::Code> {
+        self.axes
+            .get(idx as usize)
+            .cloned()
+            .map(|nec| ev::Code(nec))
+    }
+
+    /// Inserts new button mapping.
+    pub fn insert_btn(&mut self, from: ev::Code, to: Button) -> Option<ev::Code> {
+        self.buttons
+            .insert(to as usize, from.0)
+            .map(|nec| ev::Code(nec))
+    }
+
+    /// Inserts new axis mapping.
+    pub fn insert_axis(&mut self, from: ev::Code, to: Axis) -> Option<ev::Code> {
+        self.axes
+            .insert(to as usize, from.0)
+            .map(|nec| ev::Code(nec))
     }
 
     /// Removes button and returns associated `NativEvCode`.
-    pub fn remove_button(&mut self, idx: Button) -> Option<NativeEvCode> {
-        self.buttons.remove(idx as usize)
+    pub fn remove_button(&mut self, idx: Button) -> Option<ev::Code> {
+        self.buttons.remove(idx as usize).map(|nec| ev::Code(nec))
     }
 
     /// Removes axis and returns associated `NativEvCode`.
-    pub fn remove_axis(&mut self, idx: Axis) -> Option<NativeEvCode> {
-        self.axes.remove(idx as usize)
-    }
-}
-
-impl Index<Button> for MappingData {
-    type Output = NativeEvCode;
-
-    fn index(&self, index: Button) -> &Self::Output {
-        &self.buttons[index as usize]
-    }
-}
-
-impl Index<Axis> for MappingData {
-    type Output = NativeEvCode;
-
-    fn index(&self, index: Axis) -> &Self::Output {
-        &self.axes[index as usize]
-    }
-}
-
-impl IndexMut<Button> for MappingData {
-    fn index_mut(&mut self, index: Button) -> &mut Self::Output {
-        self.buttons.entry(index as usize).or_insert(0)
-    }
-}
-
-impl IndexMut<Axis> for MappingData {
-    fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
-        self.axes.entry(index as usize).or_insert(0)
+    pub fn remove_axis(&mut self, idx: Axis) -> Option<ev::Code> {
+        self.axes.remove(idx as usize).map(|nec| ev::Code(nec))
     }
 }
 
 /// The error type for functions related to gamepad mapping.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MappingError {
-    /// Gamepad does not have element referenced by `NativeEvCode`.
-    InvalidCode(NativeEvCode),
+    /// Gamepad does not have element referenced by `EvCode`.
+    InvalidCode(ev::Code),
     /// Name contains comma (',').
     InvalidName,
     /// This function is not implemented for current platform.
@@ -604,6 +522,8 @@ impl Display for MappingError {
 mod tests {
     use super::*;
     use ev::{Axis, Button};
+    use platform::EvCode;
+    use platform::native_ev_codes as nec;
     use uuid::Uuid;
     // Do not include platform, mapping from (with UUID modified)
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
@@ -612,11 +532,37 @@ mod tests {
                                     dpleft:h0.8,dpdown:h0.4,dpright:h0.2,leftx:a0,lefty:a1,rightx:\
                                     a2,righty:a3,lefttrigger:a4,righttrigger:a5,";
 
-    const BUTTONS: [u16; 12] = [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+    const BUTTONS: [EvCode; 15] = [
+        nec::BTN_SOUTH,
+        nec::BTN_EAST,
+        nec::BTN_C,
+        nec::BTN_NORTH,
+        nec::BTN_WEST,
+        nec::BTN_Z,
+        nec::BTN_LT,
+        nec::BTN_RT,
+        nec::BTN_LT2,
+        nec::BTN_RT2,
+        nec::BTN_SELECT,
+        nec::BTN_START,
+        nec::BTN_MODE,
+        nec::BTN_LTHUMB,
+        nec::BTN_RTHUMB,
     ];
-    const AXES: [u16; 8] = [
-        0, 1, 2, 3, 4, 5, 6, 7
+
+    const AXES: [EvCode; 12] = [
+        nec::AXIS_LSTICKX,
+        nec::AXIS_LSTICKY,
+        nec::AXIS_LEFTZ,
+        nec::AXIS_RSTICKX,
+        nec::AXIS_RSTICKY,
+        nec::AXIS_RIGHTZ,
+        nec::AXIS_DPADX,
+        nec::AXIS_DPADY,
+        nec::AXIS_RT,
+        nec::AXIS_LT,
+        nec::AXIS_RT2,
+        nec::AXIS_LT2,
     ];
 
     #[test]
@@ -628,87 +574,44 @@ mod tests {
     fn from_data() {
         let uuid = Uuid::nil();
         let name = "Best Gamepad";
-        let buttons = [
-            10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
-        ];
-        let axes = [
-            0, 1, 2, 3, 4, 5, 6, 7
-        ];
+        let buttons = BUTTONS.iter().cloned().map(ev::Code).collect::<Vec<_>>();
+        let axes = AXES.iter().cloned().map(ev::Code).collect::<Vec<_>>();
 
         let mut data = MappingData::new();
-        data[Axis::LeftStickX] = 0;
-        data[Axis::LeftStickY] = 1;
-        data[Axis::LeftTrigger] = 2;
-        data[Axis::LeftTrigger2] = 3;
-        data[Axis::RightTrigger] = 4;
-        data[Axis::RightTrigger2] = 5;
-        data[Axis::RightStickX] = 6;
-        data[Axis::RightStickY] = 7;
+        data.insert_axis(axes[0], Axis::LeftStickX);
+        data.insert_axis(axes[1], Axis::LeftStickY);
+        data.insert_axis(axes[2], Axis::LeftZ);
+        data.insert_axis(axes[3], Axis::RightStickX);
+        data.insert_axis(axes[4], Axis::RightStickY);
+        data.insert_axis(axes[5], Axis::RightZ);
 
-        data[Button::South] = 10;
-        data[Button::South] = 10;
-        data[Button::East] = 11;
-        data[Button::North] = 12;
-        data[Button::West] = 13;
-        data[Button::Select] = 14;
-        data[Button::Start] = 15;
-        data[Button::Mode] = 16;
-        data[Button::DPadUp] = 17;
-        data[Button::DPadDown] = 18;
-        data[Button::DPadLeft] = 19;
-        data[Button::DPadRight] = 20;
-        data[Button::LeftThumb] = 21;
-        data[Button::RightThumb] = 22;
+        data.insert_btn(buttons[0], Button::South);
+        data.insert_btn(buttons[1], Button::East);
+        data.insert_btn(buttons[3], Button::North);
+        data.insert_btn(buttons[4], Button::West);
+        data.insert_btn(buttons[5], Button::Select);
+        data.insert_btn(buttons[6], Button::Start);
+        data.insert_btn(buttons[7], Button::DPadDown);
+        data.insert_btn(buttons[8], Button::DPadLeft);
+        data.insert_btn(buttons[9], Button::RightThumb);
 
         let (mappings, sdl_mappings) =
-            Mapping::from_data(&data, &buttons, &axes, name, uuid).unwrap();
-        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
+            Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid).unwrap();
+        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &BUTTONS, &AXES).unwrap();
         assert_eq!(mappings, sdl_mappings);
 
-        data[Button::North] = data.button(Button::South).unwrap();
-        let (mappings, sdl_mappings) =
-            Mapping::from_data(&data, &buttons, &axes, name, uuid).unwrap();
-        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
-        assert_eq!(mappings, sdl_mappings);
-
-        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, "Inval,id name", uuid);
+        let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, "Inval,id name", uuid);
         assert_eq!(Err(MappingError::InvalidName), incorrect_mappings);
 
-        data[Button::South] = 32;
-        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingError::InvalidCode(32)), incorrect_mappings);
+        data.insert_btn(ev::Code(nec::BTN_DPAD_RIGHT), Button::DPadRight);
+        let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid);
+        assert_eq!(
+            Err(MappingError::InvalidCode(ev::Code(nec::BTN_DPAD_RIGHT))),
+            incorrect_mappings
+        );
 
-        data[Button::South] = 10;
-        data[Button::LeftTrigger] = 11;
-        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingError::DuplicatedEntry), incorrect_mappings);
-    }
-
-    #[test]
-    fn from_data_not_sdl2() {
-        let uuid = Uuid::nil();
-        let name = "Best Gamepad";
-        let buttons = [10, 11, 12, 13, 14, 15];
-        let axes = [0, 1, 2, 3];
-
-        let mut data = MappingData::new();
-        data[Axis::LeftZ] = 0;
-        data[Axis::RightZ] = 1;
-        data[Button::C] = 10;
-        data[Button::Z] = 11;
-
-        let (mappings, sdl_mappings) =
-            Mapping::from_data(&data, &buttons, &axes, name, uuid).unwrap();
-        let sdl_mappings = Mapping::parse_sdl_mapping(&sdl_mappings, &buttons, &axes).unwrap();
-        assert_eq!(mappings, sdl_mappings);
-
-        data[Button::Unknown] = 13;
-        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
-        assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
-
-        assert_eq!(data.remove_button(Button::Unknown), Some(13));
-        data[Axis::Unknown] = 3;
-        let incorrect_mappings = Mapping::from_data(&data, &buttons, &axes, name, uuid);
+        data.insert_btn(ev::Code(BUTTONS[3]), Button::Unknown);
+        let incorrect_mappings = Mapping::from_data(&data, &BUTTONS, &AXES, name, uuid);
         assert_eq!(Err(MappingError::UnknownElement), incorrect_mappings);
     }
 
@@ -726,23 +629,5 @@ mod tests {
             Some(TEST_STR),
             db.get(Uuid::parse_str("03000000260900008888000000010001").unwrap())
         );
-    }
-
-    #[test]
-    #[ignore]
-    fn check_bundled_mappings() {
-        let mut db = MappingDb::new();
-        db.add_included_mappings();
-
-        // All possible buttons and axes
-        let elements = (0..(u16::max_value() as u32))
-            .map(|x| x as u16)
-            .collect::<Vec<_>>();
-
-        for mapping in db.mappings.values() {
-            if let Err(e) = Mapping::parse_sdl_mapping(mapping, &elements, &elements) {
-                panic!("{}\n{}", e, mapping);
-            }
-        }
     }
 }

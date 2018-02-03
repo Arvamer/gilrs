@@ -5,45 +5,47 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ev::NativeEvCode;
+use ev::Code;
 
-use vec_map::{self, VecMap};
+use fnv::FnvHashMap;
 
+use std::collections::hash_map;
 use std::iter::Iterator;
 use std::time::SystemTime;
 
 /// Cached gamepad state.
 #[derive(Clone, Debug)]
 pub struct GamepadState {
-    // Indexed by NativeEvCode (nec)
-    buttons: VecMap<ButtonData>,
-    // Indexed by NativeEvCode (nec)
-    axes: VecMap<AxisData>,
-    // Mappings, will be dynamically created while we are processing new events.
+    // Indexed by EvCode (nec)
+    buttons: FnvHashMap<Code, ButtonData>,
+    // Indexed by EvCode (nec)
+    axes: FnvHashMap<Code, AxisData>,
 }
 
 impl GamepadState {
     pub(crate) fn new() -> Self {
         GamepadState {
-            buttons: VecMap::new(),
-            axes: VecMap::new(),
+            buttons: FnvHashMap::default(),
+            axes: FnvHashMap::default(),
         }
     }
 
     /// Returns `true` if given button is pressed. Returns `false` if there is no information about
     /// `btn` or it is not pressed.
-    pub fn is_pressed(&self, btn: NativeEvCode) -> bool {
+    pub fn is_pressed(&self, btn: Code) -> bool {
         self.buttons
-            .get(btn as usize)
+            .get(&btn)
             .map(|s| s.is_pressed())
             .unwrap_or(false)
     }
 
-    /// Returns value of axis or 0.0 when there is no information about axis.
-    pub fn value(&self, axis: NativeEvCode) -> f32 {
+    /// Returns value of `el` or 0.0 when there is no information about it. `el` can be either axis
+    /// or button.
+    pub fn value(&self, el: Code) -> f32 {
         self.axes
-            .get(axis as usize)
+            .get(&el)
             .map(|s| s.value())
+            .or_else(|| self.buttons.get(&el).map(|s| s.value()))
             .unwrap_or(0.0)
     }
 
@@ -58,43 +60,85 @@ impl GamepadState {
     }
 
     /// Returns button state and when it changed.
-    pub fn button_data(&self, btn: NativeEvCode) -> Option<&ButtonData> {
-        self.buttons.get(btn as usize)
+    pub fn button_data(&self, btn: Code) -> Option<&ButtonData> {
+        self.buttons.get(&btn)
     }
 
     /// Returns axis state and when it changed.
-    pub fn axis_data(&self, axis: NativeEvCode) -> Option<&AxisData> {
-        self.axes.get(axis as usize)
+    pub fn axis_data(&self, axis: Code) -> Option<&AxisData> {
+        self.axes.get(&axis)
     }
 
-    pub(crate) fn update_btn(&mut self, btn: NativeEvCode, data: ButtonData) {
-        self.buttons.insert(btn as usize, data);
+    pub(crate) fn set_btn_pressed(
+        &mut self,
+        btn: Code,
+        pressed: bool,
+        counter: u64,
+        timestamp: SystemTime,
+    ) {
+        let data = self.buttons.entry(btn).or_insert_with(|| {
+            ButtonData::new(
+                if pressed { 1.0 } else { 0.0 },
+                pressed,
+                false,
+                counter,
+                timestamp,
+            )
+        });
+        data.is_pressed = pressed;
+        data.is_repeating = false;
+        data.counter = counter;
+        data.last_event_ts = timestamp;
     }
 
-    pub(crate) fn update_axis(&mut self, axis: NativeEvCode, data: AxisData) {
-        self.axes.insert(axis as usize, data);
+    pub(crate) fn set_btn_repeating(&mut self, btn: Code, counter: u64, timestamp: SystemTime) {
+        let data = self.buttons
+            .entry(btn)
+            .or_insert_with(|| ButtonData::new(1.0, true, true, counter, timestamp));
+        data.is_repeating = true;
+        data.counter = counter;
+        data.last_event_ts = timestamp;
+    }
+
+    pub(crate) fn set_btn_value(
+        &mut self,
+        btn: Code,
+        value: f32,
+        counter: u64,
+        timestamp: SystemTime,
+    ) {
+        let data = self.buttons
+            .entry(btn)
+            .or_insert_with(|| ButtonData::new(value, false, false, counter, timestamp));
+        data.value = value;
+        data.counter = counter;
+        data.last_event_ts = timestamp;
+    }
+
+    pub(crate) fn update_axis(&mut self, axis: Code, data: AxisData) {
+        self.axes.insert(axis, data);
     }
 }
 
 /// Iterator over `ButtonData`.
-pub struct ButtonDataIter<'a>(vec_map::Iter<'a, ButtonData>);
+pub struct ButtonDataIter<'a>(hash_map::Iter<'a, Code, ButtonData>);
 
 /// Iterator over `AxisData`.
-pub struct AxisDataIter<'a>(vec_map::Iter<'a, AxisData>);
+pub struct AxisDataIter<'a>(hash_map::Iter<'a, Code, AxisData>);
 
 impl<'a> Iterator for ButtonDataIter<'a> {
-    type Item = (usize, &'a ButtonData);
+    type Item = (Code, &'a ButtonData);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        self.0.next().map(|(k, v)| (*k, v))
     }
 }
 
 impl<'a> Iterator for AxisDataIter<'a> {
-    type Item = (usize, &'a AxisData);
+    type Item = (Code, &'a AxisData);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        self.0.next().map(|(k, v)| (*k, v))
     }
 }
 
@@ -102,34 +146,47 @@ impl<'a> Iterator for AxisDataIter<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct ButtonData {
     last_event_ts: SystemTime,
-    state_and_counter: u64,
-    // 2b of state (is pressed, is repeating), 62b of counter
+    counter: u64,
+    value: f32,
+    is_pressed: bool,
+    is_repeating: bool,
 }
 
 impl ButtonData {
-    pub(crate) fn new(pressed: bool, repeating: bool, counter: u64, time: SystemTime) -> Self {
-        debug_assert!(counter <= 0x3FFF_FFFF_FFFF_FFFF);
-
-        let state = ((pressed as u64) << 63) | ((repeating as u64) << 62);
+    pub(crate) fn new(
+        value: f32,
+        pressed: bool,
+        repeating: bool,
+        counter: u64,
+        time: SystemTime,
+    ) -> Self {
         ButtonData {
             last_event_ts: time,
-            state_and_counter: state | counter,
+            counter,
+            value,
+            is_pressed: pressed,
+            is_repeating: repeating,
         }
     }
 
     /// Returns `true` if button is pressed.
     pub fn is_pressed(&self) -> bool {
-        self.state_and_counter >> 63 == 1
+        self.is_pressed
+    }
+
+    /// Returns value of button.
+    pub fn value(&self) -> f32 {
+        self.value
     }
 
     /// Returns `true` if button is repeating.
     pub fn is_repeating(&self) -> bool {
-        self.state_and_counter & 0x4000_0000_0000_0000 != 0
+        self.is_repeating
     }
 
     /// Returns value of counter when button state last changed.
     pub fn counter(&self) -> u64 {
-        self.state_and_counter & 0x3FFF_FFFF_FFFF_FFFF
+        self.counter
     }
 
     /// Returns when button state last changed.
@@ -145,7 +202,6 @@ pub struct AxisData {
     last_event_c: u64,
     value: f32,
 }
-
 
 impl AxisData {
     pub(crate) fn new(value: f32, counter: u64, time: SystemTime) -> Self {
@@ -168,53 +224,5 @@ impl AxisData {
     /// Returns when axis value last changed.
     pub fn timestamp(&self) -> SystemTime {
         self.last_event_ts
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct AxisInfo {
-    pub min: i32,
-    pub max: i32,
-    pub deadzone: u32,
-}
-
-impl AxisInfo {
-    pub fn deadzone(&self) -> f32 {
-        let range = self.max as f32 - self.min as f32;
-
-        debug_assert!(range != 0.0);
-
-        self.deadzone as f32 / range
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::SystemTime;
-
-    #[test]
-    fn button_data() {
-        // Who needs rand crate
-        let mut state = 1234567890123456789u64;
-        let mut xorshift = || {
-            let mut x = state;
-            x ^= x >> 12;
-            x ^= x << 25;
-            x ^= x >> 27;
-            state = x;
-
-            x.wrapping_mul(0x2545F4914F6CDD1D)
-        };
-
-        for _ in 0..(1024 * 1024 * 16) {
-            let counter = xorshift() & 0x3FFF_FFFF_FFFF_FFFF;
-            let pressed = xorshift() % 2 == 1;
-            let repeating = xorshift() % 2 == 1;
-            let btn = ButtonData::new(pressed, repeating, counter, SystemTime::now());
-            assert_eq!(btn.is_pressed(), pressed);
-            assert_eq!(btn.is_repeating(), repeating);
-            assert_eq!(btn.counter(), counter);
-        }
     }
 }

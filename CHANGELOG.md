@@ -7,6 +7,20 @@ v0.6.0 - unreleased
 ### Added
 
 - Support for parsing SLD 2.0.6 mappings.
+- `ButtonChanged` event. It contains value in range [0.0, 1.0]. 
+- `GilrsBuilder::set_axis_to_btn()`. It allow to customize on which values
+  `ButtonePressed` and `ButtonReleased` are emitted.
+- `GilrsBuilder::set_update_state` which control whether gamepad state should
+  be  updated automatically.
+- `ButtonState::value()`.
+- `Mapping::insert_{btn,axis}()`.
+
+### Removed
+
+- `Mapping` no longer implements `Index` and `IndexMut` operators. Use
+  `Mapping::insert_{btn,axis}()` methods to add new mappings.
+- `Axis::{LeftTrigger, LeftTrigger2, RightTrigger, RightTrigger2}`. All events
+  with these are now button events. `ButtonChanged` event contains value.
 
 ### Changed
 
@@ -15,12 +29,21 @@ v0.6.0 - unreleased
 - Renamed `Filter::filter` to `Filter::filter_ev` because RFC 2124 added
   `filter` method to `Option` (our `Filter` is implemented for `Option<Event>`).
 - `Gamepad::deadzone()` now returns `Option<f32>` instead of `f32`.
+- All axis events are now in range [-1.0, 1.0].
+- `NativeEvCode` is replaced by `ev::Code`, a strongly typed struct that also
+  distinguish between axes and buttons.
+- You can now create mappings from any axis to any button.
+- `State` now tracks value of buttons.
+- `State::value()` can now be used to also examine value of buttons.
+- By default, gamepad state is updated automatically. If you customize event
+  filters, you can disable this behaviour using `GilrsBuilder::set_update_state`.
 
 ### Fixed
 
 - Linux: Fixed axis value normalization if neither minimal value is 0 nor
   midpoint is 0.
 - Linux: Ensure that axis values are clamped after normalization.
+- Incorrect ranges for some axes.
 
 v0.5.0 - 2017-09-24
 -------------------

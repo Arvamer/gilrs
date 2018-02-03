@@ -55,7 +55,11 @@ fn main() {
             "{}) {} ({})",
             idx,
             gp.name(),
-            if ff { "Force feedback supported" } else { "Force feedback not supported" }
+            if ff {
+                "Force feedback supported"
+            } else {
+                "Force feedback not supported"
+            }
         );
         if ff {
             support_ff.push(idx);
@@ -64,8 +68,8 @@ fn main() {
 
     println!("----------------------------------------");
     println!(
-        "Use sticks to move listener. Triggers change properties of distance model. \
-         South/west button changes active property. Press east button on action pad to quit."
+        "Use sticks to move listener. Triggers change properties of distance model. South/west \
+         button changes active property. Press east button on action pad to quit."
     );
 
     let pos1 = [-100.0, 0.0, 0.0];
@@ -123,7 +127,6 @@ fn main() {
                 }
                 _ => (),
             }
-            gilrs.update(&event);
         }
 
         for &mut (idx, ref mut pos) in &mut listeners {
@@ -144,12 +147,9 @@ fn main() {
 
                 let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
                 print!(
-                    "\x1b[2K\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}].\
-                     Distance: {:.1}",
-                    idx,
-                    pos[0],
-                    pos[1],
-                    dist
+                    "\x1b[2K\rPosition of listener {:2} has changed: [{:6.1}, {:6.1}].Distance: \
+                     {:.1}",
+                    idx, pos[0], pos[1], dist
                 );
                 io::stdout().flush().unwrap();
             }
