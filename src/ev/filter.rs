@@ -75,6 +75,7 @@
 
 use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
 use gamepad::{Gamepad, Gilrs};
+use utils;
 
 use std::time::{Duration, SystemTime};
 
@@ -110,7 +111,7 @@ impl FilterFn for Jitter {
 }
 
 fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
-    let magnitude = (x * x + y * y).sqrt();
+    let magnitude = utils::clamp((x * x + y * y).sqrt(), 0.0, 1.0);
     if magnitude <= threshold {
         (0.0, 0.0)
     } else {
