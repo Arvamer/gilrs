@@ -13,6 +13,7 @@
 //! * A `Gilrs` context
 //! * A `Gamepad` struct
 //! * A static `str` which specifies the name of the SDL input mapping
+//! * A constant which define whether Y axis of sticks points upwards or downwards
 //! * A module with the platform-specific constants for common gamepad buttons
 //!   called `native_ev_codes`
 //!

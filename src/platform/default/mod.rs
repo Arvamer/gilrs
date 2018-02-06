@@ -12,3 +12,5 @@ pub use self::gamepad::{native_ev_codes, EvCode, Gamepad, Gilrs};
 
 // Platform name used in SDL mappings format
 pub const NAME: &'static str = "Unknown";
+// True, if Y axis of sticks points downwards.
+pub const IS_Y_AXIS_REVERSED: bool = false;

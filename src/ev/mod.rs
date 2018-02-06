@@ -277,7 +277,10 @@ impl AxisInfo {
         self.deadzone as f32 / range
     }
 
-    pub(crate) fn value_axis(&self, val: i32) -> f32 {
+    pub(crate) fn axis_value(&self, mut val: i32, axis: Axis) -> f32 {
+        if platform::IS_Y_AXIS_REVERSED && (axis == Axis::LeftStickY || axis == Axis::RightStickY) {
+            val = -val;
+        }
         let range = (self.max - self.min) as f32;
         let mut val = (val - self.min) as f32;
         val = val / range * 2.0 - 1.0;
@@ -285,7 +288,7 @@ impl AxisInfo {
         utils::clamp(val, -1.0, 1.0)
     }
 
-    pub(crate) fn value_btn(&self, val: i32) -> f32 {
+    pub(crate) fn btn_value(&self, val: i32) -> f32 {
         let range = (self.max - self.min) as f32;
         let mut val = (val - self.min) as f32;
         val = val / range;

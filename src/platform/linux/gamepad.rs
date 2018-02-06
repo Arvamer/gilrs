@@ -547,9 +547,8 @@ impl Gamepad {
                 }
                 EV_ABS => {
                     self.axes_values.insert(event.code as usize, event.value);
-                    let val = Self::axis_value(event.value, event.code);
 
-                    Some(RawEventType::AxisValueChanged(val, event.into()))
+                    Some(RawEventType::AxisValueChanged(event.value, event.into()))
                 }
                 _ => None,
             };
@@ -624,14 +623,6 @@ impl Gamepad {
                     ..Default::default()
                 });
             }
-        }
-    }
-
-    fn axis_value(val: i32, axis: u16) -> i32 {
-        if axis == ABS_Y || axis == ABS_RY || axis == ABS_HAT0Y {
-            -val
-        } else {
-            val
         }
     }
 

@@ -211,7 +211,7 @@ impl Gilrs {
 
                             match gamepad.axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
-                                    let val = axis_info.value_btn(val);
+                                    let val = axis_info.btn_value(val);
 
                                     if val >= self.axis_to_btn_pressed
                                         && !gamepad.state().is_pressed(nec)
@@ -238,11 +238,11 @@ impl Gilrs {
                                     }
                                 }
                                 Some(AxisOrBtn::Axis(a)) => {
-                                    EventType::AxisChanged(a, axis_info.value_axis(val), nec)
+                                    EventType::AxisChanged(a, axis_info.axis_value(val, a), nec)
                                 }
                                 None => EventType::AxisChanged(
                                     Axis::Unknown,
-                                    axis_info.value_axis(val),
+                                    axis_info.axis_value(val, Axis::Unknown),
                                     nec,
                                 ),
                             }
