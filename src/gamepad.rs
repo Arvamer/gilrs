@@ -627,18 +627,24 @@ impl Gamepad {
     /// Returns the mapping name if it exists otherwise returns the os provided name.
     /// Warning: May change from os provided name to mapping name after the first call of event_next.
     pub fn name(&self) -> &str {
-        let map_name = self.map_name();
-        if map_name.is_empty() {
-            self.os_name()
-        } else {
+        if let Some(map_name) = self.map_name() {
             map_name
+        } else {
+            self.os_name()
         }
     }
 
-    /// Returns the name of the mapping used by the gamepad.
-    /// Warning: Is an empty string until the first call of event_next.
-    pub fn map_name(&self) -> &str {
-        &self.mapping.name()
+    /// if `mapping_source()` is `SdlMappings` returns the name of the mapping used by the gamepad.
+    /// Otherwise returns `None`.
+    ///
+    /// Warning: Mappings are set after event `Connected` is processed therefore this function will
+    /// always return `None` before first calls to `Gilrs::next_event()`.
+    pub fn map_name(&self) -> Option<&str> {
+        if self.mapping_source() == MappingSource::SdlMappings {
+            Some(&self.mapping.name())
+        } else {
+            None
+        }
     }
 
     /// Returns the name of the gamepad supplied by the OS.
