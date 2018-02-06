@@ -112,7 +112,7 @@ impl Gilrs {
     /// Creates new `Gilrs` with default settings. See [`GilrsBuilder`](struct.GilrsBuilder.html)
     /// for more details.
     pub fn new() -> Self {
-        GilrsBuilder::new().add_included_mappings().build()
+        GilrsBuilder::new().build()
     }
 
     /// Returns next pending event.
@@ -463,6 +463,8 @@ pub struct GilrsBuilder {
     axis_to_btn_pressed: f32,
     axis_to_btn_released: f32,
     update_state: bool,
+    env_mappings: bool,
+    included_mappings: bool,
 }
 
 impl GilrsBuilder {
@@ -474,6 +476,8 @@ impl GilrsBuilder {
             axis_to_btn_pressed: 0.75,
             axis_to_btn_released: 0.65,
             update_state: true,
+            env_mappings: true,
+            included_mappings: true,
         }
     }
 
@@ -493,16 +497,18 @@ impl GilrsBuilder {
         self
     }
 
-    /// Adds SDL mappings from env.
-    pub fn add_env_mappings(mut self) -> Self {
-        self.mappings.add_env_mappings();
+    /// If true, will add SDL mappings from `SDL_GAMECONTROLLERCONFIG` environment variable.
+    /// Defaults to true.
+    pub fn add_env_mappings(mut self, env_mappings: bool) -> Self {
+        self.env_mappings = env_mappings;
 
         self
     }
 
-    /// Adds SDL mappings included from https://github.com/gabomdq/SDL_GameControllerDB
-    pub fn add_included_mappings(mut self) -> Self {
-        self.mappings.add_included_mappings();
+    /// If true, will add SDL mappings included from
+    /// https://github.com/gabomdq/SDL_GameControllerDB. Defaults to true.
+    pub fn add_included_mappings(mut self, included_mappings: bool) -> Self {
+        self.included_mappings = included_mappings;
 
         self
     }
@@ -531,7 +537,15 @@ impl GilrsBuilder {
     }
 
     /// Creates `Gilrs`.
-    pub fn build(self) -> Gilrs {
+    pub fn build(mut self) -> Gilrs {
+        if self.env_mappings {
+            self.mappings.add_env_mappings();
+        }
+
+        if self.included_mappings {
+            self.mappings.add_included_mappings();
+        }
+
         let mut gilrs = Gilrs {
             inner: platform::Gilrs::new(),
             next_id: 0,
@@ -600,7 +614,7 @@ impl<'a> Iterator for ConnectedGamepadsMutIterator<'a> {
 
 /// Represents game controller.
 ///
-/// Using this struct you can access cached gamepad state, informations about gamepad such as name
+/// Using this struct you can access cached gamepad state, information about gamepad such as name
 /// or UUID and manage force feedback effects.
 #[derive(Debug)]
 pub struct Gamepad {

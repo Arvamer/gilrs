@@ -9,11 +9,7 @@ use std::time::Duration;
 
 fn main() {
     env_logger::init().unwrap();
-    let mut gilrs = GilrsBuilder::new()
-        .add_env_mappings()
-        .add_included_mappings()
-        .set_update_state(false)
-        .build();
+    let mut gilrs = GilrsBuilder::new().set_update_state(false).build();
     let repeat_filter = Repeat::new();
 
     loop {
