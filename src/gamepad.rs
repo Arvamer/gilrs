@@ -23,6 +23,14 @@ use std::sync::mpsc::Sender;
 
 /// Main object responsible of managing gamepads.
 ///
+/// `Gilrs` owns all gamepads and you can use one of two methods to get reference to specific one.
+/// First, you can use `Index` operator. It will always return some gamepad, even if it was
+/// disconnected or never observed. All actions on such gamepads are no-op, and state of all
+/// elements should be 0. This makes it ideal when you don't care whether gamepad is connected.
+///
+/// The second method is to use `get()` function. Because it return `Option`, it will return `None`
+/// if gamepad is not connected.
+///
 /// # Event loop
 ///
 /// All interesting actions like button was pressed or new controller was connected are represented
@@ -81,11 +89,11 @@ use std::sync::mpsc::Sender;
 ///         // Do other things with event
 ///     }
 ///
-///     if gilrs.gamepad(0).is_pressed(Button::DPadLeft) {
+///     if gilrs[0].is_pressed(Button::DPadLeft) {
 ///         // go left
 ///     }
 ///
-///     match gilrs.gamepad(0).button_data(Button::South) {
+///     match gilrs[0].button_data(Button::South) {
 ///         Some(d) if d.is_pressed() && d.counter() == gilrs.counter() => {
 ///             // jump
 ///         }
@@ -295,7 +303,7 @@ impl Gilrs {
 
         let counter = self.counter;
 
-        let gamepad = match self.connected_gamepad_mut(event.id) {
+        let gamepad = match self.get_mut(event.id) {
             Some(g) => g,
             None => return,
         };
@@ -372,12 +380,12 @@ impl Gilrs {
     /// it was disconnected or never observed. If gamepad's status is not equal to
     /// `Status::Connected` all actions preformed on it are no-op and all values in cached gamepad
     /// state are 0 (false for buttons and 0.0 for axes).
-    pub fn gamepad(&self, id: usize) -> &Gamepad {
+    fn gamepad(&self, id: usize) -> &Gamepad {
         self.inner.gamepad(id)
     }
 
     /// See `gamepad()`
-    pub fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
+    fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
         self.inner.gamepad_mut(id)
     }
 
@@ -410,7 +418,7 @@ impl Gilrs {
     }
 
     /// Returns a reference to connected gamepad or `None`.
-    pub fn connected_gamepad(&self, id: usize) -> Option<&Gamepad> {
+    pub fn get(&self, id: usize) -> Option<&Gamepad> {
         let gp = self.inner.gamepad(id);
         if gp.is_connected() {
             Some(gp)
@@ -420,7 +428,7 @@ impl Gilrs {
     }
 
     /// Returns a mutable reference to connected gamepad or `None`.
-    pub fn connected_gamepad_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
+    pub fn get_mut(&mut self, id: usize) -> Option<&mut Gamepad> {
         let gp = self.inner.gamepad_mut(id);
         if gp.is_connected() {
             Some(gp)
@@ -597,7 +605,7 @@ impl<'a> Iterator for ConnectedGamepadsIterator<'a> {
                 return None;
             }
 
-            if let Some(gp) = self.0.connected_gamepad(self.1) {
+            if let Some(gp) = self.0.get(self.1) {
                 let idx = self.1;
                 self.1 += 1;
                 return Some((idx, gp));
@@ -620,7 +628,7 @@ impl<'a> Iterator for ConnectedGamepadsMutIterator<'a> {
                 return None;
             }
 
-            if let Some(gp) = self.0.connected_gamepad_mut(self.1) {
+            if let Some(gp) = self.0.get_mut(self.1) {
                 let idx = self.1;
                 self.1 += 1;
                 let gp = unsafe { &mut *(gp as *mut _) };
@@ -964,7 +972,7 @@ pub enum Status {
 /// use gilrs::PowerInfo;
 /// # let gilrs = gilrs::Gilrs::new().unwrap();
 ///
-/// match gilrs.gamepad(0).power_info() {
+/// match gilrs[0].power_info() {
 ///     PowerInfo::Discharging(lvl) if lvl <= 10 => println!("Low battery level, you should \
 ///                                                           plug your gamepad"),
 ///     _ => (),

@@ -21,6 +21,7 @@ v0.6.0 - unreleased
   `Mapping::insert_{btn,axis}()` methods to add new mappings.
 - `Axis::{LeftTrigger, LeftTrigger2, RightTrigger, RightTrigger2}`. All events
   with these are now button events. `ButtonChanged` event contains value.
+- `Gilrs::gamepad()` and `Gilrs::gamepad_mut()` – use `Index` operator instead.
 
 ### Changed
 
@@ -39,6 +40,8 @@ v0.6.0 - unreleased
   filters, you can disable this behaviour using `GilrsBuilder::set_update_state`.
 - `Gilrs::new()` and `GilrsBuilder::build()` now returns `Result`. Dummy context
   can still be used if result of failure is unsupported platform.
+- Renamed `Gilrs::connected_gamepad()` and `Gilrs::connected_gamepad_mut()` to
+  `get()` and `get_mut()`.
 
 ### Fixed
 

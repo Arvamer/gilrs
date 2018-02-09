@@ -132,7 +132,7 @@ fn main() {
         for &mut (idx, ref mut pos) in &mut listeners {
             let velocity = 0.5;
 
-            let gp = gilrs.gamepad(idx);
+            let gp = &gilrs[idx];
             let (sx, sy) = (gp.value(Axis::LeftStickX), gp.value(Axis::LeftStickY));
 
             if sx.abs() > 0.5 || sy.abs() > 0.5 {
