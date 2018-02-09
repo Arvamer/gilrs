@@ -4,12 +4,26 @@ extern crate gilrs;
 use gilrs::GilrsBuilder;
 use gilrs::ev::filter::{Filter, Repeat};
 
+use std::process;
 use std::thread;
 use std::time::Duration;
 
 fn main() {
     env_logger::init().unwrap();
-    let mut gilrs = GilrsBuilder::new().set_update_state(false).build();
+
+    let mut gilrs = match GilrsBuilder::new().set_update_state(false).build() {
+        Ok(g) => g,
+        Err(gilrs::Error::NotImplemented(g)) => {
+            eprintln!("Current platform is not supported");
+
+            g
+        }
+        Err(e) => {
+            eprintln!("Failed to create gilrs context: {}", e);
+            process::exit(-1);
+        }
+    };
+
     let repeat_filter = Repeat::new();
 
     loop {

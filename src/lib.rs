@@ -26,7 +26,7 @@
 //! ```
 //! use gilrs::{Gilrs, Button, Event};
 //!
-//! let mut gilrs = Gilrs::new();
+//! let mut gilrs = Gilrs::new().unwrap();
 //!
 //! // Iterate over all connected gamepads
 //! for (_id, gamepad) in gilrs.gamepads() {
@@ -118,7 +118,7 @@ pub mod ev;
 
 pub use ev::{Axis, Button, Event, EventType};
 pub use ev::filter::Filter;
-pub use gamepad::{ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Gamepad, Gilrs,
+pub use gamepad::{ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Error, Gamepad, Gilrs,
                   GilrsBuilder, MappingSource, PowerInfo, Status};
 pub use mapping::{MappingData as Mapping, MappingError};
 

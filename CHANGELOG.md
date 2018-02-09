@@ -37,6 +37,8 @@ v0.6.0 - unreleased
 - `State::value()` can now be used to also examine value of buttons.
 - By default, gamepad state is updated automatically. If you customize event
   filters, you can disable this behaviour using `GilrsBuilder::set_update_state`.
+- `Gilrs::new()` and `GilrsBuilder::build()` now returns `Result`. Dummy context
+  can still be used if result of failure is unsupported platform.
 
 ### Fixed
 

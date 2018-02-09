@@ -8,7 +8,7 @@
 use super::FfDevice;
 use ev::{RawEvent, RawEventType};
 use ev::AxisInfo;
-use gamepad::{self, GamepadImplExt, PowerInfo, Status};
+use gamepad::{self, GamepadImplExt, PlatformError, PowerInfo, Status};
 
 use uuid::Uuid;
 use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
@@ -40,7 +40,7 @@ pub struct Gilrs {
 }
 
 impl Gilrs {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Result<Self, PlatformError> {
         let gamepads = [
             gamepad_new(0),
             gamepad_new(1),
@@ -65,12 +65,13 @@ impl Gilrs {
         unsafe { xinput::XInputEnable(1) };
         let (tx, rx) = mpsc::channel();
         Self::spawn_thread(tx, connected);
-        Gilrs {
+
+        Ok(Gilrs {
             gamepads,
             rx,
             not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
             additional_events,
-        }
+        })
     }
 
     pub(crate) fn next_event(&mut self) -> Option<RawEvent> {

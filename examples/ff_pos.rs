@@ -44,7 +44,7 @@ impl Modify {
 
 fn main() {
     env_logger::init().unwrap();
-    let mut gilrs = Gilrs::new();
+    let mut gilrs = Gilrs::new().unwrap();
 
     println!("Connected gamepads:");
 

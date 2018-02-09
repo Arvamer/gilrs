@@ -22,7 +22,7 @@
 //! use gilrs::{GilrsBuilder, Filter};
 //! use gilrs::ev::filter::{Jitter, Repeat, deadzone};
 //!
-//! let mut gilrs = GilrsBuilder::new().with_default_filters(false).build();
+//! let mut gilrs = GilrsBuilder::new().with_default_filters(false).build().unwrap();
 //! let jitter = Jitter { threshold: 0.02 };
 //! let repeat = Repeat::new();
 //!

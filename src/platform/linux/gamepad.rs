@@ -11,7 +11,7 @@ use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
 use AsInner;
 use ev::{AxisInfo, RawEvent, RawEventType};
-use gamepad::{Gamepad as MainGamepad, GamepadImplExt, PowerInfo, Status};
+use gamepad::{Gamepad as MainGamepad, GamepadImplExt, PlatformError, PowerInfo, Status};
 use utils;
 
 use libc as c;
@@ -19,6 +19,7 @@ use uuid::Uuid;
 use vec_map::VecMap;
 
 use std::collections::VecDeque;
+use std::error;
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::mem;
@@ -30,29 +31,27 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: Vec<MainGamepad>,
-    monitor: Option<Monitor>,
+    monitor: Monitor,
     not_observed: MainGamepad,
     event_counter: usize,
     additional_events: VecDeque<RawEvent>,
 }
 
 impl Gilrs {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Result<Self, PlatformError> {
         let mut gamepads = Vec::new();
         let mut additional_events = VecDeque::new();
 
         let udev = match Udev::new() {
             Some(udev) => udev,
             None => {
-                error!("Failed to create udev context");
-                return Self::none();
+                return Err(PlatformError::Other(Box::new(Error::UdevCtx)));
             }
         };
         let en = match udev.enumerate() {
             Some(en) => en,
             None => {
-                error!("Failed to create udev enumerate object");
-                return Self::none();
+                return Err(PlatformError::Other(Box::new(Error::UdevEnumerate)));
             }
         };
 
@@ -69,28 +68,18 @@ impl Gilrs {
             }
         }
 
-        let monitor = Monitor::new(&udev);
-        if monitor.is_none() {
-            error!("Failed to create udev monitor. Hotplugging will not be supported");
-        }
+        let monitor = match Monitor::new(&udev) {
+            Some(m) => m,
+            None => return Err(PlatformError::Other(Box::new(Error::UdevMonitor))),
+        };
 
-        Gilrs {
+        Ok(Gilrs {
             gamepads,
             monitor,
             not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
             event_counter: 0,
             additional_events,
-        }
-    }
-
-    fn none() -> Self {
-        Gilrs {
-            gamepads: Vec::new(),
-            monitor: None,
-            not_observed: MainGamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
-            event_counter: 0,
-            additional_events: VecDeque::new(),
-        }
+        })
     }
 
     pub(crate) fn next_event(&mut self) -> Option<RawEvent> {
@@ -145,13 +134,8 @@ impl Gilrs {
     }
 
     fn handle_hotplug(&mut self) -> Option<RawEvent> {
-        let monitor = match self.monitor {
-            Some(ref m) => m,
-            None => return None,
-        };
-
-        while monitor.hotplug_available() {
-            let dev = monitor.device();
+        while self.monitor.hotplug_available() {
+            let dev = self.monitor.device();
 
             unsafe {
                 if let Some(val) = dev.property_value(cstr_new(b"ID_INPUT_JOYSTICK\0")) {
@@ -809,6 +793,33 @@ impl Display for EvCode {
         }
 
         f.write_fmt(format_args!("({})", self.code))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum Error {
+    UdevCtx,
+    UdevEnumerate,
+    UdevMonitor,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match *self {
+            Error::UdevCtx => f.write_str("Failed to create udev context"),
+            Error::UdevEnumerate => f.write_str("Failed to create udev enumerate object"),
+            Error::UdevMonitor => f.write_str("Failed to create udev monitor."),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::UdevCtx => "Failed to create udev context",
+            Error::UdevEnumerate => "Failed to create udev enumerate object",
+            Error::UdevMonitor => "Failed to create udev monitor.",
+        }
     }
 }
 

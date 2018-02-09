@@ -23,7 +23,7 @@
 //! use gilrs::Gilrs;
 //! use gilrs::ff::{EffectBuilder, Replay, BaseEffect, BaseEffectType, Ticks};
 //!
-//! let mut gilrs = Gilrs::new();
+//! let mut gilrs = Gilrs::new().unwrap();
 //! let support_ff = gilrs
 //!     .gamepads()
 //!     .filter_map(|(id, gp)| if gp.is_ff_supported() { Some(id) } else { None })

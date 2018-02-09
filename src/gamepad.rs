@@ -16,6 +16,8 @@ use platform;
 use uuid::Uuid;
 
 use std::collections::VecDeque;
+use std::error;
+use std::fmt::{self, Display};
 use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
 
@@ -30,7 +32,7 @@ use std::sync::mpsc::Sender;
 /// ```
 /// use gilrs::{Gilrs, Event, EventType, Button};
 ///
-/// let mut gilrs = Gilrs::new();
+/// let mut gilrs = Gilrs::new().unwrap();
 ///
 /// // Event loop
 /// loop {
@@ -71,7 +73,7 @@ use std::sync::mpsc::Sender;
 /// ```
 /// use gilrs::{Gilrs, Button};
 ///
-/// let mut gilrs = Gilrs::new();
+/// let mut gilrs = Gilrs::new().unwrap();
 ///
 /// loop {
 ///     while let Some(ev) = gilrs.next_event() {
@@ -111,7 +113,7 @@ pub struct Gilrs {
 impl Gilrs {
     /// Creates new `Gilrs` with default settings. See [`GilrsBuilder`](struct.GilrsBuilder.html)
     /// for more details.
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, Error> {
         GilrsBuilder::new().build()
     }
 
@@ -382,7 +384,7 @@ impl Gilrs {
     /// Returns iterator over all connected gamepads and their ids.
     ///
     /// ```
-    /// # let gilrs = gilrs::Gilrs::new();
+    /// # let gilrs = gilrs::Gilrs::new().unwrap();
     /// for (id, gamepad) in gilrs.gamepads() {
     ///     assert!(gamepad.is_connected());
     ///     println!("Gamepad with id {} and name {} is connected",
@@ -396,7 +398,7 @@ impl Gilrs {
     /// Returns iterator over all connected gamepads and their ids.
     ///
     /// ```
-    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// # let mut gilrs = gilrs::Gilrs::new().unwrap();
     /// for (id, gamepad) in gilrs.gamepads_mut() {
     ///     assert!(gamepad.is_connected());
     ///     println!("Gamepad with id {} and name {} is connected",
@@ -513,15 +515,11 @@ impl GilrsBuilder {
         self
     }
 
-    /// Sets values on which `ButtonPressed` and `ButtonReleased` events will be emitted. Panics if
-    ///  `pressed ≤ released` or if one of values is outside [0.0, 1.0].
+    /// Sets values on which `ButtonPressed` and `ButtonReleased` events will be emitted. `build()`
+    /// will return error if `pressed ≤ released` or if one of values is outside [0.0, 1.0].
     ///
     /// Defaults to 0.75 for `pressed` and 0.65 for `released`.
     pub fn set_axis_to_btn(mut self, pressed: f32, released: f32) -> Self {
-        assert!(pressed > released);
-        assert!(pressed >= 0.0 && pressed <= 1.0);
-        assert!(released >= 0.0 && released <= 1.0);
-
         self.axis_to_btn_pressed = pressed;
         self.axis_to_btn_released = released;
 
@@ -537,7 +535,7 @@ impl GilrsBuilder {
     }
 
     /// Creates `Gilrs`.
-    pub fn build(mut self) -> Gilrs {
+    pub fn build(mut self) -> Result<Gilrs, Error> {
         if self.env_mappings {
             self.mappings.add_env_mappings();
         }
@@ -546,8 +544,26 @@ impl GilrsBuilder {
             self.mappings.add_included_mappings();
         }
 
+        if self.axis_to_btn_pressed <= self.axis_to_btn_released || self.axis_to_btn_pressed < 0.0
+            || self.axis_to_btn_pressed > 1.0 || self.axis_to_btn_released < 0.0
+            || self.axis_to_btn_released > 1.0
+        {
+            return Err(Error::InvalidAxisToBtn);
+        }
+
+        let mut is_dummy = false;
+        let inner = match platform::Gilrs::new() {
+            Ok(g) => g,
+            Err(PlatformError::NotImplemented(g)) => {
+                is_dummy = true;
+
+                g
+            }
+            Err(PlatformError::Other(e)) => return Err(Error::Other(e)),
+        };
+
         let mut gilrs = Gilrs {
-            inner: platform::Gilrs::new(),
+            inner,
             next_id: 0,
             tx: server::init(),
             counter: 0,
@@ -561,7 +577,11 @@ impl GilrsBuilder {
         gilrs.finish_gamepads_creation();
         gilrs.create_ff_devices();
 
-        gilrs
+        if is_dummy {
+            Err(Error::NotImplemented(gilrs))
+        } else {
+            Ok(gilrs)
+        }
     }
 }
 
@@ -747,7 +767,7 @@ impl Gamepad {
     ///
     /// ```
     /// use gilrs::MappingSource;
-    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// # let mut gilrs = gilrs::Gilrs::new().unwrap();
     ///
     /// for (_, gamepad) in gilrs.gamepads().filter(
     ///     |gp| gp.1.mapping_source() != MappingSource::None)
@@ -786,7 +806,7 @@ impl Gamepad {
     /// ```
     /// use gilrs::{Mapping, Button};
     ///
-    /// # let mut gilrs = gilrs::Gilrs::new();
+    /// # let mut gilrs = gilrs::Gilrs::new().unwrap();
     /// let mut data = Mapping::new();
     /// // …
     ///
@@ -942,7 +962,7 @@ pub enum Status {
 ///
 /// ```
 /// use gilrs::PowerInfo;
-/// # let gilrs = gilrs::Gilrs::new();
+/// # let gilrs = gilrs::Gilrs::new().unwrap();
 ///
 /// match gilrs.gamepad(0).power_info() {
 ///     PowerInfo::Discharging(lvl) if lvl <= 10 => println!("Low battery level, you should \
@@ -974,4 +994,85 @@ pub enum MappingSource {
     /// Gamepad does not use any mappings and most gamepad events will probably be `Button::Unknown`
     /// or `Axis::Unknown`
     None,
+}
+
+/// Error type which can be returned when creating `Gilrs`.
+#[derive(Debug)]
+pub enum Error {
+    /// Gilrs does not support current platform, but you can use dummy context from this error if
+    /// gamepad input is not essential.
+    NotImplemented(Gilrs),
+    /// Either `pressed ≤ released` or one of values is outside [0.0, 1.0] range.
+    InvalidAxisToBtn,
+    /// Platform specific error.
+    Other(Box<error::Error + Send + Sync>),
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
+            &Error::InvalidAxisToBtn => f.write_str(
+                "Either `pressed ≤ released` or one of values is outside [0.0, 1.0] range.",
+            ),
+            &Error::Other(ref e) => e.fmt(f),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match self {
+            &Error::NotImplemented(_) => "platform not supported",
+            &Error::InvalidAxisToBtn => "values passed to set_axis_to_btn() are invalid",
+            &Error::Other(_) => "platform specific error",
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match self {
+            &Error::NotImplemented(_) => None,
+            &Error::InvalidAxisToBtn => None,
+            &Error::Other(ref e) => Some(&**e),
+        }
+    }
+}
+
+/// Error type which can be returned when creating `Gilrs`.
+#[derive(Debug)]
+pub(crate) enum PlatformError {
+    /// Gilrs does not support current platform, but you can use dummy context from this error if
+    /// gamepad input is not essential.
+    #[allow(dead_code)]
+    NotImplemented(platform::Gilrs),
+    /// Platform specific error.
+    #[allow(dead_code)]
+    Other(Box<error::Error + Send + Sync>),
+}
+
+impl Display for PlatformError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &PlatformError::NotImplemented(_) => {
+                f.write_str("Gilrs does not support current platform.")
+            }
+            &PlatformError::Other(ref e) => e.fmt(f),
+        }
+    }
+}
+
+impl error::Error for PlatformError {
+    fn description(&self) -> &str {
+        match self {
+            &PlatformError::NotImplemented(_) => "platform not supported",
+            &PlatformError::Other(_) => "platform specific error",
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match self {
+            &PlatformError::NotImplemented(_) => None,
+            &PlatformError::Other(ref e) => Some(&**e),
+        }
+    }
 }

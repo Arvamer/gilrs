@@ -9,7 +9,7 @@
 use super::FfDevice;
 use ev::AxisInfo;
 use ev::RawEvent;
-use gamepad::{self, GamepadImplExt, PowerInfo, Status};
+use gamepad::{self, GamepadImplExt, PlatformError, PowerInfo, Status};
 use uuid::Uuid;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -20,11 +20,10 @@ pub struct Gilrs {
 }
 
 impl Gilrs {
-    pub fn new() -> Self {
-        warn!("Current platform is not supported, gamepad input will not work");
-        Gilrs {
+    pub(crate) fn new() -> Result<Self, PlatformError> {
+        Err(PlatformError::NotImplemented(Gilrs {
             not_observed: gamepad::Gamepad::from_inner_status(Gamepad::none(), Status::NotObserved),
-        }
+        }))
     }
 
     pub(crate) fn next_event(&mut self) -> Option<RawEvent> {
