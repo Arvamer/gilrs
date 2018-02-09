@@ -10,22 +10,21 @@ use ev::{RawEvent, RawEventType};
 use ev::AxisInfo;
 use gamepad::{self, GamepadImplExt, PlatformError, PowerInfo, Status};
 
-use uuid::Uuid;
-use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
-use winapi::xinput::{self as xi, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
-                     XINPUT_GAMEPAD as XGamepad, XINPUT_STATE as XState, XINPUT_GAMEPAD_A,
-                     XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_DOWN,
-                     XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_UP,
-                     XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_LEFT_THUMB,
-                     XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB,
-                     XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y};
-use xinput;
-
 use std::{mem, thread, u16, u32};
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
+use uuid::Uuid;
+use winapi::shared::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
+use winapi::um::xinput::{self, XINPUT_BATTERY_INFORMATION as XBatteryInfo,
+                         XINPUT_GAMEPAD as XGamepad, XINPUT_STATE as XState, XINPUT_GAMEPAD_A,
+                         XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_DOWN,
+                         XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT,
+                         XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_LEFT_SHOULDER,
+                         XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                         XINPUT_GAMEPAD_RIGHT_THUMB, XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X,
+                         XINPUT_GAMEPAD_Y};
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -365,17 +364,20 @@ impl Gamepad {
     pub fn power_info(&self) -> PowerInfo {
         unsafe {
             let mut binfo = mem::uninitialized::<XBatteryInfo>();
-            if xinput::XInputGetBatteryInformation(self.id, xi::BATTERY_DEVTYPE_GAMEPAD, &mut binfo)
-                == ERROR_SUCCESS
+            if xinput::XInputGetBatteryInformation(
+                self.id,
+                xinput::BATTERY_DEVTYPE_GAMEPAD,
+                &mut binfo,
+            ) == ERROR_SUCCESS
             {
                 match binfo.BatteryType {
-                    xi::BATTERY_TYPE_WIRED => PowerInfo::Wired,
-                    xi::BATTERY_TYPE_ALKALINE | xi::BATTERY_TYPE_NIMH => {
+                    xinput::BATTERY_TYPE_WIRED => PowerInfo::Wired,
+                    xinput::BATTERY_TYPE_ALKALINE | xinput::BATTERY_TYPE_NIMH => {
                         let lvl = match binfo.BatteryLevel {
-                            xi::BATTERY_LEVEL_EMPTY => 0,
-                            xi::BATTERY_LEVEL_LOW => 33,
-                            xi::BATTERY_LEVEL_MEDIUM => 67,
-                            xi::BATTERY_LEVEL_FULL => 100,
+                            xinput::BATTERY_LEVEL_EMPTY => 0,
+                            xinput::BATTERY_LEVEL_LOW => 33,
+                            xinput::BATTERY_LEVEL_MEDIUM => 67,
+                            xinput::BATTERY_LEVEL_FULL => 100,
                             _ => unreachable!(),
                         };
                         if lvl == 100 {
@@ -451,8 +453,8 @@ pub mod native_ev_codes {
     use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
     use std::u8::{MAX as U8_MAX, MIN as U8_MIN};
 
-    use winapi::xinput::{XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
-                         XINPUT_GAMEPAD_TRIGGER_THRESHOLD};
+    use winapi::um::xinput::{XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE,
+                             XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE, XINPUT_GAMEPAD_TRIGGER_THRESHOLD};
 
     use super::EvCode;
     use ev::AxisInfo;

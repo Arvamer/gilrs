@@ -16,7 +16,7 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let mut gilrs = match GilrsBuilder::new().set_update_state(false).build() {
         Ok(g) => g,

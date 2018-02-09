@@ -98,8 +98,6 @@ extern crate nix;
 
 #[cfg(target_os = "windows")]
 extern crate winapi;
-#[cfg(target_os = "windows")]
-extern crate xinput;
 
 extern crate fnv;
 #[macro_use]

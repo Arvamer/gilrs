@@ -5,9 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use winapi::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
-use winapi::xinput::XINPUT_VIBRATION as XInputVibration;
-use xinput;
+use winapi::shared::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
+use winapi::um::xinput::{self, XINPUT_VIBRATION as XInputVibration};
 
 #[derive(Debug)]
 pub struct Device {
