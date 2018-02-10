@@ -14,6 +14,10 @@ v0.6.0 - unreleased
   be  updated automatically.
 - `ButtonState::value()`.
 - `Mapping::insert_{btn,axis}()`.
+- `Gampead::os_name()` and `Gamepad::map_name()`. (@rukai)
+- `GilrsBuilder::add_env_mappings()` and `GilrsBuilder::add_included_mappings()`,
+  allow to configure whether to load mappings from `SDL_GAMECONTROLLERCONFIG` env
+  and bundled mappings. (@rukai)
 
 ### Removed
 
@@ -42,13 +46,16 @@ v0.6.0 - unreleased
   can still be used if result of failure is unsupported platform.
 - Renamed `Gilrs::connected_gamepad()` and `Gilrs::connected_gamepad_mut()` to
   `get()` and `get_mut()`.
+- Windows: Gamepads are now named "Xbox Controller" instead of "XInput Controller".
+  (@rukai)
 
 ### Fixed
 
 - Linux: Fixed axis value normalization if neither minimal value is 0 nor
-  midpoint is 0.
+  midpoint is 0. (@scottpleb)
 - Linux: Ensure that axis values are clamped after normalization.
 - Incorrect ranges for some axes.
+- Linux: Compilation error on architectures with `c_char = u8`.
 
 v0.5.0 - 2017-09-24
 -------------------
