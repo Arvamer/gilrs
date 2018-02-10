@@ -30,7 +30,7 @@ install:
   - git submodule update --init --recursive
 
 test_script:
-  - cargo test --verbose --target %TARGET%
+  - cargo build --verbose --target %TARGET%
 
 cache:
   - C:\Users\appveyor\.cargo\registry
