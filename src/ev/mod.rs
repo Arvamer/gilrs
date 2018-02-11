@@ -296,7 +296,7 @@ impl AxisInfo {
         if range == 0.0 {
             0.0
         } else {
-            self.deadzone as f32 / range
+            self.deadzone as f32 / range * 2.0
         }
     }
 
