@@ -34,7 +34,7 @@ fn main() {
     let repeat_filter = Repeat::new();
 
     loop {
-        while let Some(ev) = gilrs.next_event().filter_ev(&repeat_filter, &gilrs) {
+        while let Some(ev) = gilrs.next_event().filter_ev(&repeat_filter, &mut gilrs) {
             gilrs.update(&ev);
             println!("{:?}", ev);
         }

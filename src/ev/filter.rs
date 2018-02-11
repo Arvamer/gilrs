@@ -30,9 +30,9 @@
 //! loop {
 //!     while let Some(event) = gilrs
 //!         .next_event()
-//!         .filter_ev(&jitter, &gilrs)
-//!         .filter_ev(&deadzone, &gilrs)
-//!         .filter_ev(&repeat, &gilrs)
+//!         .filter_ev(&jitter, &mut gilrs)
+//!         .filter_ev(&deadzone, &mut gilrs)
+//!         .filter_ev(&repeat, &mut gilrs)
 //!     {
 //!         gilrs.update(&event);
 //!         println!("{:?}", event);
@@ -58,7 +58,7 @@
 //! struct UnknownSlayer;
 //!
 //! impl FilterFn for UnknownSlayer {
-//!     fn filter(&self, ev: Option<Event>, _gilrs: &Gilrs) -> Option<Event> {
+//!     fn filter(&self, ev: Option<Event>, _gilrs: &mut Gilrs) -> Option<Event> {
 //!         match ev {
 //!             Some(Event { event: EventType::ButtonPressed(Button::Unknown, ..), .. })
 //!             | Some(Event { event: EventType::ButtonReleased(Button::Unknown, ..), .. })
@@ -93,7 +93,7 @@ impl Jitter {
 }
 
 impl FilterFn for Jitter {
-    fn filter(&self, ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
+    fn filter(&self, ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
         match ev {
             Some(Event {
                 event: EventType::AxisChanged(_, val, axis),
@@ -121,7 +121,7 @@ fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
 }
 
 /// Drops events in dead zone and remaps value to keep it in standard range.
-pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
+pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
     use ev::Axis::*;
 
     match ev {
@@ -180,7 +180,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
 ///
 /// This filter will do nothing if gamepad have dpad buttons (to prevent double events for same
 /// element) and if standard `NativeEvCode` for dpads is used by some other buttons.
-pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
+pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
     use platform::native_ev_codes as necs;
 
     fn can_map(gp: &Gamepad) -> bool {
@@ -278,7 +278,7 @@ impl Repeat {
 }
 
 impl FilterFn for Repeat {
-    fn filter(&self, ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
+    fn filter(&self, ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
         match ev {
             Some(ev) => Some(ev),
             None => {
@@ -336,27 +336,27 @@ impl FilterFn for Repeat {
 ///
 /// See module level documentation for more info.
 pub trait Filter {
-    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event>;
+    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &mut Gilrs) -> Option<Event>;
 }
 
 /// Actual filter implementation.
 ///
 /// See module level documentation for more info.
 pub trait FilterFn {
-    fn filter(&self, ev: Option<Event>, gilrs: &Gilrs) -> Option<Event>;
+    fn filter(&self, ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event>;
 }
 
 impl<F> FilterFn for F
 where
-    F: Fn(Option<Event>, &Gilrs) -> Option<Event>,
+    F: Fn(Option<Event>, &mut Gilrs) -> Option<Event>,
 {
-    fn filter(&self, ev: Option<Event>, gilrs: &Gilrs) -> Option<Event> {
+    fn filter(&self, ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
         self(ev, gilrs)
     }
 }
 
 impl Filter for Option<Event> {
-    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event> {
+    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &mut Gilrs) -> Option<Event> {
         let e = filter.filter(*self, gilrs);
         debug_assert!(
             !(self.is_some() && e.is_none()),
@@ -368,7 +368,7 @@ impl Filter for Option<Event> {
 }
 
 impl Filter for Event {
-    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &Gilrs) -> Option<Event> {
+    fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &mut Gilrs) -> Option<Event> {
         let e = filter.filter(Some(*self), gilrs);
         debug_assert!(
             !e.is_none(),
