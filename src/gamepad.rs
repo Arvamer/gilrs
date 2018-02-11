@@ -437,6 +437,11 @@ impl Gilrs {
         }
     }
 
+    /// Adds `ev` at the end of internal event queue. It can later be retrieved with `next_event()`.
+    pub fn insert_event(&mut self, ev: Event) {
+        self.events.push_back(ev);
+    }
+
     pub(crate) fn ff_sender(&self) -> &Sender<Message> {
         &self.tx
     }
