@@ -11,13 +11,16 @@ v0.6.0 - unreleased
 - `GilrsBuilder::set_axis_to_btn()`. It allow to customize on which values
   `ButtonePressed` and `ButtonReleased` are emitted.
 - `GilrsBuilder::set_update_state` which control whether gamepad state should
-  be  updated automatically.
+  be updated automatically.
 - `ButtonState::value()`.
 - `Mapping::insert_{btn,axis}()`.
 - `Gampead::os_name()` and `Gamepad::map_name()`. (@rukai)
 - `GilrsBuilder::add_env_mappings()` and `GilrsBuilder::add_included_mappings()`,
   allow to configure whether to load mappings from `SDL_GAMECONTROLLERCONFIG` env
   and bundled mappings. (@rukai)
+- `Gilrs::insert_event()`.
+- `Axis::second_axis()` – returns the other axis of gamepad element. For example,
+  this function will return `LeftStickX` for `LeftStickY`.
 
 ### Removed
 
@@ -38,23 +41,29 @@ v0.6.0 - unreleased
 - `NativeEvCode` is replaced by `ev::Code`, a strongly typed struct that also
   distinguish between axes and buttons.
 - You can now create mappings from any axis to any button.
-- `State` now tracks value of buttons.
+- `State` now tracks floating-point value of buttons.
 - `State::value()` can now be used to also examine value of buttons.
 - By default, gamepad state is updated automatically. If you customize event
   filters, you can disable this behaviour using `GilrsBuilder::set_update_state`.
 - `Gilrs::new()` and `GilrsBuilder::build()` now returns `Result`. Dummy context
-  can still be used if result of failure is unsupported platform.
+  can still be used, but only if result of failure is unsupported platform.
 - Renamed `Gilrs::connected_gamepad()` and `Gilrs::connected_gamepad_mut()` to
   `get()` and `get_mut()`.
+- `Filter` and `FilterFn` now borrows `Gilrs` mutably.
 - Windows: Gamepads are now named "Xbox Controller" instead of "XInput Controller".
   (@rukai)
 
 ### Fixed
 
+- Incorrect ranges for some axes.
+- Deadzone filter should no longer produce values outside of allowed range.
+- When calculating deadzone, the value of second axis is no longer ignored.
+  This fixes situation, when sometimes axis would stay on value small to 0.0,
+  when it should be 0.0 instead.
+- Deadzone threshold was half of what it should be.
 - Linux: Fixed axis value normalization if neither minimal value is 0 nor
   midpoint is 0. (@scottpleb)
-- Linux: Ensure that axis values are clamped after normalization.
-- Incorrect ranges for some axes.
+- Linux: Ensure that axis values are clamped after normalization. (@scottpleb)
 - Linux: Compilation error on architectures with `c_char = u8`.
 
 v0.5.0 - 2017-09-24
