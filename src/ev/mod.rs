@@ -272,9 +272,11 @@ impl AxisInfo {
     pub fn deadzone(&self) -> f32 {
         let range = self.max as f32 - self.min as f32;
 
-        debug_assert!(range != 0.0);
-
-        self.deadzone as f32 / range
+        if range == 0.0 {
+            0.0
+        } else {
+            self.deadzone as f32 / range
+        }
     }
 
     pub(crate) fn axis_value(&self, val: i32, axis: Axis) -> f32 {
