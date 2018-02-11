@@ -122,33 +122,53 @@ fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
 
 /// Drops events in dead zone and remaps value to keep it in standard range.
 pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
-    use ev::Axis::*;
-
     match ev {
         Some(Event {
             event: EventType::AxisChanged(axis, val, nec),
             id,
             time,
         }) => {
-            let gp = &gilrs[id];
-            let threshold = gp.deadzone(nec).expect("Got event with not existing axis");
-            let val = match axis {
-                LeftStickY => apply_deadzone(val, gp.value(LeftStickX), threshold),
-                LeftStickX => apply_deadzone(val, gp.value(LeftStickY), threshold),
-                RightStickY => apply_deadzone(val, gp.value(RightStickX), threshold),
-                RightStickX => apply_deadzone(val, gp.value(RightStickY), threshold),
-                _ => apply_deadzone(val, 0.0, threshold),
-            }.0;
+            let threshold = match gilrs[id].deadzone(nec) {
+                Some(t) => t,
+                None => return ev,
+            };
 
-            Some(if gp.state().value(nec) == val {
-                Event::dropped()
-            } else {
-                Event {
-                    id,
-                    time,
-                    event: EventType::AxisChanged(axis, val, nec),
+            if let Some((other, other_code)) = axis.second_axis()
+                .and_then(|axis| gilrs[id].axis_code(axis).map(|code| (axis, code)))
+            {
+                let other_val = gilrs[id].state().value(other_code);
+                let val = apply_deadzone(val, other_val, threshold);
+
+                if other_val != val.1 {
+                    gilrs.insert_event(Event {
+                        id,
+                        time,
+                        event: EventType::AxisChanged(other, val.1, other_code),
+                    });
                 }
-            })
+
+                Some(if gilrs[id].state().value(nec) == val.0 {
+                    Event::dropped()
+                } else {
+                    Event {
+                        id,
+                        time,
+                        event: EventType::AxisChanged(axis, val.0, nec),
+                    }
+                })
+            } else {
+                let val = apply_deadzone(val, 0.0, threshold).0;
+
+                Some(if gilrs[id].state().value(nec) == val {
+                    Event::dropped()
+                } else {
+                    Event {
+                        id,
+                        time,
+                        event: EventType::AxisChanged(axis, val, nec),
+                    }
+                })
+            }
         }
         Some(Event {
             event: EventType::ButtonChanged(btn, val, nec),
