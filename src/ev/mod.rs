@@ -252,11 +252,32 @@ pub enum Axis {
 }
 
 impl Axis {
+    /// Returns true if axis is `LeftStickX`, `LeftStickY`, `RightStickX` or `RightStickY`.
     pub fn is_stick(self) -> bool {
         use Axis::*;
         match self {
             LeftStickX | LeftStickY | RightStickX | RightStickY => true,
             _ => false,
+        }
+    }
+
+    /// Returns the other axis from same element of gamepad, if any.
+    ///
+    /// | input       | output            |
+    /// |-------------|-------------------|
+    /// |`LeftStickX` |`Some(LeftStickY`) |
+    /// |`LeftStickY` |`Some(LeftStickX`) |
+    /// |`RightStickX`|`Some(RightStickY`)|
+    /// |`RightStickY`|`Some(RightStickX`)|
+    /// | …           |`None`             |
+    pub fn second_axis(self) -> Option<Self> {
+        use Axis::*;
+        match self {
+            LeftStickX => Some(LeftStickY),
+            LeftStickY => Some(LeftStickX),
+            RightStickY => Some(RightStickX),
+            RightStickX => Some(RightStickY),
+            _ => None,
         }
     }
 }
