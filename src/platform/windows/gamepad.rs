@@ -443,6 +443,12 @@ fn gamepad_new(id: u32) -> gamepad::Gamepad {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EvCode(u8);
 
+impl EvCode {
+    pub fn into_u32(&self) -> u32 {
+        self.0 as u32
+    }
+}
+
 impl Display for EvCode {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         self.0.fmt(f)
