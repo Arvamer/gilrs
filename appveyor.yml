@@ -1,19 +1,20 @@
 # Based on the "trust" template v0.1.1
 # https://github.com/japaric/trust/tree/v0.1.1
 
+image:
+  - Visual Studio 2017
+
 environment:
   global:
     RUST_VERSION: 1.20.0
     CRATE_NAME: gilrs
 
   matrix:
-    # MinGW
     - TARGET: i686-pc-windows-gnu
     - TARGET: x86_64-pc-windows-gnu
 
-    # MSVC strange problems with doctests that have println!
-    # - TARGET: i686-pc-windows-msvc
-    # - TARGET: x86_64-pc-windows-msvc
+    - TARGET: i686-pc-windows-msvc
+    - TARGET: x86_64-pc-windows-msvc
 
 install:
   - ps: >-
@@ -30,15 +31,11 @@ install:
   - git submodule update --init --recursive
 
 test_script:
-  - cargo build --verbose --target %TARGET%
+  - cargo test --verbose --target %TARGET%
 
 cache:
   - C:\Users\appveyor\.cargo\registry
   - target
-
-notifications:
-  - provider: Email
-    on_build_success: false
 
 # Building is done in the test phase, so we disable Appveyor's build phase.
 build: false
