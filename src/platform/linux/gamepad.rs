@@ -769,6 +769,10 @@ impl EvCode {
     fn new(kind: u16, code: u16) -> Self {
         EvCode { kind, code }
     }
+
+    pub fn into_u32(&self) -> u32 {
+        (self.kind as u32) << 16 | self.code as u32
+    }
 }
 
 impl From<input_event> for EvCode {

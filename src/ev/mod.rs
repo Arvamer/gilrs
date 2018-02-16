@@ -27,6 +27,12 @@ impl Display for Code {
     }
 }
 
+impl Code {
+    pub fn into_u32(&self) -> u32 {
+        self.0.into_u32()
+    }
+}
+
 /// Holds information about gamepad event.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Event {
