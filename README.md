@@ -1,7 +1,7 @@
 GilRs - Game Input Library for Rust
 ===================================
 
-[![build status](https://gitlab.com/Arvamer/gilrs/badges/master/build.svg)](https://gitlab.com/Arvamer/gilrs/commits/master)
+[![build status](https://gitlab.com/gilrs-project/gilrs/badges/master/build.svg)](https://gitlab.com/Arvamer/gilrs/commits/master)
 [![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
 [![Documentation](https://docs.rs/gilrs/badge.svg)](https://docs.rs/gilrs/)
 
@@ -19,7 +19,7 @@ Main features:
 - Force feedback (rumble)
 - Power information (is gamepad wired, current battery status)
 
-The project's main repository [is on GitLab](https://gitlab.com/Arvamer/gilrs)
+The project's main repository [is on GitLab](https://gitlab.com/gilrs-project/gilrs)
 although there is also a [GitHub mirror](https://github.com/Arvamer/gilrs).
 Please use GitLab's issue tracker and merge requests.
 
