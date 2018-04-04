@@ -12,7 +12,7 @@ keywords = ["gamepad", "joystick", "input"]
 categories = ["game-engines"]
 
 [badges]
-gitlab = { repository = "Arvamer/gilrs" }
+gitlab = { repository = "gilrs-project/gilrs" }
 
 [dependencies]
 vec_map = "0.8"
