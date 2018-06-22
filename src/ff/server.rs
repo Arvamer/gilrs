@@ -69,6 +69,18 @@ pub(crate) enum Message {
     },
 }
 
+impl Message {
+    // Whether to use trace level logging or debug
+    fn use_trace_level(&self) -> bool {
+        use self::Message::*;
+
+        match self {
+            &SetListenerPosition { .. } | &HandleCloned { .. } | &HandleDropped { .. } => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Device {
     inner: FfDevice,
@@ -127,7 +139,11 @@ pub(crate) fn run(rx: Receiver<Message>) {
     loop {
         let t1 = Instant::now();
         while let Ok(ev) = rx.try_recv() {
-            debug!("New ff event: {:?}", ev);
+            if ev.use_trace_level() {
+                trace!("New ff event: {:?}", ev);
+            } else {
+                debug!("New ff event: {:?}", ev);
+            }
 
             match ev {
                 Message::Create { id, effect } => {
@@ -233,7 +249,12 @@ fn combine_and_play(effects: &VecMap<Effect>, devices: &mut VecMap<Device>, tick
                 magnitude += effect.combine_base_effects(tick, dev.position);
             }
         }
-        debug!("{:?} {:?} {:?}", tick, dev, magnitude);
+        trace!(
+            "({:?}) Setting ff state of {:?} to {:?}",
+            tick,
+            dev,
+            magnitude
+        );
         dev.inner.set_ff_state(magnitude.strong, magnitude.weak);
     }
 }
