@@ -163,7 +163,7 @@ impl Gilrs {
         } else {
             match self.inner.next_event() {
                 Some(RawEvent { id, event, time }) => {
-                    debug!("Original event: {:?}", RawEvent { id, event, time });
+                    trace!("Original event: {:?}", RawEvent { id, event, time });
                     let gamepad = self.inner.gamepad_mut(id);
                     let event = match event {
                         RawEventType::ButtonPressed(nec) => {
