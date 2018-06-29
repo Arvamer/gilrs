@@ -14,12 +14,12 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::time::SystemTime;
 
 use constants::*;
-use platform;
+use gilrs_core;
 use utils;
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Code(pub(crate) platform::EvCode);
+pub struct Code(pub(crate) gilrs_core::EvCode);
 
 impl Display for Code {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -99,38 +99,6 @@ pub enum EventType {
     Dropped,
 }
 
-/// Holds information about gamepad event.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub(crate) struct RawEvent {
-    /// Id of gamepad.
-    pub id: usize,
-    /// Event's data.
-    pub event: RawEventType,
-    /// Time when event was emitted.
-    pub time: SystemTime,
-}
-
-impl RawEvent {
-    /// Creates new event with current time.
-    pub fn new(id: usize, event: RawEventType) -> Self {
-        RawEvent {
-            id,
-            event,
-            time: SystemTime::now(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Gamepad event.
-pub(crate) enum RawEventType {
-    ButtonPressed(platform::EvCode),
-    ButtonReleased(platform::EvCode),
-    AxisValueChanged(i32, platform::EvCode),
-    Connected,
-    Disconnected,
-}
-
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 /// Gamepad's elements which state can be represented by value from 0.0 to 1.0.
@@ -207,7 +175,7 @@ impl Button {
     }
 
     pub fn to_nec(self) -> Option<Code> {
-        use platform::native_ev_codes as necs;
+        use gilrs_core::native_ev_codes as necs;
 
         match self {
             Button::South => Some(necs::BTN_SOUTH),
@@ -311,7 +279,7 @@ impl AxisInfo {
         let mut val = (val - self.min) as f32;
         val = val / range * 2.0 - 1.0;
 
-        if platform::IS_Y_AXIS_REVERSED
+        if gilrs_core::IS_Y_AXIS_REVERSED
             && (axis == Axis::LeftStickY || axis == Axis::RightStickY || axis == Axis::DPadY)
             && val != 0.0
         {
