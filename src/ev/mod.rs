@@ -132,7 +132,7 @@ pub(crate) enum RawEventType {
 }
 
 #[repr(u16)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 /// Gamepad's elements which state can be represented by value from 0.0 to 1.0.
 ///
 /// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
@@ -241,7 +241,7 @@ impl Default for Button {
 }
 
 #[repr(u16)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 /// Gamepad's elements which state can be represented by value from -1.0 to 1.0.
 ///
 /// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
@@ -328,7 +328,7 @@ impl AxisInfo {
 }
 
 /// Represents `Axis` or `Button`.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum AxisOrBtn {
     Axis(Axis),
     Btn(Button),
