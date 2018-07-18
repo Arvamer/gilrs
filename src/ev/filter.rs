@@ -322,11 +322,7 @@ impl FilterFn for Repeat {
                             (true, false, Ok(dur)) if dur >= self.after => {
                                 let btn_name = match gamepad.axis_or_btn_name(nec) {
                                     Some(AxisOrBtn::Btn(b)) => b,
-                                    e => panic!(
-                                        "Got {:?} from element that was button in state. Please \
-                                         report this as https://gitlab.com/gilrs-project/gilrs/issues.",
-                                        e
-                                    ),
+                                    _ => Button::Unknown,
                                 };
 
                                 return Some(Event {
@@ -338,11 +334,7 @@ impl FilterFn for Repeat {
                             (true, true, Ok(dur)) if dur >= self.every => {
                                 let btn_name = match gamepad.axis_or_btn_name(nec) {
                                     Some(AxisOrBtn::Btn(b)) => b,
-                                    e => panic!(
-                                        "Got {:?} from element that was button in state. Please \
-                                         report this as https://gitlab.com/gilrs-project/gilrs/issues.",
-                                        e
-                                    ),
+                                    _ => Button::Unknown,
                                 };
 
                                 return Some(Event {
