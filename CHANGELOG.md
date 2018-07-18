@@ -1,6 +1,23 @@
 Change Log
 ==========
 
+v0.6.1 - unreleased
+-------------------
+
+### Added
+
+- `ev::Code::into_u32()` (@rukai).
+- `ev::{Button, Axis, AxisOrBtn}` now implements `Hash` (@sheath).
+
+### Changed
+
+- The URL of repository has changed to https://gitlab.com/gilrs-project/gilrs
+
+### Fixed
+
+- Various fixes to logging at incorrect log level. Thanks to @fuggles for
+  locating and reporting these issues.
+
 v0.6.0 - 2018-02-11
 -------------------
 
