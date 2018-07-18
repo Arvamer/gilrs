@@ -930,6 +930,10 @@ impl Gamepad {
     pub fn id(&self) -> usize {
         self.id
     }
+
+    pub(crate) fn mapping(&self) -> &Mapping {
+        &self.mapping
+    }
 }
 
 // TODO: use pub(crate)

@@ -32,6 +32,7 @@ pub struct Mapping {
     mappings: FnvHashMap<EvCode, AxisOrBtn>,
     name: String,
     default: bool,
+    hats_mapped: u8,
 }
 
 impl Mapping {
@@ -40,6 +41,7 @@ impl Mapping {
             mappings: FnvHashMap::default(),
             name: String::new(),
             default: false,
+            hats_mapped: 0
         }
     }
 
@@ -132,6 +134,7 @@ impl Mapping {
             mappings,
             name: name.to_owned(),
             default: false,
+            hats_mapped: 0,
         };
 
         Ok((mapping, sdl_mappings))
@@ -182,21 +185,28 @@ impl Mapping {
                         );
                     } else {
                         // We  don't have anything like "hat" in gilrs, so let's jus assume that
-                        // user want to map dpad axes
-                        let from = match direction {
-                            1 | 4 => nec::AXIS_DPADY,
-                            2 | 8 => nec::AXIS_DPADX,
+                        // user want to map dpad axes.
+                        //
+                        // We have to add mappings for axes AND buttons, because axis_dpad_to_button
+                        // filter may transform event to button event.
+                        let (from_axis, from_btn) = match direction {
+                            1 => (nec::AXIS_DPADY, nec::BTN_DPAD_UP),
+                            4 => (nec::AXIS_DPADY, nec::BTN_DPAD_DOWN),
+                            2 => (nec::AXIS_DPADX, nec::BTN_DPAD_RIGHT),
+                            8 => (nec::AXIS_DPADX, nec::BTN_DPAD_LEFT),
                             0 => continue, // FIXME: I have no idea what 0 means here
                             _ => return Err(ParseSdlMappingError::UnknownHatDirection),
                         };
 
-                        let to = match to {
+                        let to_axis = match to {
                             Button::DPadLeft | Button::DPadRight => Axis::DPadX,
                             Button::DPadUp | Button::DPadDown => Axis::DPadY,
                             _ => unreachable!(),
                         };
 
-                        mapping.mappings.insert(from, AxisOrBtn::Axis(to));
+                        mapping.mappings.insert(from_axis, AxisOrBtn::Axis(to_axis));
+                        mapping.mappings.insert(from_btn, AxisOrBtn::Btn(to));
+                        mapping.hats_mapped |= direction as u8;
                     }
                 }
             }
@@ -252,6 +262,12 @@ impl Mapping {
 
     pub fn is_default(&self) -> bool {
         self.default
+    }
+
+    /// Return bit field with mapped hats. Only for mappings created from SDL format this function
+    /// can return non-zero value.
+    pub fn hats_mapped(&self) -> u8 {
+        self.hats_mapped
     }
 }
 
@@ -313,6 +329,7 @@ impl Default for Mapping {
             mappings,
             name: String::new(),
             default: true,
+            hats_mapped: 0,
         }
     }
 }

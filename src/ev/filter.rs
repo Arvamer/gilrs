@@ -199,16 +199,25 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
 /// Maps axis dpad events to button dpad events.
 ///
 /// This filter will do nothing if gamepad have dpad buttons (to prevent double events for same
-/// element) and if standard `NativeEvCode` for dpads is used by some other buttons.
+/// element) and if standard `NativeEvCode` for dpads is used by some other buttons. It will always
+/// try to map if SDL mappings contains mappings for all four hats.
 pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
     use platform::native_ev_codes as necs;
 
     fn can_map(gp: &Gamepad) -> bool {
-        gp.axis_or_btn_name(Code(necs::BTN_DPAD_RIGHT)).is_none()
-            && gp.axis_or_btn_name(Code(necs::BTN_DPAD_LEFT)).is_none()
-            && gp.axis_or_btn_name(Code(necs::BTN_DPAD_DOWN)).is_none()
-            && gp.axis_or_btn_name(Code(necs::BTN_DPAD_UP)).is_none()
-            && gp.button_code(Button::DPadRight).is_none()
+        let hats_mapped = gp.mapping().hats_mapped();
+        if hats_mapped == 0b0000_1111 {
+            true
+        } else if hats_mapped == 0 {
+            gp.axis_or_btn_name(Code(necs::BTN_DPAD_RIGHT)).is_none()
+                && gp.axis_or_btn_name(Code(necs::BTN_DPAD_LEFT)).is_none()
+                && gp.axis_or_btn_name(Code(necs::BTN_DPAD_DOWN)).is_none()
+                && gp.axis_or_btn_name(Code(necs::BTN_DPAD_UP)).is_none()
+                && gp.button_code(Button::DPadRight).is_none()
+        } else {
+            // Not all hats are mapped so let's ignore it for now.
+            false
+        }
     }
 
     match ev {
