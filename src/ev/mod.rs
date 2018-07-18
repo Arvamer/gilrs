@@ -311,7 +311,10 @@ impl AxisInfo {
         let mut val = (val - self.min) as f32;
         val = val / range * 2.0 - 1.0;
 
-        if platform::IS_Y_AXIS_REVERSED && (axis == Axis::LeftStickY || axis == Axis::RightStickY) {
+        if platform::IS_Y_AXIS_REVERSED
+            && (axis == Axis::LeftStickY || axis == Axis::RightStickY || axis == Axis::DPadY)
+            && val != 0.0
+        {
             val = -val;
         }
 
