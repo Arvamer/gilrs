@@ -12,11 +12,14 @@ v0.6.1 - unreleased
 ### Changed
 
 - The URL of repository has changed to https://gitlab.com/gilrs-project/gilrs
+- Updated bundled SDL_GameControllerDB.
 
 ### Fixed
 
 - Various fixes to logging at incorrect log level. Thanks to @fuggles for
   locating and reporting these issues.
+- Possible panic in `Repeat` filter.
+- `Axis::DPadY` was inverted on Linux.
 
 v0.6.0 - 2018-02-11
 -------------------
