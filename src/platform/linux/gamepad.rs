@@ -154,7 +154,7 @@ impl Gilrs {
                 if action == cstr_new(b"add\0") {
                     if let Some(gamepad) = Gamepad::open(&dev) {
                         if let Some(id) = self.gamepads.iter().position(|gp| {
-                            gp.uuid() == gamepad.uuid && gp.status() == Status::Disconnected
+                            gp.internal_uuid() == gamepad.uuid && gp.status() == Status::Disconnected
                         }) {
                             self.gamepads[id] =
                                 MainGamepad::from_inner_status(gamepad, Status::Connected);

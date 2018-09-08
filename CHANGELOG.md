@@ -1,7 +1,14 @@
 Change Log
 ==========
 
-v0.6.1 - unreleased
+v0.7.0 - Unreleased
+-------------------
+
+### Changed
+
+- Change `Gamepad::uuid -> Uuid` to `Gamepad::uuid -> [u8; 16]`
+
+v0.6.1 - 2018-07-18
 -------------------
 
 ### Added

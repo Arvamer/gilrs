@@ -16,7 +16,7 @@ gitlab = { repository = "gilrs-project/gilrs" }
 
 [dependencies]
 vec_map = "0.8"
-uuid = "0.6.0-beta"
+uuid = "0.7.0"
 log = "0.4.1"
 fnv = "1.0"
 
