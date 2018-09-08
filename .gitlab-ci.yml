@@ -1,4 +1,4 @@
-image: "liuchong/rustup:1.20.0"
+image: "liuchong/rustup:1.22.0"
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/cargo

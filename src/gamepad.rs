@@ -260,7 +260,7 @@ impl Gilrs {
                         RawEventType::Connected => {
                             gamepad.status = Status::Connected;
                             let mapping = self.mappings
-                                .get(gamepad.uuid())
+                                .get(gamepad.internal_uuid())
                                 .and_then(|s| {
                                     Mapping::parse_sdl_mapping(
                                         s,
@@ -700,7 +700,15 @@ impl Gamepad {
     }
 
     /// Returns gamepad's UUID.
-    pub fn uuid(&self) -> Uuid {
+    ///
+    /// It is recommended to process with the [UUID crate](https://crates.io/crates/uuid).
+    /// Use `Uuid::from_bytes` method to create a `Uuid` from the returned bytes.
+    pub fn uuid(&self) -> [u8; 16] {
+        self.inner.uuid().as_bytes().clone()
+    }
+
+    /// Returns gamepad's UUID.
+    pub(crate) fn internal_uuid(&self) -> Uuid {
         self.inner.uuid()
     }
 
@@ -850,7 +858,7 @@ impl Gamepad {
             self.inner.buttons(),
             self.inner.axes(),
             name,
-            self.uuid(),
+            self.internal_uuid(),
         )?;
         self.mapping = mapping;
 

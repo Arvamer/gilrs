@@ -63,7 +63,7 @@ impl Mapping {
         }
 
         let mut mappings = FnvHashMap::default();
-        let mut sdl_mappings = format!("{},{},", uuid.simple(), name);
+        let mut sdl_mappings = format!("{},{},", uuid.to_simple(), name);
 
         {
             let mut add_button = |ident, ev_code, mapped_btn| {
