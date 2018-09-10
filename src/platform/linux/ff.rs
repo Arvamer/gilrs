@@ -92,7 +92,12 @@ impl Device {
 
 impl Drop for Device {
     fn drop(&mut self) {
-        match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), self.effect as i32) } {
+        #[cfg(target_pointer_width = "64")]
+        let effect = self.effect as u64;
+        #[cfg(target_pointer_width = "32")]
+        let effect = self.effect as u32;
+
+        match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), effect) } {
             Err(err) => error!(
                 "Failed to remove effect of gamepad {:?}: {}",
                 self.file, err
