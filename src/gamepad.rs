@@ -94,15 +94,20 @@ use utils;
 ///         // Do other things with event
 ///     }
 ///
-///     if gilrs.gamepad(0).is_pressed(Button::DPadLeft) {
-///         // go left
+///     match gilrs.gamepad(0) {
+///         Some(gamepad) if gamepad.is_pressed(Button::DpadLeft) {
+///             // go left
+///         }
+///         _ => (),
 ///     }
 ///
-///     match gilrs.gamepad(0).button_data(Button::South) {
-///         Some(d) if d.is_pressed() && d.counter() == gilrs.counter() => {
-///             // jump
+///     if let Some(gamepad) = gilrs.gamepad(0) {
+///         match gamepad.button_data(Button::South) {
+///             Some(d) if d.is_pressed() && d.counter() == gilrs.counter() => {
+///                 // jump
+///             }
+///             _ => ()
 ///         }
-///         _ => ()
 ///     }
 ///
 ///     gilrs.inc();
@@ -173,7 +178,7 @@ impl Gilrs {
                     let event = match event {
                         RawEventType::ButtonPressed(nec) => {
                             let nec = Code(nec);
-                            match self.gamepad(id).axis_or_btn_name(nec) {
+                            match self.gamepad(id).unwrap().axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
                                     self.events.push_back(Event {
                                         id,
@@ -197,7 +202,7 @@ impl Gilrs {
                         }
                         RawEventType::ButtonReleased(nec) => {
                             let nec = Code(nec);
-                            match self.gamepad(id).axis_or_btn_name(nec) {
+                            match self.gamepad(id).unwrap().axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
                                     self.events.push_back(Event {
                                         id,
@@ -221,15 +226,15 @@ impl Gilrs {
                         }
                         RawEventType::AxisValueChanged(val, nec) => {
                             // Let's trust at least our backend code
-                            let axis_info = self.gamepad(id).inner.axis_info(nec).unwrap().clone();
+                            let axis_info = self.gamepad(id).unwrap().inner.axis_info(nec).unwrap().clone();
                             let nec = Code(nec);
 
-                            match self.gamepad(id).axis_or_btn_name(nec) {
+                            match self.gamepad(id).unwrap().axis_or_btn_name(nec) {
                                 Some(AxisOrBtn::Btn(b)) => {
                                     let val = btn_value(&axis_info, val);
 
                                     if val >= self.axis_to_btn_pressed
-                                        && !self.gamepad(id).state().is_pressed(nec)
+                                        && !self.gamepad(id).unwrap().state().is_pressed(nec)
                                     {
                                         self.events.push_back(Event {
                                             id,
@@ -239,7 +244,7 @@ impl Gilrs {
 
                                         EventType::ButtonPressed(b, nec)
                                     } else if val <= self.axis_to_btn_released
-                                        && self.gamepad(id).state().is_pressed(nec)
+                                        && self.gamepad(id).unwrap().state().is_pressed(nec)
                                     {
                                         self.events.push_back(Event {
                                             id,
@@ -356,22 +361,46 @@ impl Gilrs {
         }
     }
 
-    /// Borrow gamepad with given id. This method always return reference to some gamepad, even if
-    /// it was disconnected or never observed. If gamepad's status is not equal to
-    /// `Status::Connected` all actions preformed on it are no-op and all values in cached gamepad
-    /// state are 0 (false for buttons and 0.0 for axes).
-    pub fn gamepad<'a>(&'a self, id: usize) -> Gamepad<'a> {
-        Gamepad {
-            inner: self.inner.gamepad(id),
-            // FIXME: this will panic if id >= self.gamepads_data.len()
-            data: &self.gamepads_data[id]
+    /// Returns handle to gamepad with given ID. Unlike `connected_gamepad()`, this function will
+    /// also return handle to gamepad that is currently disconnected. `None` is only returned if
+    /// gamepad with given ID have never been observed.
+    ///
+    /// ```
+    /// # let mut gilrs = gilrs::Gilrs::new().unwrap();
+    /// use gilrs::{Button, EventType};
+    ///
+    /// loop {
+    ///     while let Some(ev) = gilrs.next_event() {
+    ///         // unwrap() should never panic because we use id from event
+    ///         let is_up_pressed = gilrs.gamepad(ev.id).unwrap().is_pressed(Button::DPadUp);
+    ///
+    ///         match ev.event_type {
+    ///             EventType::ButtonPressed(Button::South, _) if is_up_pressed => {
+    ///                 // do something…
+    ///             }
+    ///             _ => (),
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn gamepad<'a>(&'a self, id: usize) -> Option<Gamepad<'a>> {
+        if let Some(data) = self.gamepads_data.get(id) {
+            Some(Gamepad {
+                inner: self.inner.gamepad(id),
+                data,
+            })
+        } else {
+            None
         }
     }
 
-//    /// See `gamepad()`
-//    fn gamepad_mut(&mut self, id: usize) -> &mut Gamepad {
-//        self.inner.gamepad_mut(id)
-//    }
+    /// Returns a reference to connected gamepad or `None`.
+    pub fn connected_gamepad(&self, id: usize) -> Option<Gamepad> {
+        match self.gamepad(id) {
+            Some(gamepad) if gamepad.is_connected() => Some(gamepad),
+            _ => None
+        }
+    }
 
     /// Returns iterator over all connected gamepads and their ids.
     ///
@@ -385,16 +414,6 @@ impl Gilrs {
     /// ```
     pub fn gamepads(&self) -> ConnectedGamepadsIterator {
         ConnectedGamepadsIterator(self, 0)
-    }
-
-    /// Returns a reference to connected gamepad or `None`.
-    pub fn get(&self, id: usize) -> Option<Gamepad> {
-        let gp = self.gamepad(id);
-        if gp.is_connected() {
-            Some(gp)
-        } else {
-            None
-        }
     }
 
     /// Adds `ev` at the end of internal event queue. It can later be retrieved with `next_event()`.
@@ -564,7 +583,7 @@ impl<'a> Iterator for ConnectedGamepadsIterator<'a> {
                 return None;
             }
 
-            if let Some(gp) = self.0.get(self.1) {
+            if let Some(gp) = self.0.connected_gamepad(self.1) {
                 let idx = self.1;
                 self.1 += 1;
                 return Some((idx, gp));

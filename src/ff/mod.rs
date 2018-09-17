@@ -134,7 +134,7 @@ impl Effect {
 
         for dev in ids.iter().cloned() {
             if !gilrs
-                .get(dev)
+                .connected_gamepad(dev)
                 .ok_or(Error::Disconnected(dev))?
                 .is_ff_supported()
             {
@@ -301,7 +301,7 @@ impl EffectBuilder {
     pub fn finish(&mut self, gilrs: &mut Gilrs) -> Result<Effect, Error> {
         for (dev, _) in &self.devices {
             if !gilrs
-                .get(dev)
+                .connected_gamepad(dev)
                 .ok_or(Error::Disconnected(dev))?
                 .is_ff_supported()
             {
