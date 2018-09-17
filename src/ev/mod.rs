@@ -15,7 +15,6 @@ use std::time::SystemTime;
 
 use constants::*;
 use gilrs_core;
-use utils;
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -253,48 +252,6 @@ impl Axis {
             RightStickX => Some(RightStickY),
             _ => None,
         }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct AxisInfo {
-    pub min: i32,
-    pub max: i32,
-    pub deadzone: u32,
-}
-
-impl AxisInfo {
-    pub fn deadzone(&self) -> f32 {
-        let range = self.max as f32 - self.min as f32;
-
-        if range == 0.0 {
-            0.0
-        } else {
-            self.deadzone as f32 / range * 2.0
-        }
-    }
-
-    pub(crate) fn axis_value(&self, val: i32, axis: Axis) -> f32 {
-        let range = (self.max - self.min) as f32;
-        let mut val = (val - self.min) as f32;
-        val = val / range * 2.0 - 1.0;
-
-        if gilrs_core::IS_Y_AXIS_REVERSED
-            && (axis == Axis::LeftStickY || axis == Axis::RightStickY || axis == Axis::DPadY)
-            && val != 0.0
-        {
-            val = -val;
-        }
-
-        utils::clamp(val, -1.0, 1.0)
-    }
-
-    pub(crate) fn btn_value(&self, val: i32) -> f32 {
-        let range = (self.max - self.min) as f32;
-        let mut val = (val - self.min) as f32;
-        val = val / range;
-
-        utils::clamp(val, 0.0, 1.0)
     }
 }
 

@@ -9,7 +9,7 @@ use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
 use ev::state::{AxisData, ButtonData, GamepadState};
 use ff::Error as FfError;
 use ff::server::{self, Message};
-use mapping::{Mapping, MappingData, MappingDb, MappingError};
+use mapping::{Mapping, MappingDb};
 use gilrs_core::{self, Error as PlatformError};
 
 pub use gilrs_core::{PowerInfo, Status};
@@ -19,7 +19,6 @@ use uuid::Uuid;
 use std::collections::VecDeque;
 use std::error;
 use std::fmt::{self, Display};
-use std::ops::{Index, IndexMut};
 use std::sync::mpsc::Sender;
 use gilrs_core::EventType as RawEventType;
 use gilrs_core::Event as RawEvent;
@@ -95,7 +94,7 @@ use utils;
 ///     }
 ///
 ///     match gilrs.gamepad(0) {
-///         Some(gamepad) if gamepad.is_pressed(Button::DpadLeft) {
+///         Some(gamepad) if gamepad.is_pressed(Button::DpadLeft) => {
 ///             // go left
 ///         }
 ///         _ => (),
@@ -279,7 +278,6 @@ impl Gilrs {
                             EventType::Connected
                         }
                         RawEventType::Disconnected => {
-                            let data = &mut self.gamepads_data[id];
                             let _ = self.tx.send(Message::Close { id });
 
                             EventType::Disconnected
@@ -374,7 +372,7 @@ impl Gilrs {
     ///         // unwrap() should never panic because we use id from event
     ///         let is_up_pressed = gilrs.gamepad(ev.id).unwrap().is_pressed(Button::DPadUp);
     ///
-    ///         match ev.event_type {
+    ///         match ev.event {
     ///             EventType::ButtonPressed(Button::South, _) if is_up_pressed => {
     ///                 // do something…
     ///             }
@@ -659,11 +657,6 @@ impl<'a> Gamepad<'a> {
     /// Use `Uuid::from_bytes` method to create a `Uuid` from the returned bytes.
     pub fn uuid(&self) -> [u8; 16] {
         self.inner.uuid()
-    }
-
-    /// Returns gamepad's UUID.
-    pub(crate) fn internal_uuid(&self) -> Uuid {
-        Uuid::from_bytes(self.inner.uuid())
     }
 
     /// Returns cached gamepad state.

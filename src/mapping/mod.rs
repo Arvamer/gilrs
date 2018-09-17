@@ -9,7 +9,7 @@
 mod parser;
 
 use ev::{self, Axis, AxisOrBtn, Button};
-use gilrs_core::{self, native_ev_codes as nec};
+use gilrs_core::{native_ev_codes as nec};
 use gilrs_core::EvCode;
 
 use std::collections::HashMap;
