@@ -94,7 +94,7 @@ use utils;
 ///     }
 ///
 ///     match gilrs.gamepad(0) {
-///         Some(gamepad) if gamepad.is_pressed(Button::DpadLeft) => {
+///         Some(gamepad) if gamepad.is_pressed(Button::DPadLeft) => {
 ///             // go left
 ///         }
 ///         _ => (),
@@ -379,6 +379,7 @@ impl Gilrs {
     ///             _ => (),
     ///         }
     ///     }
+    ///     # break;
     /// }
     /// ```
     pub fn gamepad<'a>(&'a self, id: usize) -> Option<Gamepad<'a>> {
