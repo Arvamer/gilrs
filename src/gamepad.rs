@@ -24,6 +24,8 @@ use gilrs_core::EventType as RawEventType;
 use gilrs_core::Event as RawEvent;
 use gilrs_core::AxisInfo;
 use utils;
+use mapping::MappingData;
+use MappingError;
 
 /// Main object responsible of managing gamepads.
 ///
@@ -424,6 +426,95 @@ impl Gilrs {
         &self.tx
     }
 
+    /// Sets gamepad's mapping and returns SDL2 representation of them. Returned mappings may not be
+    /// compatible with SDL2 - if it is important, use
+    /// [`set_mapping_strict()`](#method.set_mapping_strict).
+    ///
+    /// The `name` argument can be a string slice with custom gamepad name or `None`. If `None`,
+    /// gamepad name reported by driver will be used.
+    ///
+    /// # Errors
+    ///
+    /// This function return error if `name` contains comma, `mapping` have axis and button entry
+    /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
+    /// not have any element with `EvCode` used in mapping. `Button::Unknown` and
+    /// `Axis::Unknown` are not allowd as keys to `mapping` – in this case,
+    /// `MappingError::UnknownElement` is returned.
+    ///
+    /// Error is also returned if this function is not implemented or gamepad is not connected.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gilrs::{Mapping, Button};
+    ///
+    /// # let mut gilrs = gilrs::Gilrs::new().unwrap();
+    /// let mut data = Mapping::new();
+    /// // …
+    ///
+    /// // or `match gilrs.set_mapping(0, &data, None) {`
+    /// match gilrs.set_mapping(0, &data, "Custom name") {
+    ///     Ok(sdl) => println!("SDL2 mapping: {}", sdl),
+    ///     Err(e) => println!("Failed to set mapping: {}", e),
+    /// };
+    /// ```
+    ///
+    /// See also `examples/mapping.rs`.
+    pub fn set_mapping<'b, O: Into<Option<&'b str>>>(
+        &mut self,
+        gamepad_id: usize,
+        mapping: &MappingData,
+        name: O,
+    ) -> Result<String, MappingError> {
+        let gamepad = self.inner.gamepad(gamepad_id);
+
+        if gamepad.status() != Status::Connected {
+            return Err(MappingError::NotConnected);
+        }
+
+        let name = match name.into() {
+            Some(s) => s,
+            None => gamepad.name(),
+        };
+
+        let (mapping, s) = Mapping::from_data(
+            mapping,
+            gamepad.buttons(),
+            gamepad.axes(),
+            name,
+            Uuid::from_bytes(gamepad.uuid()),
+        )?;
+
+        // We checked if gamepad is connected, so it should never panic
+        let data = &mut self.gamepads_data[gamepad_id];
+        data.mapping = mapping;
+
+        Ok(s)
+    }
+
+    /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
+    /// with SDL2.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MappingError::NotSdl2Compatible` if `mapping` have an entry for `Button::{C, Z}`
+    /// or `Axis::{LeftZ, RightZ}`.
+    pub fn set_mapping_strict<'b, O: Into<Option<&'b str>>>(
+        &mut self,
+        gamepad_id: usize,
+        mapping: &MappingData,
+        name: O,
+    ) -> Result<String, MappingError> {
+        if mapping.button(Button::C).is_some() || mapping.button(Button::Z).is_some()
+            || mapping.axis(Axis::LeftZ).is_some()
+            || mapping.axis(Axis::RightZ).is_some()
+            {
+                Err(MappingError::NotSdl2Compatible)
+            } else {
+            self.set_mapping(gamepad_id, mapping, name)
+        }
+    }
+
     pub(crate) fn next_ff_id(&mut self) -> usize {
         // TODO: reuse free ids
         let id = self.next_id;
@@ -741,88 +832,6 @@ impl<'a> Gamepad<'a> {
             MappingSource::SdlMappings
         }
     }
-
-//    /// Sets gamepad's mapping and returns SDL2 representation of them. Returned mappings may not be
-//    /// compatible with SDL2 - if it is important, use
-//    /// [`set_mapping_strict()`](#method.set_mapping_strict).
-//    ///
-//    /// The `name` argument can be a string slice with custom gamepad name or `None`. If `None`,
-//    /// gamepad name reported by driver will be used.
-//    ///
-//    /// # Errors
-//    ///
-//    /// This function return error if `name` contains comma, `mapping` have axis and button entry
-//    /// for same element (for example `Axis::LetfTrigger` and `Button::LeftTrigger`) or gamepad does
-//    /// not have any element with `EvCode` used in mapping. `Button::Unknown` and
-//    /// `Axis::Unknown` are not allowd as keys to `mapping` – in this case,
-//    /// `MappingError::UnknownElement` is returned.
-//    ///
-//    /// Error is also returned if this function is not implemented or gamepad is not connected.
-//    ///
-//    /// # Example
-//    ///
-//    /// ```
-//    /// use gilrs::{Mapping, Button};
-//    ///
-//    /// # let mut gilrs = gilrs::Gilrs::new().unwrap();
-//    /// let mut data = Mapping::new();
-//    /// // …
-//    ///
-//    /// // or `match gilrs[0].set_mapping(&data, None) {`
-//    /// match gilrs[0].set_mapping(&data, "Custom name") {
-//    ///     Ok(sdl) => println!("SDL2 mapping: {}", sdl),
-//    ///     Err(e) => println!("Failed to set mapping: {}", e),
-//    /// };
-//    /// ```
-//    ///
-//    /// See also `examples/mapping.rs`.
-//    pub fn set_mapping<'a, O: Into<Option<&'a str>>>(
-//        &mut self,
-//        mapping: &MappingData,
-//        name: O,
-//    ) -> Result<String, MappingError> {
-//        if !self.is_connected() {
-//            return Err(MappingError::NotConnected);
-//        }
-//
-//        let name = match name.into() {
-//            Some(s) => s,
-//            None => self.inner.name(),
-//        };
-//
-//        let (mapping, s) = Mapping::from_data(
-//            mapping,
-//            self.inner.buttons(),
-//            self.inner.axes(),
-//            name,
-//            self.internal_uuid(),
-//        )?;
-//        self.mapping = mapping;
-//
-//        Ok(s)
-//    }
-//
-//    /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
-//    /// with SDL2.
-//    ///
-//    /// # Errors
-//    ///
-//    /// Returns `MappingError::NotSdl2Compatible` if `mapping` have an entry for `Button::{C, Z}`
-//    /// or `Axis::{LeftZ, RightZ}`.
-//    pub fn set_mapping_strict<'a, O: Into<Option<&'a str>>>(
-//        &mut self,
-//        mapping: &MappingData,
-//        name: O,
-//    ) -> Result<String, MappingError> {
-//        if mapping.button(Button::C).is_some() || mapping.button(Button::Z).is_some()
-//            || mapping.axis(Axis::LeftZ).is_some()
-//            || mapping.axis(Axis::RightZ).is_some()
-//            {
-//                Err(MappingError::NotSdl2Compatible)
-//            } else {
-//            self.set_mapping(mapping, name)
-//        }
-//   }
 
     /// Returns true if force feedback is supported by device.
     pub fn is_ff_supported(&self) -> bool {
