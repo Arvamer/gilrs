@@ -1019,7 +1019,9 @@ fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
     let mut val = (val - info.min) as f32;
     val = val / range * 2.0 - 1.0;
 
-    if gilrs_core::IS_Y_AXIS_REVERSED && (axis == Axis::LeftStickY || axis == Axis::RightStickY) {
+    if gilrs_core::IS_Y_AXIS_REVERSED
+        && (axis == Axis::LeftStickY || axis == Axis::RightStickY || axis == Axis::DPadY)
+        && val != 0.0 {
         val = -val;
     }
 
