@@ -29,13 +29,10 @@ use MappingError;
 
 /// Main object responsible of managing gamepads.
 ///
-/// `Gilrs` owns all gamepads and you can use one of two methods to get reference to specific one.
-/// First, you can use `Index` operator. It will always return some gamepad, even if it was
-/// disconnected or never observed. All actions on such gamepads are no-op, and state of all
-/// elements should be 0. This makes it ideal when you don't care whether gamepad is connected.
-///
-/// The second method is to use `get()` function. Because it return `Option`, it will return `None`
-/// if gamepad is not connected.
+/// In order to get gamepad handle, use `gamepad()`, or `connected_gamepad()`. The main difference
+/// between these two is that `gamepad()` will also return handle to gamepad that is currently
+/// disconnected. However, both functions will return `None` if gamepad with given id has never
+/// existed.
 ///
 /// # Event loop
 ///
@@ -294,6 +291,9 @@ impl Gilrs {
     }
 
     /// Updates internal state according to `event`.
+    ///
+    /// Please note, that it's not necessary to call this function unless you modify events by using
+    /// additional filters and disabled automatic updates when creating `Gilrs`.
     pub fn update(&mut self, event: &Event) {
         use EventType::*;
 
@@ -526,14 +526,6 @@ impl Gilrs {
     }
 }
 
-//impl<'a> Index<usize> for &'a Gilrs {
-//    type Output = Gamepad<'a>;
-//
-//    fn index(&self, idx: usize) -> Gamepad<'a> {
-//        self.gamepad(idx)
-//    }
-//}
-
 /// Allow to create `Gilrs ` with customized behaviour.
 pub struct GilrsBuilder {
     mappings: MappingDb,
@@ -684,30 +676,6 @@ impl<'a> Iterator for ConnectedGamepadsIterator<'a> {
     }
 }
 
-///// Iterator over all connected gamepads.
-//pub struct ConnectedGamepadsMutIterator<'a>(&'a mut Gilrs, usize);
-//
-//impl<'a> Iterator for ConnectedGamepadsMutIterator<'a> {
-//    type Item = (usize, Gamepad<'a>);
-//
-//    fn next(&mut self) -> Option<(usize, &'a mut Gamepad)> {
-//        loop {
-//            if self.1 == self.0.inner.last_gamepad_hint() {
-//                return None;
-//            }
-//
-//            if let Some(gp) = self.0.get_mut(self.1) {
-//                let idx = self.1;
-//                self.1 += 1;
-//                let gp = unsafe { &mut *(gp as *mut _) };
-//                return Some((idx, gp));
-//            }
-//
-//            self.1 += 1;
-//        }
-//    }
-//}
-
 /// Represents handle to game controller.
 ///
 /// Using this struct you can access cached gamepad state, information about gamepad such as name
@@ -720,7 +688,6 @@ pub struct Gamepad<'a> {
 
 impl<'a> Gamepad<'a> {
     /// Returns the mapping name if it exists otherwise returns the os provided name.
-    /// Warning: May change from os provided name to mapping name after the first call of event_next.
     pub fn name(&self) -> &str {
         if let Some(map_name) = self.map_name() {
             map_name
@@ -731,9 +698,6 @@ impl<'a> Gamepad<'a> {
 
     /// if `mapping_source()` is `SdlMappings` returns the name of the mapping used by the gamepad.
     /// Otherwise returns `None`.
-    ///
-    /// Warning: Mappings are set after event `Connected` is processed therefore this function will
-    /// always return `None` before first calls to `Gilrs::next_event()`.
     pub fn map_name(&self) -> Option<&str> {
         self.data.map_name()
     }
@@ -756,10 +720,10 @@ impl<'a> Gamepad<'a> {
         &self.data.state
     }
 
-    /// Returns current gamepad's status, which can be `Connected`, `Disconnected` or `NotObserved`.
-    /// Only connected gamepads generate events. Disconnected gamepads retain their name and UUID.
-    /// Cached state of disconnected and not observed gamepads is 0 (false for buttons and 0.0 for
-    /// axis) and all actions preformed on such gamepad are no-op.
+    /// Returns current gamepad's status, which can be `Connected`, `Disconnected`. Only connected
+    /// gamepads generate events. Disconnected gamepads retain their name and UUID. Cached state of
+    /// disconnected gamepads is 0 (false for buttons and 0.0 for axis) and all actions preformed on
+    /// such gamepad are no-op.
     pub fn status(&self) -> Status {
         self.inner.status()
     }
