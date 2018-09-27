@@ -14,12 +14,11 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::time::SystemTime;
 
 use constants::*;
-use platform;
-use utils;
+use gilrs_core;
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Code(pub(crate) platform::EvCode);
+pub struct Code(pub(crate) gilrs_core::EvCode);
 
 impl Display for Code {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -99,38 +98,6 @@ pub enum EventType {
     Dropped,
 }
 
-/// Holds information about gamepad event.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub(crate) struct RawEvent {
-    /// Id of gamepad.
-    pub id: usize,
-    /// Event's data.
-    pub event: RawEventType,
-    /// Time when event was emitted.
-    pub time: SystemTime,
-}
-
-impl RawEvent {
-    /// Creates new event with current time.
-    pub fn new(id: usize, event: RawEventType) -> Self {
-        RawEvent {
-            id,
-            event,
-            time: SystemTime::now(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Gamepad event.
-pub(crate) enum RawEventType {
-    ButtonPressed(platform::EvCode),
-    ButtonReleased(platform::EvCode),
-    AxisValueChanged(i32, platform::EvCode),
-    Connected,
-    Disconnected,
-}
-
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 /// Gamepad's elements which state can be represented by value from 0.0 to 1.0.
@@ -207,7 +174,7 @@ impl Button {
     }
 
     pub fn to_nec(self) -> Option<Code> {
-        use platform::native_ev_codes as necs;
+        use gilrs_core::native_ev_codes as necs;
 
         match self {
             Button::South => Some(necs::BTN_SOUTH),
@@ -285,48 +252,6 @@ impl Axis {
             RightStickX => Some(RightStickY),
             _ => None,
         }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct AxisInfo {
-    pub min: i32,
-    pub max: i32,
-    pub deadzone: u32,
-}
-
-impl AxisInfo {
-    pub fn deadzone(&self) -> f32 {
-        let range = self.max as f32 - self.min as f32;
-
-        if range == 0.0 {
-            0.0
-        } else {
-            self.deadzone as f32 / range * 2.0
-        }
-    }
-
-    pub(crate) fn axis_value(&self, val: i32, axis: Axis) -> f32 {
-        let range = (self.max - self.min) as f32;
-        let mut val = (val - self.min) as f32;
-        val = val / range * 2.0 - 1.0;
-
-        if platform::IS_Y_AXIS_REVERSED
-            && (axis == Axis::LeftStickY || axis == Axis::RightStickY || axis == Axis::DPadY)
-            && val != 0.0
-        {
-            val = -val;
-        }
-
-        utils::clamp(val, -1.0, 1.0)
-    }
-
-    pub(crate) fn btn_value(&self, val: i32) -> f32 {
-        let range = (self.max - self.min) as f32;
-        let mut val = (val - self.min) as f32;
-        val = val / range;
-
-        utils::clamp(val, 0.0, 1.0)
     }
 }
 

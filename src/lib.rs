@@ -40,8 +40,11 @@
 //!     }
 //!
 //!     // You can also use cached gamepad state
-//!     if gilrs[0].is_pressed(Button::South) {
-//!         println!("Button South is pressed (XBox - A, PS - X)");
+//!     match gilrs.gamepad(0) {
+//!         Some(gamepad) if gamepad.is_pressed(Button::South) => {
+//!             println!("Button South is pressed (XBox - A, PS - X)");
+//!         }
+//!         _ => (),
 //!     }
 //!     # break;
 //! }
@@ -88,17 +91,7 @@
 //! To build GilRs, you will need pkg-config and libudev .pc file. On some
 //! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
 
-#[cfg(target_os = "linux")]
-extern crate libc;
-#[cfg(target_os = "linux")]
-extern crate libudev_sys;
-#[cfg(target_os = "linux")]
-#[macro_use]
-extern crate nix;
-
-#[cfg(target_os = "windows")]
-extern crate winapi;
-
+extern crate gilrs_core;
 extern crate fnv;
 #[macro_use]
 extern crate log;
@@ -106,7 +99,6 @@ extern crate uuid;
 extern crate vec_map;
 
 mod gamepad;
-mod platform;
 mod constants;
 mod mapping;
 mod utils;
@@ -116,11 +108,6 @@ pub mod ev;
 
 pub use ev::{Axis, Button, Event, EventType};
 pub use ev::filter::Filter;
-pub use gamepad::{ConnectedGamepadsIterator, ConnectedGamepadsMutIterator, Error, Gamepad, Gilrs,
-                  GilrsBuilder, MappingSource, PowerInfo, Status};
+pub use gamepad::{ConnectedGamepadsIterator, Error, Gamepad, Gilrs,
+                  GilrsBuilder, MappingSource, PowerInfo};
 pub use mapping::{MappingData as Mapping, MappingError};
-
-trait AsInner<T> {
-    fn as_inner(&self) -> &T;
-    fn as_inner_mut(&mut self) -> &mut T;
-}

@@ -9,8 +9,8 @@
 mod parser;
 
 use ev::{self, Axis, AxisOrBtn, Button};
-use platform::{self, native_ev_codes as nec};
-use platform::EvCode;
+use gilrs_core::{native_ev_codes as nec};
+use gilrs_core::EvCode;
 
 use std::collections::HashMap;
 use std::env;
@@ -22,6 +22,14 @@ use uuid::Uuid;
 use vec_map::VecMap;
 
 use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, Token};
+
+/// Platform name used by SDL mappings
+#[cfg(target_os = "linux")]
+const SDL_PLATFORM_NAME: &'static str = "Linux";
+#[cfg(target_os = "windows")]
+const SDL_PLATFORM_NAME: &'static str = "Windows";
+#[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+const SDL_PLATFORM_NAME: &'static str = "Unknown";
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -158,7 +166,7 @@ impl Mapping {
             let token = token?;
 
             match token {
-                Token::Platform(platform) => if platform != platform::NAME {
+                Token::Platform(platform) => if platform != SDL_PLATFORM_NAME {
                     warn!("Mappings for different platform – {}", platform);
                 },
                 Token::Uuid(_) => (),
@@ -539,8 +547,8 @@ impl Display for MappingError {
 mod tests {
     use super::*;
     use ev::{Axis, Button};
-    use platform::EvCode;
-    use platform::native_ev_codes as nec;
+    use gilrs_core::EvCode;
+    use gilrs_core::native_ev_codes as nec;
     use uuid::Uuid;
     // Do not include platform, mapping from (with UUID modified)
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt

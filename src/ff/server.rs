@@ -13,7 +13,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use platform::FfDevice;
+use gilrs_core::FfDevice;
 
 use vec_map::VecMap;
 
@@ -255,6 +255,6 @@ fn combine_and_play(effects: &VecMap<Effect>, devices: &mut VecMap<Device>, tick
             dev,
             magnitude
         );
-        dev.inner.set_ff_state(magnitude.strong, magnitude.weak);
+        dev.inner.set_ff_state(magnitude.strong, magnitude.weak, Duration::from_millis(u64::from(TICK_DURATION) * 2));
     }
 }

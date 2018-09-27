@@ -39,7 +39,7 @@ gilrs = "0.6.1"
 ```rust
 use gilrs::{Gilrs, Button, Event};
 
-let mut gilrs = Gilrs::new();
+let mut gilrs = Gilrs::new().unwrap();
 
 // Iterate over all connected gamepads
 for (_id, gamepad) in gilrs.gamepads() {
@@ -53,9 +53,13 @@ loop {
     }
 
     // You can also use cached gamepad state
-    if gilrs[0].is_pressed(Button::South) {
-        println!("Button South is pressed (XBox - A, PS - X)");
+    match gilrs.gamepad(0) {
+        Some(gamepad) if gamepad.is_pressed(Button::South) => {
+            println!("Button South is pressed (XBox - A, PS - X)");
+        }
+        _ => (),
     }
+    # break;
 }
 ```
 
