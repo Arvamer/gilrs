@@ -12,7 +12,7 @@ fn main() {
     Map name: {map_name:?}
     Os name: {os_name}
     UUID: {uuid}
-    Status: {status:?}
+    Is connected: {is_connected}
     Power info: {power_info:?}
     Mapping source: {mapping_source:?}
     Is ff supported: {ff}
@@ -30,7 +30,7 @@ fn main() {
             map_name = gamepad.map_name(),
             os_name = gamepad.os_name(),
             uuid = Uuid::from_bytes(gamepad.uuid()).to_hyphenated(),
-            status = gamepad.status(),
+            is_connected = gamepad.is_connected(),
             power_info = gamepad.power_info(),
             mapping_source = gamepad.mapping_source(),
             ff = gamepad.is_ff_supported(),

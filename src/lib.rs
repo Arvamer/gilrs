@@ -109,5 +109,5 @@ pub mod ev;
 pub use ev::{Axis, Button, Event, EventType};
 pub use ev::filter::Filter;
 pub use gamepad::{ConnectedGamepadsIterator, Error, Gamepad, Gilrs,
-                  GilrsBuilder, MappingSource, PowerInfo, Status};
+                  GilrsBuilder, MappingSource, PowerInfo};
 pub use mapping::{MappingData as Mapping, MappingError};

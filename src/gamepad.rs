@@ -12,7 +12,7 @@ use ff::server::{self, Message};
 use mapping::{Mapping, MappingDb};
 use gilrs_core::{self, Error as PlatformError};
 
-pub use gilrs_core::{PowerInfo, Status};
+pub use gilrs_core::PowerInfo;
 
 use uuid::Uuid;
 
@@ -267,9 +267,9 @@ impl Gilrs {
                         }
                         RawEventType::Connected => {
                             if id == self.gamepads_data.len() {
-                                self.gamepads_data.push(GamepadData::new(id, self.tx.clone(), self.inner.gamepad(id), &self.mappings));
+                                self.gamepads_data.push(GamepadData::new(id, self.tx.clone(), self.inner.gamepad(id).unwrap(), &self.mappings));
                             } else if id < self.gamepads_data.len() {
-                                self.gamepads_data[id] = GamepadData::new(id, self.tx.clone(), self.inner.gamepad(id), &self.mappings);
+                                self.gamepads_data[id] = GamepadData::new(id, self.tx.clone(), self.inner.gamepad(id).unwrap(), &self.mappings);
                             } else {
                                 error!("Platform implementation error: got Connected event with id {}, when expected id {}", id, self.gamepads_data.len());
                             }
@@ -356,7 +356,7 @@ impl Gilrs {
     fn finish_gamepads_creation(&mut self) {
         let tx = self.tx.clone();
         for id in 0..self.inner.last_gamepad_hint() {
-            let gamepad = self.inner.gamepad(id);
+            let gamepad = self.inner.gamepad(id).unwrap();
             self.gamepads_data.push(GamepadData::new(id, tx.clone(), gamepad, &self.mappings))
         }
     }
@@ -387,7 +387,7 @@ impl Gilrs {
     pub fn gamepad<'a>(&'a self, id: usize) -> Option<Gamepad<'a>> {
         if let Some(data) = self.gamepads_data.get(id) {
             Some(Gamepad {
-                inner: self.inner.gamepad(id),
+                inner: self.inner.gamepad(id).unwrap(),
                 data,
             })
         } else {
@@ -466,30 +466,32 @@ impl Gilrs {
         mapping: &MappingData,
         name: O,
     ) -> Result<String, MappingError> {
-        let gamepad = self.inner.gamepad(gamepad_id);
+        if let Some(gamepad) = self.inner.gamepad(gamepad_id) {
+            if gamepad.is_connected() {
+                return Err(MappingError::NotConnected);
+            }
 
-        if gamepad.status() != Status::Connected {
-            return Err(MappingError::NotConnected);
+            let name = match name.into() {
+                Some(s) => s,
+                None => gamepad.name(),
+            };
+
+            let (mapping, s) = Mapping::from_data(
+                mapping,
+                gamepad.buttons(),
+                gamepad.axes(),
+                name,
+                Uuid::from_bytes(gamepad.uuid()),
+            )?;
+
+            // We checked if gamepad is connected, so it should never panic
+            let data = &mut self.gamepads_data[gamepad_id];
+            data.mapping = mapping;
+
+            Ok(s)
+        } else {
+            Err(MappingError::NotConnected)
         }
-
-        let name = match name.into() {
-            Some(s) => s,
-            None => gamepad.name(),
-        };
-
-        let (mapping, s) = Mapping::from_data(
-            mapping,
-            gamepad.buttons(),
-            gamepad.axes(),
-            name,
-            Uuid::from_bytes(gamepad.uuid()),
-        )?;
-
-        // We checked if gamepad is connected, so it should never panic
-        let data = &mut self.gamepads_data[gamepad_id];
-        data.mapping = mapping;
-
-        Ok(s)
     }
 
     /// Similar to [`set_mapping()`](#method.set_mapping) but returned string should be compatible
@@ -718,14 +720,6 @@ impl<'a> Gamepad<'a> {
     /// Returns cached gamepad state.
     pub fn state(&self) -> &GamepadState {
         &self.data.state
-    }
-
-    /// Returns current gamepad's status, which can be `Connected`, `Disconnected`. Only connected
-    /// gamepads generate events. Disconnected gamepads retain their name and UUID. Cached state of
-    /// disconnected gamepads is 0 (false for buttons and 0.0 for axis) and all actions preformed on
-    /// such gamepad are no-op.
-    pub fn status(&self) -> Status {
-        self.inner.status()
     }
 
     /// Returns true if gamepad is connected.

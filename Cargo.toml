@@ -19,7 +19,7 @@ vec_map = "0.8"
 uuid = "0.7.0"
 log = "0.4.1"
 fnv = "1.0"
-gilrs-core = { git = "https://gitlab.com/gilrs-project/gilrs-core" }
+gilrs-core = { git = "https://gitlab.com/gilrs-project/gilrs-core", rev = "313eea78878701e87787ee0c97aa77ee3238577e" }
 
 [dev-dependencies]
 env_logger = "0.5.3"
