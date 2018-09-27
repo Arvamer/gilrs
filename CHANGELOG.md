@@ -4,9 +4,30 @@ Change Log
 v0.7.0 - Unreleased
 -------------------
 
+### Added
+
+- `Gilrs::gamepad(id) -> Option<Gamepad<'_>'`. This function is replacement
+  for `Index` operator and will return `Some(gamepad)` if gamepad is
+  currently disconnected. `None` is only returned if gamepad with given id
+  has never existed.
+
 ### Changed
 
 - Change `Gamepad::uuid -> Uuid` to `Gamepad::uuid -> [u8; 16]`
+- `gilrs` now uses `gilrs-core` crate as backend. Because of it,
+  there are some breaking changes to API.
+- Functions that returned `&Gamepad` now return `Gamepad<'_>` proxy object.
+- Renamed `Gilrs::get(id)` to `Gilrs::connected_gamepad(id)`.
+- Moved `Gamepad::set_mapping{,_strict}()` to `Gilrs`. These functions now
+  also take gamepad id as additional argument.
+
+### Removed
+
+- All functions that returned `&mut Gamepad`.
+- `Gilrs` no longer implements `Index` and `IndexMut` operators. Use
+  `Gilrs::gamepad(id)` instead.
+- `Gamepad::status()` and `Status` enum. `Gamepad::is_connected()` is
+  now sufficient to determine status of gamepad.
 
 v0.6.1 - 2018-07-18
 -------------------
