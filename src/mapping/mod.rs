@@ -9,7 +9,7 @@
 mod parser;
 
 use ev::{self, Axis, AxisOrBtn, Button};
-use gilrs_core::{native_ev_codes as nec};
+use gilrs_core::native_ev_codes as nec;
 use gilrs_core::EvCode;
 
 use std::collections::HashMap;
@@ -49,7 +49,7 @@ impl Mapping {
             mappings: FnvHashMap::default(),
             name: String::new(),
             default: false,
-            hats_mapped: 0
+            hats_mapped: 0,
         }
     }
 
@@ -172,7 +172,8 @@ impl Mapping {
                 Token::Uuid(_) => (),
                 Token::Name(name) => mapping.name = name.to_owned(),
                 Token::AxisMapping { from, to, .. } => {
-                    let axis = axes.get(from as usize)
+                    let axis = axes
+                        .get(from as usize)
                         .cloned()
                         .ok_or(ParseSdlMappingError::InvalidAxis)?;
                     mapping.mappings.insert(axis, to);
@@ -248,7 +249,8 @@ impl Mapping {
         sdl_mappings: &mut String,
         mappings: &mut FnvHashMap<EvCode, AxisOrBtn>,
     ) -> Result<(), MappingError> {
-        let n_axis = axes.iter()
+        let n_axis = axes
+            .iter()
             .position(|&x| x == ev_code)
             .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
         sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
@@ -547,8 +549,8 @@ impl Display for MappingError {
 mod tests {
     use super::*;
     use ev::{Axis, Button};
-    use gilrs_core::EvCode;
     use gilrs_core::native_ev_codes as nec;
+    use gilrs_core::EvCode;
     use uuid::Uuid;
     // Do not include platform, mapping from (with UUID modified)
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt

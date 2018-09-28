@@ -255,6 +255,10 @@ fn combine_and_play(effects: &VecMap<Effect>, devices: &mut VecMap<Device>, tick
             dev,
             magnitude
         );
-        dev.inner.set_ff_state(magnitude.strong, magnitude.weak, Duration::from_millis(u64::from(TICK_DURATION) * 2));
+        dev.inner.set_ff_state(
+            magnitude.strong,
+            magnitude.weak,
+            Duration::from_millis(u64::from(TICK_DURATION) * 2),
+        );
     }
 }

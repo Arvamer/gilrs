@@ -92,7 +92,8 @@ impl GamepadState {
     }
 
     pub(crate) fn set_btn_repeating(&mut self, btn: Code, counter: u64, timestamp: SystemTime) {
-        let data = self.buttons
+        let data = self
+            .buttons
             .entry(btn)
             .or_insert_with(|| ButtonData::new(1.0, true, true, counter, timestamp));
         data.is_repeating = true;
@@ -107,7 +108,8 @@ impl GamepadState {
         counter: u64,
         timestamp: SystemTime,
     ) {
-        let data = self.buttons
+        let data = self
+            .buttons
             .entry(btn)
             .or_insert_with(|| ButtonData::new(value, false, false, counter, timestamp));
         data.value = value;

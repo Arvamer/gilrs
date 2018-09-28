@@ -8,8 +8,8 @@
 extern crate env_logger;
 extern crate gilrs;
 
-use gilrs::{Axis, Button, EventType, Gilrs};
 use gilrs::ff::{BaseEffect, BaseEffectType, DistanceModel, EffectBuilder};
+use gilrs::{Axis, Button, EventType, Gilrs};
 
 use std::io::{self, Write};
 use std::thread;
@@ -85,12 +85,10 @@ fn main() {
         .add_effect(BaseEffect {
             kind: BaseEffectType::Strong { magnitude: 45_000 },
             ..Default::default()
-        })
-        .add_effect(BaseEffect {
+        }).add_effect(BaseEffect {
             kind: BaseEffectType::Weak { magnitude: 45_000 },
             ..Default::default()
-        })
-        .distance_model(DistanceModel::None)
+        }).distance_model(DistanceModel::None)
         .gamepads(&support_ff)
         .clone();
 
@@ -150,7 +148,11 @@ fn main() {
                     pos[1] += velocity * sy.signum();
                 }
 
-                gilrs.gamepad(idx).unwrap().set_listener_position(*pos).unwrap();
+                gilrs
+                    .gamepad(idx)
+                    .unwrap()
+                    .set_listener_position(*pos)
+                    .unwrap();
 
                 let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
                 print!(

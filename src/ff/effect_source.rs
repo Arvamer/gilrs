@@ -5,9 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{fmt, u16};
 use std::error::Error;
 use std::ops::{AddAssign, Mul};
+use std::{fmt, u16};
 
 use super::base_effect::{BaseEffect, BaseEffectType};
 use super::time::{Repeat, Ticks};
@@ -219,7 +219,8 @@ pub enum DistanceModelError {
     InvalidMaxDistance,
     /// Possible divide by zero
     InvalidModelParameter,
-    #[doc(hidden)] __Nonexhaustive,
+    #[doc(hidden)]
+    __Nonexhaustive,
 }
 
 impl Error for DistanceModelError {
@@ -296,8 +297,10 @@ impl EffectSource {
             _ => (),
         }
 
-        let attenuation = self.distance_model
-            .attenuation(self.position.distance(actor_pos)) * self.gain;
+        let attenuation = self
+            .distance_model
+            .attenuation(self.position.distance(actor_pos))
+            * self.gain;
         if attenuation < 0.05 {
             return Magnitude::zero();
         }

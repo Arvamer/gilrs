@@ -133,9 +133,13 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
                 None => return ev,
             };
 
-            if let Some((other, other_code)) = axis.second_axis()
-                .and_then(|axis| gilrs.gamepad(id).unwrap().axis_code(axis).map(|code| (axis, code)))
-            {
+            if let Some((other, other_code)) = axis.second_axis().and_then(|axis| {
+                gilrs
+                    .gamepad(id)
+                    .unwrap()
+                    .axis_code(axis)
+                    .map(|code| (axis, code))
+            }) {
                 let other_val = gilrs.gamepad(id).unwrap().state().value(other_code);
                 let val = apply_deadzone(val, other_val, threshold);
 
@@ -225,7 +229,8 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             event: EventType::AxisChanged(Axis::DPadX, val, _),
             id,
             time,
-        }) if can_map(&gilrs.gamepad(id).unwrap()) =>
+        })
+            if can_map(&gilrs.gamepad(id).unwrap()) =>
         {
             Some(if val == 1.0 {
                 Event {
@@ -239,7 +244,12 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     time,
                     event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
                 }
-            } else if gilrs.gamepad(id).unwrap().state().is_pressed(Code(necs::BTN_DPAD_RIGHT)) {
+            } else if gilrs
+                .gamepad(id)
+                .unwrap()
+                .state()
+                .is_pressed(Code(necs::BTN_DPAD_RIGHT))
+            {
                 Event {
                     id,
                     time,
@@ -257,7 +267,8 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             event: EventType::AxisChanged(Axis::DPadY, val, _),
             id,
             time,
-        }) if can_map(&gilrs.gamepad(id).unwrap()) =>
+        })
+            if can_map(&gilrs.gamepad(id).unwrap()) =>
         {
             Some(if val == 1.0 {
                 Event {
@@ -271,7 +282,12 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     time,
                     event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
                 }
-            } else if gilrs.gamepad(id).unwrap().state().is_pressed(Code(necs::BTN_DPAD_UP)) {
+            } else if gilrs
+                .gamepad(id)
+                .unwrap()
+                .state()
+                .is_pressed(Code(necs::BTN_DPAD_UP))
+            {
                 Event {
                     id,
                     time,

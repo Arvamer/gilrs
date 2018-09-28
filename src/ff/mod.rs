@@ -49,21 +49,21 @@
 //!
 //! See [`examples/ff_pos.rs`](https://gitlab.com/gilrs-project/gilrs/blob/v0.6.1/examples/ff_pos.rs) for
 //! more advanced example.
-pub(crate) mod server;
 mod base_effect;
 mod effect_source;
+pub(crate) mod server;
 mod time;
 
 pub use self::base_effect::{BaseEffect, BaseEffectType, Envelope, Replay};
 pub use self::effect_source::{DistanceModel, DistanceModelError};
-pub use self::time::{Repeat, Ticks};
 #[allow(unused_imports)]
 pub(crate) use self::time::TICK_DURATION;
+pub use self::time::{Repeat, Ticks};
 
-use std::{fmt, f32};
 use std::error::Error as StdError;
 use std::hash::{Hash, Hasher};
 use std::sync::mpsc::{SendError, Sender};
+use std::{f32, fmt};
 
 use self::effect_source::EffectSource;
 use ff::server::Message;
@@ -342,7 +342,8 @@ pub enum Error {
     SendFailed,
     /// Unexpected error has occurred
     Other,
-    #[doc(hidden)] __Nonexhaustive,
+    #[doc(hidden)]
+    __Nonexhaustive,
 }
 
 impl StdError for Error {

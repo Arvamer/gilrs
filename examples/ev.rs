@@ -8,8 +8,8 @@
 extern crate env_logger;
 extern crate gilrs;
 
-use gilrs::GilrsBuilder;
 use gilrs::ev::filter::{Filter, Repeat};
+use gilrs::GilrsBuilder;
 
 use std::process;
 use std::thread;

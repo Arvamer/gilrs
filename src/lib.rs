@@ -91,23 +91,24 @@
 //! To build GilRs, you will need pkg-config and libudev .pc file. On some
 //! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
 
-extern crate gilrs_core;
 extern crate fnv;
+extern crate gilrs_core;
 #[macro_use]
 extern crate log;
 extern crate uuid;
 extern crate vec_map;
 
-mod gamepad;
 mod constants;
+mod gamepad;
 mod mapping;
 mod utils;
 
-pub mod ff;
 pub mod ev;
+pub mod ff;
 
-pub use ev::{Axis, Button, Event, EventType};
 pub use ev::filter::Filter;
-pub use gamepad::{ConnectedGamepadsIterator, Error, Gamepad, Gilrs,
-                  GilrsBuilder, MappingSource, PowerInfo};
+pub use ev::{Axis, Button, Event, EventType};
+pub use gamepad::{
+    ConnectedGamepadsIterator, Error, Gamepad, Gilrs, GilrsBuilder, MappingSource, PowerInfo,
+};
 pub use mapping::{MappingData as Mapping, MappingError};

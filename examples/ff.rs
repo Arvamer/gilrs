@@ -8,8 +8,8 @@
 extern crate env_logger;
 extern crate gilrs;
 
-use gilrs::Gilrs;
 use gilrs::ff::{BaseEffect, BaseEffectType, EffectBuilder, Replay, Ticks};
+use gilrs::Gilrs;
 use std::thread;
 use std::time::Duration;
 
@@ -31,8 +31,7 @@ fn main() {
                 ..Default::default()
             },
             envelope: Default::default(),
-        })
-        .add_effect(BaseEffect {
+        }).add_effect(BaseEffect {
             kind: BaseEffectType::Weak { magnitude: 60_000 },
             scheduling: Replay {
                 after: duration * 2,
@@ -40,8 +39,7 @@ fn main() {
                 with_delay: duration * 3,
             },
             ..Default::default()
-        })
-        .gamepads(&support_ff)
+        }).gamepads(&support_ff)
         .finish(&mut gilrs)
         .unwrap();
     effect.play().unwrap();

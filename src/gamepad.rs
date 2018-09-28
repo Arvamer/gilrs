@@ -5,26 +5,26 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
 use ev::state::{AxisData, ButtonData, GamepadState};
-use ff::Error as FfError;
+use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
 use ff::server::{self, Message};
-use mapping::{Mapping, MappingDb};
+use ff::Error as FfError;
 use gilrs_core::{self, Error as PlatformError};
+use mapping::{Mapping, MappingDb};
 
 pub use gilrs_core::PowerInfo;
 
 use uuid::Uuid;
 
+use gilrs_core::AxisInfo;
+use gilrs_core::Event as RawEvent;
+use gilrs_core::EventType as RawEventType;
+use mapping::MappingData;
 use std::collections::VecDeque;
 use std::error;
 use std::fmt::{self, Display};
 use std::sync::mpsc::Sender;
-use gilrs_core::EventType as RawEventType;
-use gilrs_core::Event as RawEvent;
-use gilrs_core::AxisInfo;
 use utils;
-use mapping::MappingData;
 use MappingError;
 
 /// Main object responsible of managing gamepads.
@@ -141,7 +141,8 @@ impl Gilrs {
         let ev = if self.default_filters {
             let jitter_filter = Jitter::new();
             loop {
-                let ev = self.next_event_priv()
+                let ev = self
+                    .next_event_priv()
                     .filter_ev(&axis_dpad_to_button, self)
                     .filter_ev(&jitter_filter, self)
                     .filter_ev(&deadzone, self);
@@ -224,7 +225,13 @@ impl Gilrs {
                         }
                         RawEventType::AxisValueChanged(val, nec) => {
                             // Let's trust at least our backend code
-                            let axis_info = self.gamepad(id).unwrap().inner.axis_info(nec).unwrap().clone();
+                            let axis_info = self
+                                .gamepad(id)
+                                .unwrap()
+                                .inner
+                                .axis_info(nec)
+                                .unwrap()
+                                .clone();
                             let nec = Code(nec);
 
                             match self.gamepad(id).unwrap().axis_or_btn_name(nec) {
@@ -267,11 +274,26 @@ impl Gilrs {
                         }
                         RawEventType::Connected => {
                             if id == self.gamepads_data.len() {
-                                self.gamepads_data.push(GamepadData::new(id, self.tx.clone(), self.inner.gamepad(id).unwrap(), &self.mappings));
+                                self.gamepads_data.push(GamepadData::new(
+                                    id,
+                                    self.tx.clone(),
+                                    self.inner.gamepad(id).unwrap(),
+                                    &self.mappings,
+                                ));
                             } else if id < self.gamepads_data.len() {
-                                self.gamepads_data[id] = GamepadData::new(id, self.tx.clone(), self.inner.gamepad(id).unwrap(), &self.mappings);
+                                self.gamepads_data[id] = GamepadData::new(
+                                    id,
+                                    self.tx.clone(),
+                                    self.inner.gamepad(id).unwrap(),
+                                    &self.mappings,
+                                );
                             } else {
-                                error!("Platform implementation error: got Connected event with id {}, when expected id {}", id, self.gamepads_data.len());
+                                error!(
+                                    "Platform implementation error: got Connected event with id \
+                                     {}, when expected id {}",
+                                    id,
+                                    self.gamepads_data.len()
+                                );
                             }
 
                             EventType::Connected
@@ -306,14 +328,10 @@ impl Gilrs {
 
         match event.event {
             ButtonPressed(_, nec) => {
-                data
-                    .state
-                    .set_btn_pressed(nec, true, counter, event.time);
+                data.state.set_btn_pressed(nec, true, counter, event.time);
             }
             ButtonReleased(_, nec) => {
-                data
-                    .state
-                    .set_btn_pressed(nec, false, counter, event.time);
+                data.state.set_btn_pressed(nec, false, counter, event.time);
             }
             ButtonRepeated(_, nec) => {
                 data.state.set_btn_repeating(nec, counter, event.time);
@@ -322,8 +340,7 @@ impl Gilrs {
                 data.state.set_btn_value(nec, value, counter, event.time);
             }
             AxisChanged(_, value, nec) => {
-                data
-                    .state
+                data.state
                     .update_axis(nec, AxisData::new(value, counter, event.time));
             }
             Disconnected | Connected | Dropped => (),
@@ -357,7 +374,8 @@ impl Gilrs {
         let tx = self.tx.clone();
         for id in 0..self.inner.last_gamepad_hint() {
             let gamepad = self.inner.gamepad(id).unwrap();
-            self.gamepads_data.push(GamepadData::new(id, tx.clone(), gamepad, &self.mappings))
+            self.gamepads_data
+                .push(GamepadData::new(id, tx.clone(), gamepad, &self.mappings))
         }
     }
 
@@ -399,7 +417,7 @@ impl Gilrs {
     pub fn connected_gamepad(&self, id: usize) -> Option<Gamepad> {
         match self.gamepad(id) {
             Some(gamepad) if gamepad.is_connected() => Some(gamepad),
-            _ => None
+            _ => None,
         }
     }
 
@@ -507,12 +525,13 @@ impl Gilrs {
         mapping: &MappingData,
         name: O,
     ) -> Result<String, MappingError> {
-        if mapping.button(Button::C).is_some() || mapping.button(Button::Z).is_some()
+        if mapping.button(Button::C).is_some()
+            || mapping.button(Button::Z).is_some()
             || mapping.axis(Axis::LeftZ).is_some()
             || mapping.axis(Axis::RightZ).is_some()
-            {
-                Err(MappingError::NotSdl2Compatible)
-            } else {
+        {
+            Err(MappingError::NotSdl2Compatible)
+        } else {
             self.set_mapping(gamepad_id, mapping, name)
         }
     }
@@ -614,8 +633,10 @@ impl GilrsBuilder {
             self.mappings.add_included_mappings();
         }
 
-        if self.axis_to_btn_pressed <= self.axis_to_btn_released || self.axis_to_btn_pressed < 0.0
-            || self.axis_to_btn_pressed > 1.0 || self.axis_to_btn_released < 0.0
+        if self.axis_to_btn_pressed <= self.axis_to_btn_released
+            || self.axis_to_btn_pressed < 0.0
+            || self.axis_to_btn_pressed > 1.0
+            || self.axis_to_btn_released < 0.0
             || self.axis_to_btn_released > 1.0
         {
             return Err(Error::InvalidAxisToBtn);
@@ -856,13 +877,7 @@ impl GamepadData {
     fn new(id: usize, tx: Sender<Message>, gamepad: &gilrs_core::Gamepad, db: &MappingDb) -> Self {
         let mapping = db
             .get(Uuid::from_bytes(gamepad.uuid()))
-            .and_then(|s| {
-                Mapping::parse_sdl_mapping(
-                    s,
-                    gamepad.buttons(),
-                    gamepad.axes(),
-                ).ok()
-            })
+            .and_then(|s| Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()).ok())
             .unwrap_or_default();
 
         if gamepad.is_ff_supported() {
@@ -979,7 +994,8 @@ fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
 
     if gilrs_core::IS_Y_AXIS_REVERSED
         && (axis == Axis::LeftStickY || axis == Axis::RightStickY || axis == Axis::DPadY)
-        && val != 0.0 {
+        && val != 0.0
+    {
         val = -val;
     }
 
@@ -1035,4 +1051,3 @@ impl error::Error for Error {
         }
     }
 }
-

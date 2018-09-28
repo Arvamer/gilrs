@@ -261,7 +261,7 @@ impl<'a> Parser<'a> {
             }
             _ => return Err(Error::new(ErrorKind::InvalidValue, pos)),
         }.parse::<u16>()
-            .or(Err(Error::new(ErrorKind::InvalidValue, pos)))?;
+        .or(Err(Error::new(ErrorKind::InvalidValue, pos)))?;
 
         if is_axis {
             let key = match key.get(0..1) {
