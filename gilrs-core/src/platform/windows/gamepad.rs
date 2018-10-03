@@ -1,0 +1,555 @@
+// Copyright 2016-2018 Mateusz Sieczko and other GilRs Developers
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+use super::FfDevice;
+use {AxisInfo, Event, EventType, PlatformError};
+
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::time::Duration;
+use std::{mem, thread, u16, u32};
+use uuid::Uuid;
+use winapi::shared::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
+use winapi::um::xinput::{
+    self, XINPUT_BATTERY_INFORMATION as XBatteryInfo, XINPUT_GAMEPAD as XGamepad, XINPUT_GAMEPAD_A,
+    XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT,
+    XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_LEFT_SHOULDER,
+    XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB,
+    XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y, XINPUT_STATE as XState,
+};
+use PowerInfo;
+
+// Chosen by dice roll ;)
+const EVENT_THREAD_SLEEP_TIME: u64 = 10;
+const ITERATIONS_TO_CHECK_IF_CONNECTED: u64 = 100;
+
+#[derive(Debug)]
+pub struct Gilrs {
+    gamepads: [Gamepad; 4],
+    rx: Receiver<Event>,
+}
+
+impl Gilrs {
+    pub(crate) fn new() -> Result<Self, PlatformError> {
+        let gamepads = [
+            Gamepad::new(0),
+            Gamepad::new(1),
+            Gamepad::new(2),
+            Gamepad::new(3),
+        ];
+
+        let connected = [
+            gamepads[0].is_connected,
+            gamepads[1].is_connected,
+            gamepads[2].is_connected,
+            gamepads[3].is_connected,
+        ];
+
+        unsafe { xinput::XInputEnable(1) };
+        let (tx, rx) = mpsc::channel();
+        Self::spawn_thread(tx, connected);
+
+        Ok(Gilrs { gamepads, rx })
+    }
+
+    pub(crate) fn next_event(&mut self) -> Option<Event> {
+        self.rx.try_recv().ok()
+    }
+
+    pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
+        self.gamepads.get(id)
+    }
+
+    pub fn last_gamepad_hint(&self) -> usize {
+        self.gamepads.len()
+    }
+
+    fn spawn_thread(tx: Sender<Event>, connected: [bool; 4]) {
+        thread::spawn(move || unsafe {
+            let mut prev_state = mem::zeroed::<XState>();
+            let mut state = mem::zeroed::<XState>();
+            let mut connected = connected;
+            let mut counter = 0;
+
+            loop {
+                for id in 0..4 {
+                    if *connected.get_unchecked(id)
+                        || counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
+                    {
+                        let val = xinput::XInputGetState(id as u32, &mut state);
+
+                        if val == ERROR_SUCCESS {
+                            if !connected.get_unchecked(id) {
+                                *connected.get_unchecked_mut(id) = true;
+                                let _ = tx.send(Event::new(id, EventType::Connected));
+                            }
+
+                            if state.dwPacketNumber != prev_state.dwPacketNumber {
+                                Self::compare_state(id, &state.Gamepad, &prev_state.Gamepad, &tx);
+                                prev_state = state;
+                            }
+                        } else if val == ERROR_DEVICE_NOT_CONNECTED && *connected.get_unchecked(id)
+                        {
+                            *connected.get_unchecked_mut(id) = false;
+                            let _ = tx.send(Event::new(id, EventType::Disconnected));
+                        }
+                    }
+                }
+
+                counter = counter.wrapping_add(1);
+                thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
+            }
+        });
+    }
+
+    fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<Event>) {
+        if g.bLeftTrigger != pg.bLeftTrigger {
+            let _ = tx.send(Event::new(
+                id,
+                EventType::AxisValueChanged(g.bLeftTrigger as i32, ::native_ev_codes::AXIS_LT2),
+            ));
+        }
+        if g.bRightTrigger != pg.bRightTrigger {
+            let _ = tx.send(Event::new(
+                id,
+                EventType::AxisValueChanged(g.bRightTrigger as i32, ::native_ev_codes::AXIS_RT2),
+            ));
+        }
+        if g.sThumbLX != pg.sThumbLX {
+            let _ = tx.send(Event::new(
+                id,
+                EventType::AxisValueChanged(g.sThumbLX as i32, ::native_ev_codes::AXIS_LSTICKX),
+            ));
+        }
+        if g.sThumbLY != pg.sThumbLY {
+            let _ = tx.send(Event::new(
+                id,
+                EventType::AxisValueChanged(g.sThumbLY as i32, ::native_ev_codes::AXIS_LSTICKY),
+            ));
+        }
+        if g.sThumbRX != pg.sThumbRX {
+            let _ = tx.send(Event::new(
+                id,
+                EventType::AxisValueChanged(g.sThumbRX as i32, ::native_ev_codes::AXIS_RSTICKX),
+            ));
+        }
+        if g.sThumbRY != pg.sThumbRY {
+            let _ = tx.send(Event::new(
+                id,
+                EventType::AxisValueChanged(g.sThumbRY as i32, ::native_ev_codes::AXIS_RSTICKY),
+            ));
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_UP),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_UP),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_DOWN) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_DOWN != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_DOWN),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_DOWN),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_LEFT) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_LEFT != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_LEFT),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_LEFT),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_RIGHT),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_RIGHT),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_START) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_START != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_START),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_START),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_BACK) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_BACK != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_SELECT),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_SELECT),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_THUMB) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_THUMB != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_LTHUMB),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_LTHUMB),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_RTHUMB),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_RTHUMB),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_LT),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_LT),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_RT),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_RT),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_A) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_A != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_SOUTH),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_SOUTH),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_B) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_B != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_EAST),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_EAST),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_X) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_X != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_WEST),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_WEST),
+                )),
+            };
+        }
+        if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_Y) {
+            let _ = match g.wButtons & XINPUT_GAMEPAD_Y != 0 {
+                true => tx.send(Event::new(
+                    id,
+                    EventType::ButtonPressed(::native_ev_codes::BTN_NORTH),
+                )),
+                false => tx.send(Event::new(
+                    id,
+                    EventType::ButtonReleased(::native_ev_codes::BTN_NORTH),
+                )),
+            };
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Gamepad {
+    uuid: Uuid,
+    id: u32,
+    is_connected: bool,
+}
+
+impl Gamepad {
+    fn new(id: u32) -> Gamepad {
+        let is_connected = unsafe {
+            let mut state = mem::zeroed::<XState>();
+            if xinput::XInputGetState(id, &mut state) == ERROR_SUCCESS {
+                true
+            } else {
+                false
+            }
+        };
+
+        let gamepad = Gamepad {
+            uuid: Uuid::nil(),
+            id,
+            is_connected,
+        };
+
+        gamepad
+    }
+
+    pub fn name(&self) -> &str {
+        "Xbox Controller"
+    }
+
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
+    }
+
+    pub fn is_connected(&self) -> bool {
+        self.is_connected
+    }
+
+    pub fn power_info(&self) -> PowerInfo {
+        unsafe {
+            let mut binfo = mem::uninitialized::<XBatteryInfo>();
+            if xinput::XInputGetBatteryInformation(
+                self.id,
+                xinput::BATTERY_DEVTYPE_GAMEPAD,
+                &mut binfo,
+            ) == ERROR_SUCCESS
+            {
+                match binfo.BatteryType {
+                    xinput::BATTERY_TYPE_WIRED => PowerInfo::Wired,
+                    xinput::BATTERY_TYPE_ALKALINE | xinput::BATTERY_TYPE_NIMH => {
+                        let lvl = match binfo.BatteryLevel {
+                            xinput::BATTERY_LEVEL_EMPTY => 0,
+                            xinput::BATTERY_LEVEL_LOW => 33,
+                            xinput::BATTERY_LEVEL_MEDIUM => 67,
+                            xinput::BATTERY_LEVEL_FULL => 100,
+                            _ => unreachable!(),
+                        };
+                        if lvl == 100 {
+                            PowerInfo::Charged
+                        } else {
+                            PowerInfo::Discharging(lvl)
+                        }
+                    }
+                    _ => PowerInfo::Unknown,
+                }
+            } else {
+                PowerInfo::Unknown
+            }
+        }
+    }
+
+    pub fn is_ff_supported(&self) -> bool {
+        true
+    }
+
+    pub fn ff_device(&self) -> Option<FfDevice> {
+        Some(FfDevice::new(self.id))
+    }
+
+    pub fn buttons(&self) -> &[EvCode] {
+        &native_ev_codes::BUTTONS
+    }
+
+    pub fn axes(&self) -> &[EvCode] {
+        &native_ev_codes::AXES
+    }
+
+    pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
+        native_ev_codes::AXES_INFO
+            .get(nec.0 as usize)
+            .and_then(|o| o.as_ref())
+    }
+}
+
+#[inline(always)]
+fn is_mask_eq(l: u16, r: u16, mask: u16) -> bool {
+    (l & mask != 0) == (r & mask != 0)
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct EvCode(u8);
+
+impl EvCode {
+    pub fn into_u32(self) -> u32 {
+        self.0 as u32
+    }
+}
+
+impl Display for EvCode {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        self.0.fmt(f)
+    }
+}
+
+pub mod native_ev_codes {
+    use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
+    use std::u8::{MAX as U8_MAX, MIN as U8_MIN};
+
+    use winapi::um::xinput::{
+        XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
+        XINPUT_GAMEPAD_TRIGGER_THRESHOLD,
+    };
+
+    use super::EvCode;
+    use AxisInfo;
+
+    pub const AXIS_LSTICKX: EvCode = EvCode(0);
+    pub const AXIS_LSTICKY: EvCode = EvCode(1);
+    pub const AXIS_LEFTZ: EvCode = EvCode(2);
+    pub const AXIS_RSTICKX: EvCode = EvCode(3);
+    pub const AXIS_RSTICKY: EvCode = EvCode(4);
+    pub const AXIS_RIGHTZ: EvCode = EvCode(5);
+    pub const AXIS_DPADX: EvCode = EvCode(6);
+    pub const AXIS_DPADY: EvCode = EvCode(7);
+    pub const AXIS_RT: EvCode = EvCode(8);
+    pub const AXIS_LT: EvCode = EvCode(9);
+    pub const AXIS_RT2: EvCode = EvCode(10);
+    pub const AXIS_LT2: EvCode = EvCode(11);
+
+    pub const BTN_SOUTH: EvCode = EvCode(12);
+    pub const BTN_EAST: EvCode = EvCode(13);
+    pub const BTN_C: EvCode = EvCode(14);
+    pub const BTN_NORTH: EvCode = EvCode(15);
+    pub const BTN_WEST: EvCode = EvCode(16);
+    pub const BTN_Z: EvCode = EvCode(17);
+    pub const BTN_LT: EvCode = EvCode(18);
+    pub const BTN_RT: EvCode = EvCode(19);
+    pub const BTN_LT2: EvCode = EvCode(20);
+    pub const BTN_RT2: EvCode = EvCode(21);
+    pub const BTN_SELECT: EvCode = EvCode(22);
+    pub const BTN_START: EvCode = EvCode(23);
+    pub const BTN_MODE: EvCode = EvCode(24);
+    pub const BTN_LTHUMB: EvCode = EvCode(25);
+    pub const BTN_RTHUMB: EvCode = EvCode(26);
+
+    pub const BTN_DPAD_UP: EvCode = EvCode(27);
+    pub const BTN_DPAD_DOWN: EvCode = EvCode(28);
+    pub const BTN_DPAD_LEFT: EvCode = EvCode(29);
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode(30);
+
+    pub(super) static BUTTONS: [EvCode; 15] = [
+        BTN_SOUTH,
+        BTN_EAST,
+        BTN_NORTH,
+        BTN_WEST,
+        BTN_LT,
+        BTN_RT,
+        BTN_SELECT,
+        BTN_START,
+        BTN_MODE,
+        BTN_LTHUMB,
+        BTN_RTHUMB,
+        BTN_DPAD_UP,
+        BTN_DPAD_DOWN,
+        BTN_DPAD_LEFT,
+        BTN_DPAD_RIGHT,
+    ];
+
+    pub(super) static AXES: [EvCode; 6] = [
+        AXIS_LSTICKX,
+        AXIS_LSTICKY,
+        AXIS_RSTICKX,
+        AXIS_RSTICKY,
+        AXIS_RT2,
+        AXIS_LT2,
+    ];
+
+    pub(super) static AXES_INFO: [Option<AxisInfo>; 12] = [
+        // LeftStickX
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32,
+        }),
+        // LeftStickY
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32,
+        }),
+        // LeftZ
+        None,
+        // RightStickX
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32,
+        }),
+        // RightStickY
+        Some(AxisInfo {
+            min: I16_MIN as i32,
+            max: I16_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32,
+        }),
+        // RightZ
+        None,
+        // DPadX
+        None,
+        // DPadY
+        None,
+        // RightTrigger
+        None,
+        // LeftTrigger
+        None,
+        // RightTrigger2
+        Some(AxisInfo {
+            min: U8_MIN as i32,
+            max: U8_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32,
+        }),
+        // LeftTrigger2
+        Some(AxisInfo {
+            min: U8_MIN as i32,
+            max: U8_MAX as i32,
+            deadzone: XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32,
+        }),
+    ];
+}

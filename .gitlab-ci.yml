@@ -18,12 +18,12 @@ cache:
 build:x86_64-unknown-linux-gnu:
   stage: build
   script:
-    - cargo test --no-run --verbose
+    - cargo test --no-run --verbose --all
 
 test:x86_64-unknown-linux-gnu:
   stage: test
   script:
-    - cargo test --verbose
+    - cargo test --verbose --all
 
 build:i686-unknown-linux-gnu:
   stage: build
@@ -37,7 +37,7 @@ build:i686-unknown-linux-gnu:
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
-    - cargo test --no-run --verbose --target=i686-unknown-linux-gnu
+    - cargo test --no-run --verbose --target=i686-unknown-linux-gnu --all
 
 test:i686-unknown-linux-gnu:
   stage: test
@@ -45,7 +45,7 @@ test:i686-unknown-linux-gnu:
     PKG_CONFIG_ALLOW_CROSS: 1
   before_script: *i386_before
   script:
-    - cargo test --verbose --target=i686-unknown-linux-gnu
+    - cargo test --verbose --target=i686-unknown-linux-gnu --all
 
 pages:
   stage: deploy
