@@ -155,7 +155,12 @@ impl Gilrs {
         }
     }
 
-    /// Returns index greater than index of last connected gamepad.
+    /// Returns id greater than id of last connected gamepad. The returned value is only hint
+    /// and may be much larger than number of observed gamepads. For example, it may return maximum
+    /// number of connected gamepads on platforms when this limit is small.
+    ///
+    /// `gamepad(id)` should return `Some` if using id that is smaller than value returned from this
+    /// function.
     pub fn last_gamepad_hint(&self) -> usize {
         self.inner.last_gamepad_hint()
     }
