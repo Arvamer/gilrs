@@ -158,7 +158,7 @@ impl Gilrs {
                             self.gamepads[id].disconnect();
                             return Some(Event::new(id, EventType::Disconnected));
                         } else {
-                            info!("Could not find disconnect gamepad {:?}", devnode);
+                            debug!("Could not find disconnected gamepad {:?}", devnode);
                         }
                     }
                 }
@@ -260,7 +260,7 @@ impl Gamepad {
         };
 
         if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const c_char).is_null() } {
-            info!("Device {:?} is js interface, ignoring.", path);
+            trace!("Device {:?} is js interface, ignoring.", path);
             return None;
         }
 
@@ -317,7 +317,16 @@ impl Gamepad {
             return None;
         }
 
-        info!("Found {:#?}", gamepad);
+        info!("Gamepad {} ({}) connected.", gamepad.devpath, gamepad.name);
+        debug!(
+            "Gamepad {}: uuid: {}, ff_supported: {}, axes: {:?}, buttons: {:?}, axes_info: {:?}",
+            gamepad.devpath,
+            gamepad.uuid,
+            gamepad.ff_supported,
+            gamepad.axes,
+            gamepad.buttons,
+            gamepad.axes_info
+        );
 
         Some(gamepad)
     }
