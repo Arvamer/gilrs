@@ -8,6 +8,13 @@ extern crate nix;
 #[cfg(target_os = "linux")]
 extern crate vec_map;
 
+#[cfg(target_os = "macos")]
+extern crate core_foundation;
+#[cfg(target_os = "macos")]
+extern crate io_kit_sys;
+#[cfg(target_os = "macos")]
+extern crate vec_map;
+
 #[cfg(target_os = "windows")]
 extern crate winapi;
 
