@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 mod ff;
 mod gamepad;
+mod hid;
 
 pub use self::ff::Device as FfDevice;
 pub use self::gamepad::{native_ev_codes, EvCode, Gamepad, Gilrs};

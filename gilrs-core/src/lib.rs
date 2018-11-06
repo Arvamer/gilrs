@@ -9,6 +9,7 @@ extern crate nix;
 extern crate vec_map;
 
 #[cfg(target_os = "macos")]
+#[macro_use(impl_TCFType)]
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
 extern crate io_kit_sys;
