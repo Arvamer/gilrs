@@ -19,8 +19,13 @@ use core_foundation::runloop::{CFRunLoop, CFRunLoopMode};
 use core_foundation::set::CFSetApplyFunction;
 use core_foundation::string::{kCFStringEncodingUTF8, CFString, CFStringCreateWithCString};
 
-use io_kit_sys::hid::base::{IOHIDDeviceCallback, IOHIDDeviceRef, IOHIDValueCallback};
-use io_kit_sys::hid::device::{IOHIDDeviceGetProperty, IOHIDDeviceGetTypeID};
+use io_kit_sys::hid::base::{
+    IOHIDDeviceCallback, IOHIDDeviceRef, IOHIDElementRef, IOHIDValueCallback,
+};
+use io_kit_sys::hid::device::{
+    IOHIDDeviceCopyMatchingElements, IOHIDDeviceGetProperty, IOHIDDeviceGetTypeID,
+};
+use io_kit_sys::hid::element::*;
 use io_kit_sys::hid::keys::*;
 use io_kit_sys::hid::manager::*;
 use io_kit_sys::hid::usage_tables::*;
@@ -28,6 +33,7 @@ use io_kit_sys::ret::{kIOReturnSuccess, IOReturn};
 
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
+use std::ptr;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -257,6 +263,30 @@ impl IOHIDDevice {
             None => None,
         }
     }
+
+    pub fn get_elements(&self) -> Vec<IOHIDElement> {
+        let elements =
+            unsafe { IOHIDDeviceCopyMatchingElements(self.0, ptr::null(), kIOHIDOptionsTypeNone) };
+
+        if elements.is_null() {
+            return vec![];
+        }
+
+        let element_count = unsafe { CFArrayGetCount(elements) };
+        let mut vec = Vec::with_capacity(element_count as _);
+
+        for i in 0..element_count {
+            let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
+
+            if element.is_null() {
+                continue;
+            }
+
+            vec.push(IOHIDElement(element as _));
+        }
+
+        vec
+    }
 }
 
 impl Properties for IOHIDDevice {
@@ -275,6 +305,132 @@ impl Properties for IOHIDDevice {
 
 unsafe impl Send for IOHIDDevice {}
 unsafe impl Sync for IOHIDDevice {}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct IOHIDElement(IOHIDElementRef);
+
+impl_TCFType!(IOHIDElement, IOHIDElementRef, IOHIDElementGetTypeID);
+
+impl IOHIDElement {
+    pub fn is_collection_type(type_: u32) -> bool {
+        type_ == kIOHIDElementTypeCollection
+    }
+
+    pub fn is_axis(type_: u32, page: u32, usage: u32) -> bool {
+        match type_ {
+            kIOHIDElementTypeInput_Misc
+            | kIOHIDElementTypeInput_Button
+            | kIOHIDElementTypeInput_Axis => match page {
+                kHIDPage_GenericDesktop => match usage {
+                    kHIDUsage_GD_X | kHIDUsage_GD_Y | kHIDUsage_GD_Z | kHIDUsage_GD_Rx
+                    | kHIDUsage_GD_Ry | kHIDUsage_GD_Rz | kHIDUsage_GD_Slider
+                    | kHIDUsage_GD_Dial | kHIDUsage_GD_Wheel => true,
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    pub fn is_button(type_: u32, page: u32, usage: u32) -> bool {
+        match type_ {
+            kIOHIDElementTypeInput_Misc
+            | kIOHIDElementTypeInput_Button
+            | kIOHIDElementTypeInput_Axis => match page {
+                kHIDPage_GenericDesktop => match usage {
+                    kHIDUsage_GD_DPadUp
+                    | kHIDUsage_GD_DPadDown
+                    | kHIDUsage_GD_DPadRight
+                    | kHIDUsage_GD_DPadLeft
+                    | kHIDUsage_GD_Start
+                    | kHIDUsage_GD_Select
+                    | kHIDUsage_GD_SystemMainMenu => true,
+                    _ => false,
+                },
+                kHIDPage_Button | kHIDPage_Consumer => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    pub fn get_cookie(&self) -> u32 {
+        unsafe { IOHIDElementGetCookie(self.0) }
+    }
+
+    pub fn get_type(&self) -> u32 {
+        unsafe { IOHIDElementGetType(self.0) }
+    }
+
+    pub fn get_page(&self) -> u32 {
+        unsafe { IOHIDElementGetUsagePage(self.0) }
+    }
+
+    pub fn get_usage(&self) -> u32 {
+        unsafe { IOHIDElementGetUsage(self.0) }
+    }
+
+    pub fn get_logical_min(&self) -> i64 {
+        unsafe { IOHIDElementGetLogicalMin(self.0) }
+    }
+
+    pub fn get_logical_max(&self) -> i64 {
+        unsafe { IOHIDElementGetLogicalMax(self.0) }
+    }
+
+    pub fn get_calibration_dead_zone_min(&self) -> Option<i64> {
+        match self.get_number_property(kIOHIDElementCalibrationDeadZoneMinKey) {
+            Some(calibration_dead_zone_min) => calibration_dead_zone_min.to_i64(),
+            None => None,
+        }
+    }
+
+    pub fn get_calibration_dead_zone_max(&self) -> Option<i64> {
+        match self.get_number_property(kIOHIDElementCalibrationDeadZoneMaxKey) {
+            Some(calibration_dead_zone_max) => calibration_dead_zone_max.to_i64(),
+            None => None,
+        }
+    }
+
+    pub fn get_children(&self) -> Vec<IOHIDElement> {
+        let elements = unsafe { IOHIDElementGetChildren(self.0) };
+
+        if elements.is_null() {
+            return vec![];
+        }
+
+        let element_count = unsafe { CFArrayGetCount(elements) };
+        let mut vec = Vec::with_capacity(element_count as _);
+
+        for i in 0..element_count {
+            let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
+
+            if element.is_null() {
+                continue;
+            }
+
+            vec.push(IOHIDElement(element as _));
+        }
+
+        vec
+    }
+}
+
+impl Properties for IOHIDElement {
+    fn get_property(&self, key: *const c_char) -> Option<CFType> {
+        let key =
+            unsafe { CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8) };
+        let value = unsafe { IOHIDElementGetProperty(self.0, key) };
+
+        if value.is_null() {
+            None
+        } else {
+            Some(unsafe { TCFType::wrap_under_get_rule(value) })
+        }
+    }
+}
 
 trait Properties {
     fn get_string_property(&self, key: *const c_char) -> Option<CFString> {
