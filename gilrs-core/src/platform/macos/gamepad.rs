@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
+use super::hid::*;
 use super::FfDevice;
 use uuid::Uuid;
 use {AxisInfo, Event, PlatformError, PowerInfo};
@@ -79,54 +80,168 @@ impl Gamepad {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct EvCode(u16);
+pub struct EvCode {
+    page: u32,
+    usage: u32,
+}
 
 impl EvCode {
+    fn new(page: u32, usage: u32) -> Self {
+        EvCode { page, usage }
+    }
+
     pub fn into_u32(self) -> u32 {
-        self.0 as u32
+        self.page << 16 | self.usage
+    }
+}
+
+impl From<IOHIDElement> for ::EvCode {
+    fn from(e: IOHIDElement) -> Self {
+        ::EvCode(EvCode {
+            page: e.get_page(),
+            usage: e.get_usage(),
+        })
     }
 }
 
 impl Display for EvCode {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        self.0.fmt(f)
+        match self.page {
+            PAGE_GENERIC_DESKTOP => f.write_str("GENERIC_DESKTOP")?,
+            PAGE_BUTTON => f.write_str("BUTTON")?,
+            page => f.write_fmt(format_args!("PAGE_{}", page))?,
+        }
+        f.write_fmt(format_args!("({})", self.usage))
     }
 }
 
 pub mod native_ev_codes {
-    use super::EvCode;
+    use super::*;
 
-    pub const AXIS_LSTICKX: EvCode = EvCode(0);
-    pub const AXIS_LSTICKY: EvCode = EvCode(1);
-    pub const AXIS_LEFTZ: EvCode = EvCode(2);
-    pub const AXIS_RSTICKX: EvCode = EvCode(3);
-    pub const AXIS_RSTICKY: EvCode = EvCode(4);
-    pub const AXIS_RIGHTZ: EvCode = EvCode(5);
-    pub const AXIS_DPADX: EvCode = EvCode(6);
-    pub const AXIS_DPADY: EvCode = EvCode(7);
-    pub const AXIS_RT: EvCode = EvCode(8);
-    pub const AXIS_LT: EvCode = EvCode(9);
-    pub const AXIS_RT2: EvCode = EvCode(10);
-    pub const AXIS_LT2: EvCode = EvCode(11);
+    pub const AXIS_LSTICKX: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_LSTICKX,
+    };
+    pub const AXIS_LSTICKY: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_LSTICKY,
+    };
+    pub const AXIS_LEFTZ: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_LEFTZ,
+    };
+    pub const AXIS_RSTICKX: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_RSTICKX,
+    };
+    pub const AXIS_RSTICKY: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_RSTICKY,
+    };
+    pub const AXIS_RIGHTZ: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_RIGHTZ,
+    };
+    pub const AXIS_DPADX: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_DPADX,
+    };
+    pub const AXIS_DPADY: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_DPADY,
+    };
+    pub const AXIS_RT: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_RT,
+    };
+    pub const AXIS_LT: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_LT,
+    };
+    pub const AXIS_RT2: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_RT2,
+    };
+    pub const AXIS_LT2: EvCode = EvCode {
+        page: super::PAGE_GENERIC_DESKTOP,
+        usage: super::USAGE_AXIS_LT2,
+    };
 
-    pub const BTN_SOUTH: EvCode = EvCode(12);
-    pub const BTN_EAST: EvCode = EvCode(13);
-    pub const BTN_C: EvCode = EvCode(14);
-    pub const BTN_NORTH: EvCode = EvCode(15);
-    pub const BTN_WEST: EvCode = EvCode(16);
-    pub const BTN_Z: EvCode = EvCode(17);
-    pub const BTN_LT: EvCode = EvCode(18);
-    pub const BTN_RT: EvCode = EvCode(19);
-    pub const BTN_LT2: EvCode = EvCode(20);
-    pub const BTN_RT2: EvCode = EvCode(21);
-    pub const BTN_SELECT: EvCode = EvCode(22);
-    pub const BTN_START: EvCode = EvCode(23);
-    pub const BTN_MODE: EvCode = EvCode(24);
-    pub const BTN_LTHUMB: EvCode = EvCode(25);
-    pub const BTN_RTHUMB: EvCode = EvCode(26);
+    pub const BTN_SOUTH: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_SOUTH,
+    };
+    pub const BTN_EAST: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_EAST,
+    };
+    pub const BTN_C: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_C,
+    };
+    pub const BTN_NORTH: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_NORTH,
+    };
+    pub const BTN_WEST: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_WEST,
+    };
+    pub const BTN_Z: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_Z,
+    };
+    pub const BTN_LT: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_LT,
+    };
+    pub const BTN_RT: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_RT,
+    };
+    pub const BTN_LT2: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_LT2,
+    };
+    pub const BTN_RT2: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_RT2,
+    };
+    pub const BTN_SELECT: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_SELECT,
+    };
+    pub const BTN_START: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_START,
+    };
+    pub const BTN_MODE: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_MODE,
+    };
+    pub const BTN_LTHUMB: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_LTHUMB,
+    };
+    pub const BTN_RTHUMB: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_RTHUMB,
+    };
 
-    pub const BTN_DPAD_UP: EvCode = EvCode(27);
-    pub const BTN_DPAD_DOWN: EvCode = EvCode(28);
-    pub const BTN_DPAD_LEFT: EvCode = EvCode(29);
-    pub const BTN_DPAD_RIGHT: EvCode = EvCode(30);
+    pub const BTN_DPAD_UP: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_DPAD_UP,
+    };
+    pub const BTN_DPAD_DOWN: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_DPAD_DOWN,
+    };
+    pub const BTN_DPAD_LEFT: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_DPAD_LEFT,
+    };
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode {
+        page: super::PAGE_BUTTON,
+        usage: super::USAGE_BTN_DPAD_RIGHT,
+    };
 }

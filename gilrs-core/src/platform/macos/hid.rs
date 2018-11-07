@@ -510,3 +510,52 @@ fn create_hid_device_matcher(page: u32, usage: u32) -> CFDictionary<CFString, CF
 extern "C" fn cf_set_applier(value: *const c_void, context: *const c_void) {
     unsafe { CFArrayAppendValue(context as _, value) };
 }
+
+// Usage Pages
+pub const PAGE_GENERIC_DESKTOP: u32 = kHIDPage_GenericDesktop;
+pub const PAGE_BUTTON: u32 = kHIDPage_Button;
+
+// GenericDesktop Page (0x01)
+pub const USAGE_AXIS_LSTICKX: u32 = kHIDUsage_GD_X;
+pub const USAGE_AXIS_LSTICKY: u32 = kHIDUsage_GD_Y;
+#[allow(dead_code)]
+pub const USAGE_AXIS_LEFTZ: u32 = 0;
+pub const USAGE_AXIS_RSTICKX: u32 = kHIDUsage_GD_Rx;
+pub const USAGE_AXIS_RSTICKY: u32 = kHIDUsage_GD_Ry;
+#[allow(dead_code)]
+pub const USAGE_AXIS_RIGHTZ: u32 = 0;
+#[allow(dead_code)]
+pub const USAGE_AXIS_DPADX: u32 = 0;
+#[allow(dead_code)]
+pub const USAGE_AXIS_DPADY: u32 = 0;
+#[allow(dead_code)]
+pub const USAGE_AXIS_RT: u32 = 0;
+#[allow(dead_code)]
+pub const USAGE_AXIS_LT: u32 = 0;
+pub const USAGE_AXIS_RT2: u32 = kHIDUsage_GD_Z;
+pub const USAGE_AXIS_LT2: u32 = kHIDUsage_GD_Rz;
+
+// Button Page (0x09)
+pub const USAGE_BTN_SOUTH: u32 = kHIDUsage_Button_1;
+pub const USAGE_BTN_EAST: u32 = kHIDUsage_Button_1 + 1;
+pub const USAGE_BTN_NORTH: u32 = kHIDUsage_Button_1 + 2;
+pub const USAGE_BTN_WEST: u32 = kHIDUsage_Button_1 + 3;
+pub const USAGE_BTN_LT: u32 = kHIDUsage_Button_1 + 4;
+pub const USAGE_BTN_RT: u32 = kHIDUsage_Button_1 + 5;
+pub const USAGE_BTN_LT2: u32 = kHIDUsage_Button_1 + 6;
+pub const USAGE_BTN_RT2: u32 = kHIDUsage_Button_1 + 7;
+pub const USAGE_BTN_START: u32 = kHIDUsage_Button_1 + 8;
+pub const USAGE_BTN_SELECT: u32 = kHIDUsage_Button_1 + 9;
+pub const USAGE_BTN_MODE: u32 = kHIDUsage_Button_1 + 10;
+pub const USAGE_BTN_DPAD_UP: u32 = kHIDUsage_Button_1 + 11;
+pub const USAGE_BTN_DPAD_DOWN: u32 = kHIDUsage_Button_1 + 12;
+pub const USAGE_BTN_DPAD_LEFT: u32 = kHIDUsage_Button_1 + 13;
+pub const USAGE_BTN_DPAD_RIGHT: u32 = kHIDUsage_Button_1 + 14;
+#[allow(dead_code)]
+pub const USAGE_BTN_C: u32 = kHIDUsage_Button_1 + 15;
+#[allow(dead_code)]
+pub const USAGE_BTN_Z: u32 = kHIDUsage_Button_1 + 16;
+#[allow(dead_code)]
+pub const USAGE_BTN_LTHUMB: u32 = kHIDUsage_Button_1 + 17;
+#[allow(dead_code)]
+pub const USAGE_BTN_RTHUMB: u32 = kHIDUsage_Button_1 + 18;
