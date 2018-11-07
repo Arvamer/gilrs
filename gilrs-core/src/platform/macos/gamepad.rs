@@ -11,6 +11,12 @@ use super::FfDevice;
 use uuid::Uuid;
 use {AxisInfo, Event, PlatformError, PowerInfo};
 
+use io_kit_sys::hid::usage_tables::{
+    kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad, kHIDUsage_GD_Joystick,
+    kHIDUsage_GD_MultiAxisController,
+};
+use vec_map::VecMap;
+
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug)]
@@ -37,16 +43,209 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    _priv: (),
+    name: String,
+    uuid: Uuid,
+    location_id: u32,
+    page: u32,
+    usage: u32,
+    axes_info: VecMap<AxisInfo>,
+    axes: Vec<EvCode>,
+    buttons: Vec<EvCode>,
+    is_connected: bool,
 }
 
 impl Gamepad {
+    fn open(device: IOHIDDevice) -> Option<Gamepad> {
+        let location_id = match device.get_location_id() {
+            Some(location_id) => location_id,
+            None => {
+                error!("Failed to get location id of device");
+                return None;
+            }
+        };
+
+        let page = match device.get_page() {
+            Some(page) => if page == kHIDPage_GenericDesktop {
+                page
+            } else {
+                error!("Failed to get valid device: {:?}", page);
+                return None;
+            },
+            None => {
+                error!("Failed to get page of device");
+                return None;
+            }
+        };
+
+        let usage = match device.get_usage() {
+            Some(usage) => if usage == kHIDUsage_GD_GamePad
+                || usage == kHIDUsage_GD_Joystick
+                || usage == kHIDUsage_GD_MultiAxisController
+            {
+                usage
+            } else {
+                error!("Failed to get valid device: {:?}", usage);
+                return None;
+            },
+            None => {
+                error!("Failed to get usage of device");
+                return None;
+            }
+        };
+
+        let name = device.get_name().unwrap_or_else(|| {
+            warn!("Failed to get name of device");
+            "Unknown".into()
+        });
+
+        let uuid = match Self::create_uuid(&device) {
+            Some(uuid) => uuid,
+            None => {
+                return None;
+            }
+        };
+
+        let mut gamepad = Gamepad {
+            name: name,
+            uuid: uuid,
+            location_id: location_id,
+            page: page,
+            usage: usage,
+            axes_info: VecMap::with_capacity(8),
+            axes: Vec::with_capacity(8),
+            buttons: Vec::with_capacity(16),
+            is_connected: true,
+        };
+
+        let elements = device.get_elements();
+        let mut axes = VecMap::with_capacity(8);
+        Self::find_axes(&elements, &mut axes);
+
+        for (_, axis) in axes.iter_mut() {
+            let ev_code = axis.ev_code;
+            gamepad.axes_info.insert(ev_code.usage as usize, axis.info);
+            gamepad.axes.push(ev_code);
+        }
+
+        let mut buttons = VecMap::with_capacity(16);
+
+        Self::find_buttons(&elements, &mut buttons);
+
+        for (_, button) in buttons.iter_mut() {
+            gamepad.buttons.push(*button);
+        }
+
+        Some(gamepad)
+    }
+
+    fn create_uuid(device: &IOHIDDevice) -> Option<Uuid> {
+        let bustype = match device.get_bustype() {
+            Some(bustype) => (bustype as u32).to_be(),
+            None => {
+                warn!("Failed to get transport key of device");
+                0
+            }
+        };
+
+        let vendor_id = match device.get_vendor_id() {
+            Some(vendor_id) => vendor_id.to_be(),
+            None => {
+                warn!("Failed to get vendor id of device");
+                0
+            }
+        };
+
+        let product_id = match device.get_product_id() {
+            Some(product_id) => product_id.to_be(),
+            None => {
+                warn!("Failed to get product id of device");
+                0
+            }
+        };
+
+        let version = match device.get_version() {
+            Some(version) => version.to_be(),
+            None => {
+                warn!("Failed to get version of device");
+                0
+            }
+        };
+
+        if vendor_id == 0 && product_id == 0 && version == 0 {
+            None
+        } else {
+            match Uuid::from_fields(
+                bustype,
+                vendor_id,
+                0,
+                &[
+                    (product_id >> 8) as u8,
+                    product_id as u8,
+                    0,
+                    0,
+                    (version >> 8) as u8,
+                    version as u8,
+                    0,
+                    0,
+                ],
+            ) {
+                Ok(uuid) => Some(uuid),
+                Err(error) => {
+                    error!("Failed to create uuid of device: {:?}", error.to_string());
+                    None
+                }
+            }
+        }
+    }
+
+    fn find_axes(elements: &Vec<IOHIDElement>, axes: &mut VecMap<Axis>) {
+        for element in elements {
+            let type_ = element.get_type();
+            let cookie = element.get_cookie();
+            let page = element.get_page();
+            let usage = element.get_usage();
+
+            if IOHIDElement::is_collection_type(type_) {
+                let children = element.get_children();
+                Self::find_axes(&children, axes);
+            } else if IOHIDElement::is_axis(type_, page, usage) {
+                axes.insert(
+                    cookie as usize,
+                    Axis {
+                        ev_code: EvCode::new(page, usage),
+                        info: AxisInfo {
+                            min: element.get_logical_min() as _,
+                            max: element.get_logical_max() as _,
+                            deadzone: 0,
+                        },
+                    },
+                );
+            }
+        }
+    }
+
+    fn find_buttons(elements: &Vec<IOHIDElement>, buttons: &mut VecMap<EvCode>) {
+        for element in elements {
+            let type_ = element.get_type();
+            let cookie = element.get_cookie();
+            let page = element.get_page();
+            let usage = element.get_usage();
+
+            if IOHIDElement::is_collection_type(type_) {
+                let children = element.get_children();
+                Self::find_buttons(&children, buttons);
+            } else if IOHIDElement::is_button(type_, page, usage) {
+                buttons.insert(cookie as usize, EvCode::new(page, usage));
+            }
+        }
+    }
+
     pub fn name(&self) -> &str {
-        ""
+        &self.name
     }
 
     pub fn uuid(&self) -> Uuid {
-        Uuid::nil()
+        self.uuid
     }
 
     pub fn power_info(&self) -> PowerInfo {
@@ -63,20 +262,26 @@ impl Gamepad {
     }
 
     pub fn buttons(&self) -> &[EvCode] {
-        &[]
+        &self.buttons
     }
 
     pub fn axes(&self) -> &[EvCode] {
-        &[]
+        &self.axes
     }
 
     pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
-        None
+        self.axes_info.get(nec.usage as usize)
     }
 
     pub fn is_connected(&self) -> bool {
-        false
+        self.is_connected
     }
+}
+
+#[derive(Debug)]
+struct Axis {
+    ev_code: EvCode,
+    info: AxisInfo,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
