@@ -9,20 +9,28 @@
 use super::hid::*;
 use super::FfDevice;
 use uuid::Uuid;
-use {AxisInfo, Event, PlatformError, PowerInfo};
+use {AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
+use core_foundation::runloop::{kCFRunLoopDefaultMode, CFRunLoop};
+use io_kit_sys::hid::base::{IOHIDDeviceRef, IOHIDValueRef};
 use io_kit_sys::hid::usage_tables::{
     kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad, kHIDUsage_GD_Joystick,
     kHIDUsage_GD_MultiAxisController,
 };
+use io_kit_sys::ret::IOReturn;
 use vec_map::VecMap;
 
-use std::error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::os::raw::c_void;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::{error, thread};
 
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
+    location_ids: Arc<Mutex<Vec<u32>>>,
+    rx: Receiver<(Event, Option<IOHIDDevice>)>,
 }
 
 impl Gilrs {
@@ -42,11 +50,42 @@ impl Gilrs {
             }
         }
 
-        Ok(Gilrs { gamepads })
+        let location_ids = Arc::new(Mutex::new(
+            gamepads.iter().map(|g| g.location_id).collect::<Vec<_>>(),
+        ));
+
+        let (tx, rx) = mpsc::channel();
+        Self::spawn_thread(tx, manager, location_ids.clone());
+
+        Ok(Gilrs {
+            gamepads,
+            location_ids,
+            rx,
+        })
+    }
+
+    fn spawn_thread(
+        tx: Sender<(Event, Option<IOHIDDevice>)>,
+        mut manager: IOHIDManager,
+        location_ids: Arc<Mutex<Vec<u32>>>,
+    ) {
+        thread::spawn(move || unsafe {
+            manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
+
+            let context = &(tx.clone(), location_ids.clone()) as *const _ as *mut c_void;
+            manager.register_input_value_callback(input_value_cb, context);
+
+            CFRunLoop::run_current();
+
+            manager.unschedule_from_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
+        });
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
-        None
+        match self.rx.try_recv().ok() {
+            Some((event, _)) => Some(event),
+            None => None,
+        }
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
@@ -488,4 +527,61 @@ pub mod native_ev_codes {
         page: super::PAGE_BUTTON,
         usage: super::USAGE_BTN_DPAD_RIGHT,
     };
+}
+
+extern "C" fn input_value_cb(
+    context: *mut c_void,
+    result: IOReturn,
+    sender: *mut c_void,
+    value: IOHIDValueRef,
+) {
+    let (tx, location_ids): &(Sender<(Event, Option<IOHIDDevice>)>, Arc<Mutex<Vec<u32>>>) =
+        unsafe { &*(context as *mut _) };
+    let device = IOHIDDevice::new(sender as IOHIDDeviceRef).unwrap();
+    let current_location_id = device.get_location_id().unwrap();
+    let id = location_ids
+        .lock()
+        .unwrap()
+        .iter()
+        .position(|&location_id| location_id == current_location_id)
+        .unwrap();
+    let value = IOHIDValue::new(value).unwrap();
+    let element = value.get_element().unwrap();
+    let type_ = element.get_type();
+    let page = element.get_page();
+    let usage = element.get_usage();
+
+    if IOHIDElement::is_axis(type_, page, usage) {
+        let event = Event::new(
+            id,
+            EventType::AxisValueChanged(
+                value.get_value() as i32,
+                ::EvCode(EvCode {
+                    page: page,
+                    usage: usage,
+                }),
+            ),
+        );
+        let _ = tx.send((event, None));
+    } else if IOHIDElement::is_button(type_, page, usage) {
+        if value.get_value() == 0 {
+            let event = Event::new(
+                id,
+                EventType::ButtonReleased(::EvCode(EvCode {
+                    page: page,
+                    usage: usage,
+                })),
+            );
+            let _ = tx.send((event, None));
+        } else {
+            let event = Event::new(
+                id,
+                EventType::ButtonPressed(::EvCode(EvCode {
+                    page: page,
+                    usage: usage,
+                })),
+            );
+            let _ = tx.send((event, None));
+        }
+    }
 }
