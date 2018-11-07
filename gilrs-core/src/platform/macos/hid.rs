@@ -20,7 +20,7 @@ use core_foundation::set::CFSetApplyFunction;
 use core_foundation::string::{kCFStringEncodingUTF8, CFString, CFStringCreateWithCString};
 
 use io_kit_sys::hid::base::{
-    IOHIDDeviceCallback, IOHIDDeviceRef, IOHIDElementRef, IOHIDValueCallback,
+    IOHIDDeviceCallback, IOHIDDeviceRef, IOHIDElementRef, IOHIDValueCallback, IOHIDValueRef,
 };
 use io_kit_sys::hid::device::{
     IOHIDDeviceCopyMatchingElements, IOHIDDeviceGetProperty, IOHIDDeviceGetTypeID,
@@ -29,6 +29,9 @@ use io_kit_sys::hid::element::*;
 use io_kit_sys::hid::keys::*;
 use io_kit_sys::hid::manager::*;
 use io_kit_sys::hid::usage_tables::*;
+use io_kit_sys::hid::value::{
+    IOHIDValueGetElement, IOHIDValueGetIntegerValue, IOHIDValueGetTypeID,
+};
 use io_kit_sys::ret::{kIOReturnSuccess, IOReturn};
 
 use std::ffi::CStr;
@@ -428,6 +431,36 @@ impl Properties for IOHIDElement {
             None
         } else {
             Some(unsafe { TCFType::wrap_under_get_rule(value) })
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct IOHIDValue(IOHIDValueRef);
+
+impl_TCFType!(IOHIDValue, IOHIDValueRef, IOHIDValueGetTypeID);
+
+impl IOHIDValue {
+    pub fn new(value: IOHIDValueRef) -> Option<IOHIDValue> {
+        if value.is_null() {
+            None
+        } else {
+            Some(IOHIDValue(value))
+        }
+    }
+
+    pub fn get_value(&self) -> i64 {
+        unsafe { IOHIDValueGetIntegerValue(self.0) }
+    }
+
+    pub fn get_element(&self) -> Option<IOHIDElement> {
+        let element = unsafe { IOHIDValueGetElement(self.0) };
+
+        if element.is_null() {
+            None
+        } else {
+            Some(IOHIDElement(element))
         }
     }
 }
