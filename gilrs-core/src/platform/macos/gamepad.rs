@@ -17,14 +17,32 @@ use io_kit_sys::hid::usage_tables::{
 };
 use vec_map::VecMap;
 
+use std::error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug)]
-pub struct Gilrs {}
+pub struct Gilrs {
+    gamepads: Vec<Gamepad>,
+}
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
-        Err(PlatformError::NotImplemented(Gilrs {}))
+        let mut gamepads = Vec::new();
+
+        let mut manager = match IOHIDManager::new() {
+            Some(manager) => manager,
+            None => {
+                return Err(PlatformError::Other(Box::new(Error::IOHIDManager)));
+            }
+        };
+
+        for device in manager.get_devices() {
+            if let Some(gamepad) = Gamepad::open(device) {
+                gamepads.push(gamepad);
+            }
+        }
+
+        Ok(Gilrs { gamepads })
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
@@ -32,12 +50,12 @@ impl Gilrs {
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
-        None
+        self.gamepads.get(id)
     }
 
     /// Returns index greater than index of last connected gamepad.
     pub fn last_gamepad_hint(&self) -> usize {
-        0
+        self.gamepads.len()
     }
 }
 
@@ -282,6 +300,27 @@ impl Gamepad {
 struct Axis {
     ev_code: EvCode,
     info: AxisInfo,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum Error {
+    IOHIDManager,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match *self {
+            Error::IOHIDManager => f.write_str("Failed to create IOHIDManager object"),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::IOHIDManager => "Failed to create IOHIDManager object",
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
