@@ -45,8 +45,13 @@ impl Gilrs {
         };
 
         for device in manager.get_devices() {
-            if let Some(gamepad) = Gamepad::open(device) {
-                gamepads.push(gamepad);
+            match Gamepad::open(device) {
+                Some(gamepad) => {
+                    gamepads.push(gamepad);
+                }
+                None => {
+                    error!("Failed to open gamepad");
+                }
             }
         }
 
@@ -73,6 +78,12 @@ impl Gilrs {
             manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
 
             let context = &(tx.clone(), location_ids.clone()) as *const _ as *mut c_void;
+            manager.register_device_matching_callback(device_matching_cb, context);
+
+            let context = &(tx.clone(), location_ids.clone()) as *const _ as *mut c_void;
+            manager.register_device_removal_callback(device_removal_cb, context);
+
+            let context = &(tx, location_ids) as *const _ as *mut c_void;
             manager.register_input_value_callback(input_value_cb, context);
 
             CFRunLoop::run_current();
@@ -83,7 +94,39 @@ impl Gilrs {
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
         match self.rx.try_recv().ok() {
-            Some((event, _)) => Some(event),
+            Some((event, Some(device))) => {
+                if event.event == EventType::Connected {
+                    if self.gamepads.get(event.id).is_some() {
+                        self.gamepads[event.id].is_connected = true;
+                    } else {
+                        match Gamepad::open(device) {
+                            Some(gamepad) => {
+                                self.location_ids.lock().unwrap().push(gamepad.location_id);
+                                self.gamepads.push(gamepad);
+                            }
+                            None => {
+                                error!("Failed to open gamepad: {:?}", event.id);
+                                return None;
+                            }
+                        }
+                    }
+                }
+                Some(event)
+            }
+            Some((event, None)) => {
+                if event.event == EventType::Disconnected {
+                    match self.gamepads.get_mut(event.id) {
+                        Some(gamepad) => {
+                            gamepad.is_connected = false;
+                        }
+                        None => {
+                            error!("Failed to find gamepad: {:?}", event.id);
+                            return None;
+                        }
+                    }
+                }
+                Some(event)
+            }
             None => None,
         }
     }
@@ -527,6 +570,74 @@ pub mod native_ev_codes {
         page: super::PAGE_BUTTON,
         usage: super::USAGE_BTN_DPAD_RIGHT,
     };
+}
+
+extern "C" fn device_matching_cb(
+    context: *mut c_void,
+    result: IOReturn,
+    sender: *mut c_void,
+    value: IOHIDDeviceRef,
+) {
+    let (tx, location_ids): &(Sender<(Event, Option<IOHIDDevice>)>, Arc<Mutex<Vec<u32>>>) =
+        unsafe { &*(context as *mut _) };
+    let location_ids = location_ids.lock().unwrap();
+    let device = match IOHIDDevice::new(value) {
+        Some(device) => device,
+        None => return,
+    };
+    let current_location_id = match device.get_location_id() {
+        Some(location_id) => location_id,
+        None => {
+            error!("Failed to get location id of device");
+            return;
+        }
+    };
+    let id = match location_ids
+        .iter()
+        .position(|&location_id| location_id == current_location_id)
+    {
+        Some(id) => {
+            info!("Device is already registered: {:?}", current_location_id);
+            id
+        }
+        None => location_ids.len() - 1,
+    };
+    let _ = tx.send((Event::new(id, EventType::Connected), Some(device)));
+}
+
+extern "C" fn device_removal_cb(
+    context: *mut c_void,
+    result: IOReturn,
+    sender: *mut c_void,
+    value: IOHIDDeviceRef,
+) {
+    let (tx, location_ids): &(Sender<(Event, Option<IOHIDDevice>)>, Arc<Mutex<Vec<u32>>>) =
+        unsafe { &*(context as *mut _) };
+    let device = match IOHIDDevice::new(value) {
+        Some(device) => device,
+        None => return,
+    };
+    let current_location_id = match device.get_location_id() {
+        Some(location_id) => location_id,
+        None => {
+            error!("Failed to get location id of device");
+            return;
+        }
+    };
+    let id = match location_ids
+        .lock()
+        .unwrap()
+        .iter()
+        .position(|&location_id| location_id == current_location_id)
+    {
+        Some(id) => id,
+        None => {
+            error!("Failed to find device: {:?}", current_location_id);
+            return;
+        }
+    };
+
+    let _ = tx.send((Event::new(id, EventType::Disconnected), None));
 }
 
 extern "C" fn input_value_cb(
