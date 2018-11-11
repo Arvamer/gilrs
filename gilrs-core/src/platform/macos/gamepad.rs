@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(unused_variables)]
 
-use super::hid::*;
+use super::io_kit::*;
 use super::FfDevice;
 use uuid::Uuid;
 use {AxisInfo, Event, EventType, PlatformError, PowerInfo};
@@ -624,7 +624,6 @@ extern "C" fn device_matching_cb(
         Sender<(Event, Option<IOHIDDevice>)>,
         Arc<Mutex<Vec<DeviceInfo>>>,
     ) = unsafe { &*(context as *mut _) };
-    let device_infos = device_infos.lock().unwrap();
     let device = match IOHIDDevice::new(value) {
         Some(device) => device,
         None => {
@@ -649,6 +648,7 @@ extern "C" fn device_matching_cb(
         }
     };
 
+    let device_infos = device_infos.lock().unwrap();
     let id = match device_infos
         .iter()
         .position(|info| info.entry_id == entry_id && info.is_connected)
@@ -689,9 +689,8 @@ extern "C" fn device_removal_cb(
         }
     };
 
+    let device_infos = device_infos.lock().unwrap();
     let id = match device_infos
-        .lock()
-        .unwrap()
         .iter()
         .position(|info| info.location_id == location_id && info.is_connected)
     {
@@ -740,9 +739,8 @@ extern "C" fn input_value_cb(
         }
     };
 
+    let device_infos = device_infos.lock().unwrap();
     let id = match device_infos
-        .lock()
-        .unwrap()
         .iter()
         .position(|info| info.entry_id == entry_id && info.is_connected)
     {
