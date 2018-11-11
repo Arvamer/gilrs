@@ -22,9 +22,7 @@ use core_foundation::string::{kCFStringEncodingUTF8, CFString, CFStringCreateWit
 use io_kit_sys::hid::base::{
     IOHIDDeviceCallback, IOHIDDeviceRef, IOHIDElementRef, IOHIDValueCallback, IOHIDValueRef,
 };
-use io_kit_sys::hid::device::{
-    IOHIDDeviceCopyMatchingElements, IOHIDDeviceGetProperty, IOHIDDeviceGetTypeID,
-};
+use io_kit_sys::hid::device::*;
 use io_kit_sys::hid::element::*;
 use io_kit_sys::hid::keys::*;
 use io_kit_sys::hid::manager::*;
@@ -33,6 +31,8 @@ use io_kit_sys::hid::value::{
     IOHIDValueGetElement, IOHIDValueGetIntegerValue, IOHIDValueGetTypeID,
 };
 use io_kit_sys::ret::{kIOReturnSuccess, IOReturn};
+use io_kit_sys::types::{io_service_t, IO_OBJECT_NULL};
+use io_kit_sys::{IOObjectRelease, IOObjectRetain, IORegistryEntryGetRegistryEntryID};
 
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
@@ -267,6 +267,10 @@ impl IOHIDDevice {
         }
     }
 
+    pub fn get_service(&self) -> Option<IOService> {
+        unsafe { IOService::new(IOHIDDeviceGetService(self.0)) }
+    }
+
     pub fn get_elements(&self) -> Vec<IOHIDElement> {
         let elements =
             unsafe { IOHIDDeviceCopyMatchingElements(self.0, ptr::null(), kIOHIDOptionsTypeNone) };
@@ -493,6 +497,51 @@ trait Properties {
     }
 
     fn get_property(&self, key: *const c_char) -> Option<CFType>;
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct IOService(io_service_t);
+
+impl IOService {
+    pub fn new(io_service: io_service_t) -> Option<IOService> {
+        if io_service == IO_OBJECT_NULL {
+            return None;
+        }
+
+        let result = unsafe { IOObjectRetain(io_service) };
+
+        if result == kIOReturnSuccess {
+            Some(IOService(io_service))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_registry_entry_id(&self) -> Option<u64> {
+        unsafe {
+            IOObjectRetain(self.0);
+
+            let mut entry_id = 0;
+            let result = IORegistryEntryGetRegistryEntryID(self.0, &mut entry_id);
+
+            IOObjectRelease(self.0);
+
+            if result == kIOReturnSuccess {
+                Some(entry_id)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl Drop for IOService {
+    fn drop(&mut self) {
+        unsafe {
+            IOObjectRelease(self.0 as _);
+        }
+    }
 }
 
 fn create_hid_device_matcher(page: u32, usage: u32) -> CFDictionary<CFString, CFNumber> {

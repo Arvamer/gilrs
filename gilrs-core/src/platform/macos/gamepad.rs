@@ -29,7 +29,7 @@ use std::{error, thread};
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
-    location_ids: Arc<Mutex<Vec<u32>>>,
+    device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
     rx: Receiver<(Event, Option<IOHIDDevice>)>,
 }
 
@@ -55,16 +55,22 @@ impl Gilrs {
             }
         }
 
-        let location_ids = Arc::new(Mutex::new(
-            gamepads.iter().map(|g| g.location_id).collect::<Vec<_>>(),
+        let device_infos = Arc::new(Mutex::new(
+            gamepads
+                .iter()
+                .map(|g| DeviceInfo {
+                    entry_id: g.entry_id,
+                    location_id: g.location_id,
+                    is_connected: true,
+                }).collect::<Vec<_>>(),
         ));
 
         let (tx, rx) = mpsc::channel();
-        Self::spawn_thread(tx, manager, location_ids.clone());
+        Self::spawn_thread(tx, manager, device_infos.clone());
 
         Ok(Gilrs {
             gamepads,
-            location_ids,
+            device_infos,
             rx,
         })
     }
@@ -72,18 +78,18 @@ impl Gilrs {
     fn spawn_thread(
         tx: Sender<(Event, Option<IOHIDDevice>)>,
         mut manager: IOHIDManager,
-        location_ids: Arc<Mutex<Vec<u32>>>,
+        device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
     ) {
         thread::spawn(move || unsafe {
             manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
 
-            let context = &(tx.clone(), location_ids.clone()) as *const _ as *mut c_void;
+            let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
             manager.register_device_matching_callback(device_matching_cb, context);
 
-            let context = &(tx.clone(), location_ids.clone()) as *const _ as *mut c_void;
+            let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
             manager.register_device_removal_callback(device_removal_cb, context);
 
-            let context = &(tx, location_ids) as *const _ as *mut c_void;
+            let context = &(tx, device_infos) as *const _ as *mut c_void;
             manager.register_input_value_callback(input_value_cb, context);
 
             CFRunLoop::run_current();
@@ -101,14 +107,18 @@ impl Gilrs {
                     } else {
                         match Gamepad::open(device) {
                             Some(gamepad) => {
-                                self.location_ids.lock().unwrap().push(gamepad.location_id);
+                                self.device_infos.lock().unwrap().push(DeviceInfo {
+                                    entry_id: gamepad.entry_id,
+                                    location_id: gamepad.location_id,
+                                    is_connected: true,
+                                });
                                 self.gamepads.push(gamepad);
                             }
                             None => {
                                 error!("Failed to open gamepad: {:?}", event.id);
                                 return None;
                             }
-                        }
+                        };
                     }
                 }
                 Some(event)
@@ -117,6 +127,13 @@ impl Gilrs {
                 if event.event == EventType::Disconnected {
                     match self.gamepads.get_mut(event.id) {
                         Some(gamepad) => {
+                            match self.device_infos.lock().unwrap().get_mut(event.id) {
+                                Some(device_info) => device_info.is_connected = false,
+                                None => {
+                                    error!("Failed to find device_info: {:?}", event.id);
+                                    return None;
+                                }
+                            };
                             gamepad.is_connected = false;
                         }
                         None => {
@@ -145,6 +162,7 @@ impl Gilrs {
 pub struct Gamepad {
     name: String,
     uuid: Uuid,
+    entry_id: u64,
     location_id: u32,
     page: u32,
     usage: u32,
@@ -156,6 +174,22 @@ pub struct Gamepad {
 
 impl Gamepad {
     fn open(device: IOHIDDevice) -> Option<Gamepad> {
+        let io_service = match device.get_service() {
+            Some(io_service) => io_service,
+            None => {
+                error!("Failed to get device service");
+                return None;
+            }
+        };
+
+        let entry_id = match io_service.get_registry_entry_id() {
+            Some(entry_id) => entry_id,
+            None => {
+                error!("Failed to get entry id of device");
+                return None;
+            }
+        };
+
         let location_id = match device.get_location_id() {
             Some(location_id) => location_id,
             None => {
@@ -208,6 +242,7 @@ impl Gamepad {
         let mut gamepad = Gamepad {
             name: name,
             uuid: uuid,
+            entry_id: entry_id,
             location_id: location_id,
             page: page,
             usage: usage,
@@ -382,6 +417,13 @@ impl Gamepad {
 struct Axis {
     ev_code: EvCode,
     info: AxisInfo,
+}
+
+#[derive(Debug)]
+struct DeviceInfo {
+    entry_id: u64,
+    location_id: u32,
+    is_connected: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -578,29 +620,44 @@ extern "C" fn device_matching_cb(
     sender: *mut c_void,
     value: IOHIDDeviceRef,
 ) {
-    let (tx, location_ids): &(Sender<(Event, Option<IOHIDDevice>)>, Arc<Mutex<Vec<u32>>>) =
-        unsafe { &*(context as *mut _) };
-    let location_ids = location_ids.lock().unwrap();
+    let (tx, device_infos): &(
+        Sender<(Event, Option<IOHIDDevice>)>,
+        Arc<Mutex<Vec<DeviceInfo>>>,
+    ) = unsafe { &*(context as *mut _) };
+    let device_infos = device_infos.lock().unwrap();
     let device = match IOHIDDevice::new(value) {
         Some(device) => device,
-        None => return,
-    };
-    let current_location_id = match device.get_location_id() {
-        Some(location_id) => location_id,
         None => {
-            error!("Failed to get location id of device");
+            error!("Failed to get device");
             return;
         }
     };
-    let id = match location_ids
+
+    let io_service = match device.get_service() {
+        Some(io_service) => io_service,
+        None => {
+            error!("Failed to get device service");
+            return;
+        }
+    };
+
+    let entry_id = match io_service.get_registry_entry_id() {
+        Some(entry_id) => entry_id,
+        None => {
+            error!("Failed to get entry id of device");
+            return;
+        }
+    };
+
+    let id = match device_infos
         .iter()
-        .position(|&location_id| location_id == current_location_id)
+        .position(|info| info.entry_id == entry_id && info.is_connected)
     {
         Some(id) => {
-            info!("Device is already registered: {:?}", current_location_id);
+            info!("Device is already registered: {:?}", entry_id);
             id
         }
-        None => location_ids.len() - 1,
+        None => device_infos.len(),
     };
     let _ = tx.send((Event::new(id, EventType::Connected), Some(device)));
 }
@@ -611,28 +668,36 @@ extern "C" fn device_removal_cb(
     sender: *mut c_void,
     value: IOHIDDeviceRef,
 ) {
-    let (tx, location_ids): &(Sender<(Event, Option<IOHIDDevice>)>, Arc<Mutex<Vec<u32>>>) =
-        unsafe { &*(context as *mut _) };
+    let (tx, device_infos): &(
+        Sender<(Event, Option<IOHIDDevice>)>,
+        Arc<Mutex<Vec<DeviceInfo>>>,
+    ) = unsafe { &*(context as *mut _) };
+
     let device = match IOHIDDevice::new(value) {
         Some(device) => device,
-        None => return,
+        None => {
+            error!("Failed to get device");
+            return;
+        }
     };
-    let current_location_id = match device.get_location_id() {
+
+    let location_id = match device.get_location_id() {
         Some(location_id) => location_id,
         None => {
             error!("Failed to get location id of device");
             return;
         }
     };
-    let id = match location_ids
+
+    let id = match device_infos
         .lock()
         .unwrap()
         .iter()
-        .position(|&location_id| location_id == current_location_id)
+        .position(|info| info.location_id == location_id && info.is_connected)
     {
         Some(id) => id,
         None => {
-            error!("Failed to find device: {:?}", current_location_id);
+            warn!("Failed to find device: {:?}", location_id);
             return;
         }
     };
@@ -646,18 +711,64 @@ extern "C" fn input_value_cb(
     sender: *mut c_void,
     value: IOHIDValueRef,
 ) {
-    let (tx, location_ids): &(Sender<(Event, Option<IOHIDDevice>)>, Arc<Mutex<Vec<u32>>>) =
-        unsafe { &*(context as *mut _) };
-    let device = IOHIDDevice::new(sender as IOHIDDeviceRef).unwrap();
-    let current_location_id = device.get_location_id().unwrap();
-    let id = location_ids
+    let (tx, device_infos): &(
+        Sender<(Event, Option<IOHIDDevice>)>,
+        Arc<Mutex<Vec<DeviceInfo>>>,
+    ) = unsafe { &*(context as *mut _) };
+
+    let device = match IOHIDDevice::new(sender as _) {
+        Some(device) => device,
+        None => {
+            error!("Failed to get device");
+            return;
+        }
+    };
+
+    let io_service = match device.get_service() {
+        Some(io_service) => io_service,
+        None => {
+            error!("Failed to get device service");
+            return;
+        }
+    };
+
+    let entry_id = match io_service.get_registry_entry_id() {
+        Some(entry_id) => entry_id,
+        None => {
+            error!("Failed to get entry id of device");
+            return;
+        }
+    };
+
+    let id = match device_infos
         .lock()
         .unwrap()
         .iter()
-        .position(|&location_id| location_id == current_location_id)
-        .unwrap();
-    let value = IOHIDValue::new(value).unwrap();
-    let element = value.get_element().unwrap();
+        .position(|info| info.entry_id == entry_id && info.is_connected)
+    {
+        Some(id) => id,
+        None => {
+            warn!("Failed to find device: {:?}", entry_id);
+            return;
+        }
+    };
+
+    let value = match IOHIDValue::new(value) {
+        Some(value) => value,
+        None => {
+            error!("Failed to get value");
+            return;
+        }
+    };
+
+    let element = match value.get_element() {
+        Some(element) => element,
+        None => {
+            error!("Failed to get element of value");
+            return;
+        }
+    };
+
     let type_ = element.get_type();
     let page = element.get_page();
     let usage = element.get_usage();
