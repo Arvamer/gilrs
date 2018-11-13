@@ -253,22 +253,10 @@ impl Gamepad {
         };
 
         let elements = device.get_elements();
-        let mut axes = VecMap::with_capacity(8);
-        Self::find_axes(&elements, &mut axes);
+        let mut cookies = Vec::new();
 
-        for (_, axis) in axes.iter_mut() {
-            let ev_code = axis.ev_code;
-            gamepad.axes_info.insert(ev_code.usage as usize, axis.info);
-            gamepad.axes.push(ev_code);
-        }
-
-        let mut buttons = VecMap::with_capacity(16);
-
-        Self::find_buttons(&elements, &mut buttons);
-
-        for (_, button) in buttons.iter_mut() {
-            gamepad.buttons.push(*button);
-        }
+        gamepad.find_axes(&elements, &mut cookies);
+        gamepad.find_buttons(&elements, &mut cookies);
 
         Some(gamepad)
     }
@@ -333,48 +321,6 @@ impl Gamepad {
         }
     }
 
-    fn find_axes(elements: &Vec<IOHIDElement>, axes: &mut VecMap<Axis>) {
-        for element in elements {
-            let type_ = element.get_type();
-            let cookie = element.get_cookie();
-            let page = element.get_page();
-            let usage = element.get_usage();
-
-            if IOHIDElement::is_collection_type(type_) {
-                let children = element.get_children();
-                Self::find_axes(&children, axes);
-            } else if IOHIDElement::is_axis(type_, page, usage) {
-                axes.insert(
-                    cookie as usize,
-                    Axis {
-                        ev_code: EvCode::new(page, usage),
-                        info: AxisInfo {
-                            min: element.get_logical_min() as _,
-                            max: element.get_logical_max() as _,
-                            deadzone: 0,
-                        },
-                    },
-                );
-            }
-        }
-    }
-
-    fn find_buttons(elements: &Vec<IOHIDElement>, buttons: &mut VecMap<EvCode>) {
-        for element in elements {
-            let type_ = element.get_type();
-            let cookie = element.get_cookie();
-            let page = element.get_page();
-            let usage = element.get_usage();
-
-            if IOHIDElement::is_collection_type(type_) {
-                let children = element.get_children();
-                Self::find_buttons(&children, buttons);
-            } else if IOHIDElement::is_button(type_, page, usage) {
-                buttons.insert(cookie as usize, EvCode::new(page, usage));
-            }
-        }
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -411,12 +357,48 @@ impl Gamepad {
     pub fn is_connected(&self) -> bool {
         self.is_connected
     }
-}
 
-#[derive(Debug)]
-struct Axis {
-    ev_code: EvCode,
-    info: AxisInfo,
+    fn find_axes(&mut self, elements: &Vec<IOHIDElement>, cookies: &mut Vec<u32>) {
+        for element in elements {
+            let type_ = element.get_type();
+            let cookie = element.get_cookie();
+            let page = element.get_page();
+            let usage = element.get_usage();
+
+            if IOHIDElement::is_collection_type(type_) {
+                let children = element.get_children();
+                self.find_axes(&children, cookies);
+            } else if IOHIDElement::is_axis(type_, page, usage) && !cookies.contains(&cookie) {
+                cookies.push(cookie);
+                self.axes_info.insert(
+                    usage as usize,
+                    AxisInfo {
+                        min: element.get_logical_min() as _,
+                        max: element.get_logical_max() as _,
+                        deadzone: 0,
+                    },
+                );
+                self.axes.push(EvCode::new(page, usage));
+            }
+        }
+    }
+
+    fn find_buttons(&mut self, elements: &Vec<IOHIDElement>, cookies: &mut Vec<u32>) {
+        for element in elements {
+            let type_ = element.get_type();
+            let cookie = element.get_cookie();
+            let page = element.get_page();
+            let usage = element.get_usage();
+
+            if IOHIDElement::is_collection_type(type_) {
+                let children = element.get_children();
+                self.find_buttons(&children, cookies);
+            } else if IOHIDElement::is_button(type_, page, usage) && !cookies.contains(&cookie) {
+                cookies.push(cookie);
+                self.buttons.push(EvCode::new(page, usage));
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
