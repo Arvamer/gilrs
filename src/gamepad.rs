@@ -549,12 +549,12 @@ impl GilrsBuilder {
 
     /// Creates `Gilrs`.
     pub fn build(mut self) -> Result<Gilrs, Error> {
-        if self.env_mappings {
-            self.mappings.add_env_mappings();
-        }
-
         if self.included_mappings {
             self.mappings.add_included_mappings();
+        }
+
+        if self.env_mappings {
+            self.mappings.add_env_mappings();
         }
 
         if self.axis_to_btn_pressed <= self.axis_to_btn_released || self.axis_to_btn_pressed < 0.0
