@@ -24,7 +24,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::os::raw::c_void;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::{error, thread};
+use std::thread;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -35,38 +35,11 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
-        let mut gamepads = Vec::new();
-
-        let mut manager = match IOHIDManager::new() {
-            Some(manager) => manager,
-            None => {
-                return Err(PlatformError::Other(Box::new(Error::IOHIDManager)));
-            }
-        };
-
-        for device in manager.get_devices() {
-            match Gamepad::open(device) {
-                Some(gamepad) => {
-                    gamepads.push(gamepad);
-                }
-                None => {
-                    error!("Failed to open gamepad");
-                }
-            }
-        }
-
-        let device_infos = Arc::new(Mutex::new(
-            gamepads
-                .iter()
-                .map(|g| DeviceInfo {
-                    entry_id: g.entry_id,
-                    location_id: g.location_id,
-                    is_connected: true,
-                }).collect::<Vec<_>>(),
-        ));
+        let gamepads = Vec::new();
+        let device_infos = Arc::new(Mutex::new(Vec::new()));
 
         let (tx, rx) = mpsc::channel();
-        Self::spawn_thread(tx, manager, device_infos.clone());
+        Self::spawn_thread(tx, device_infos.clone());
 
         Ok(Gilrs {
             gamepads,
@@ -77,10 +50,17 @@ impl Gilrs {
 
     fn spawn_thread(
         tx: Sender<(Event, Option<IOHIDDevice>)>,
-        mut manager: IOHIDManager,
         device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
     ) {
         thread::spawn(move || unsafe {
+            let mut manager = match IOHIDManager::new() {
+                Some(manager) => manager,
+                None => {
+                    error!("Failed to create IOHIDManager object");
+                    return;
+                }
+            };
+
             manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
 
             let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
@@ -411,27 +391,6 @@ struct DeviceInfo {
     entry_id: u64,
     location_id: u32,
     is_connected: bool,
-}
-
-#[derive(Debug, Copy, Clone)]
-enum Error {
-    IOHIDManager,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        match *self {
-            Error::IOHIDManager => f.write_str("Failed to create IOHIDManager object"),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::IOHIDManager => "Failed to create IOHIDManager object",
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

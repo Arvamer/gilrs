@@ -160,9 +160,6 @@ impl Drop for IOHIDManager {
     }
 }
 
-unsafe impl Send for IOHIDManager {}
-unsafe impl Sync for IOHIDManager {}
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct IOHIDDevice(IOHIDDeviceRef);
