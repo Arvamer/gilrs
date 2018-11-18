@@ -332,6 +332,13 @@ impl IOHIDElement {
                     | kHIDUsage_GD_Dial | kHIDUsage_GD_Wheel => true,
                     _ => false,
                 },
+                kHIDPage_Simulation => match usage {
+                    kHIDUsage_Sim_Rudder
+                    | kHIDUsage_Sim_Throttle
+                    | kHIDUsage_Sim_Accelerator
+                    | kHIDUsage_Sim_Brake => true,
+                    _ => false,
+                },
                 _ => false,
             },
             _ => false,
