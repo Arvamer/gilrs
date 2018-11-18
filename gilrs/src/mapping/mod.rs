@@ -26,9 +26,15 @@ use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, T
 /// Platform name used by SDL mappings
 #[cfg(target_os = "linux")]
 const SDL_PLATFORM_NAME: &'static str = "Linux";
+#[cfg(target_os = "macos")]
+const SDL_PLATFORM_NAME: &'static str = "Mac OS X";
 #[cfg(target_os = "windows")]
 const SDL_PLATFORM_NAME: &'static str = "Windows";
-#[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+#[cfg(all(
+    not(target_os = "linux"),
+    not(target_os = "macos"),
+    not(target_os = "windows")
+))]
 const SDL_PLATFORM_NAME: &'static str = "Unknown";
 
 #[derive(Debug)]
