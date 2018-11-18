@@ -87,11 +87,6 @@ impl Gilrs {
                     } else {
                         match Gamepad::open(device) {
                             Some(gamepad) => {
-                                self.device_infos.lock().unwrap().push(DeviceInfo {
-                                    entry_id: gamepad.entry_id,
-                                    location_id: gamepad.location_id,
-                                    is_connected: true,
-                                });
                                 self.gamepads.push(gamepad);
                             }
                             None => {
@@ -594,7 +589,7 @@ extern "C" fn device_matching_cb(
         }
     };
 
-    let device_infos = device_infos.lock().unwrap();
+    let mut device_infos = device_infos.lock().unwrap();
     let id = match device_infos
         .iter()
         .position(|info| info.entry_id == entry_id && info.is_connected)
@@ -603,7 +598,23 @@ extern "C" fn device_matching_cb(
             info!("Device is already registered: {:?}", entry_id);
             id
         }
-        None => device_infos.len(),
+        None => {
+            let location_id = match device.get_location_id() {
+                Some(location_id) => location_id,
+                None => {
+                    error!("Failed to get location id of device");
+                    return;
+                }
+            };
+
+            device_infos.push(DeviceInfo {
+                entry_id: entry_id,
+                location_id: location_id,
+                is_connected: true,
+            });
+
+            device_infos.len() - 1
+        }
     };
     let _ = tx.send((Event::new(id, EventType::Connected), Some(device)));
 }

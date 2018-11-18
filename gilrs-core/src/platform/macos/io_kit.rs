@@ -466,36 +466,6 @@ impl IOHIDValue {
     }
 }
 
-trait Properties {
-    fn get_string_property(&self, key: *const c_char) -> Option<CFString> {
-        match self.get_property(key) {
-            Some(value) => {
-                if value.instance_of::<CFString>() {
-                    Some(unsafe { CFString::wrap_under_get_rule(value.as_CFTypeRef() as _) })
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
-    }
-
-    fn get_number_property(&self, key: *const c_char) -> Option<CFNumber> {
-        match self.get_property(key) {
-            Some(value) => {
-                if value.instance_of::<CFNumber>() {
-                    Some(unsafe { CFNumber::wrap_under_get_rule(value.as_CFTypeRef() as _) })
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
-    }
-
-    fn get_property(&self, key: *const c_char) -> Option<CFType>;
-}
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct IOService(io_service_t);
@@ -539,6 +509,36 @@ impl Drop for IOService {
             IOObjectRelease(self.0 as _);
         }
     }
+}
+
+trait Properties {
+    fn get_number_property(&self, key: *const c_char) -> Option<CFNumber> {
+        match self.get_property(key) {
+            Some(value) => {
+                if value.instance_of::<CFNumber>() {
+                    Some(unsafe { CFNumber::wrap_under_get_rule(value.as_CFTypeRef() as _) })
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    fn get_string_property(&self, key: *const c_char) -> Option<CFString> {
+        match self.get_property(key) {
+            Some(value) => {
+                if value.instance_of::<CFString>() {
+                    Some(unsafe { CFString::wrap_under_get_rule(value.as_CFTypeRef() as _) })
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    fn get_property(&self, key: *const c_char) -> Option<CFType>;
 }
 
 fn create_hid_device_matcher(page: u32, usage: u32) -> CFDictionary<CFString, CFNumber> {
