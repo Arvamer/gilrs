@@ -209,9 +209,7 @@ impl Gamepad {
 
         let uuid = match Self::create_uuid(&device) {
             Some(uuid) => uuid,
-            None => {
-                return None;
-            }
+            None => Uuid::nil(),
         };
 
         let mut gamepad = Gamepad {
@@ -284,7 +282,7 @@ impl Gamepad {
             ) {
                 Ok(uuid) => Some(uuid),
                 Err(error) => {
-                    error!("Failed to create uuid of device: {:?}", error.to_string());
+                    warn!("Failed to create uuid of device: {:?}", error.to_string());
                     None
                 }
             }
