@@ -1,7 +1,20 @@
 Change Log
 ==========
 
-v0.6.1 - unreleased
+v0.6.2 - 2019-01-12
+-------------------
+
+### Changed
+
+- Recommended Rust version is 1.24.1+. Gilrs still should compile on 1.20.0+ if
+  you convince Cargo to use older lazy-static in dependency graph.
+
+### Fixed
+
+- Incorrect gamepad IDs on Windows if more than one gamepad was connected (@DTibbs)
+- Mappings from environment variable had lower priority than bundled mappings
+
+v0.6.1 - 2018-07-18
 -------------------
 
 ### Added
