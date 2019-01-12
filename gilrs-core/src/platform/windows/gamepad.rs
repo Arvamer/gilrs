@@ -27,32 +27,30 @@ use PowerInfo;
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
 const ITERATIONS_TO_CHECK_IF_CONNECTED: u64 = 100;
 
+const MAX_XINPUT_CONTROLLERS: usize = 4;
+
 #[derive(Debug)]
 pub struct Gilrs {
-    gamepads: [Gamepad; 4],
+    gamepads: [Gamepad; MAX_XINPUT_CONTROLLERS],
     rx: Receiver<Event>,
 }
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
-        let gamepads = [
-            Gamepad::new(0),
-            Gamepad::new(1),
-            Gamepad::new(2),
-            Gamepad::new(3),
-        ];
-
-        let connected = [
-            gamepads[0].is_connected,
-            gamepads[1].is_connected,
-            gamepads[2].is_connected,
-            gamepads[3].is_connected,
-        ];
+        let mut gamepads: [Gamepad; MAX_XINPUT_CONTROLLERS] = Default::default();
+        let mut connected: [bool; MAX_XINPUT_CONTROLLERS] = Default::default();
+        
+        // Iterate through each controller ID and set connected state
+        for id in 0..MAX_XINPUT_CONTROLLERS {
+          gamepads[id] = Gamepad::new(id as u32);
+          connected[id] = gamepads[id].is_connected;
+        }
 
         unsafe { xinput::XInputEnable(1) };
         let (tx, rx) = mpsc::channel();
         Self::spawn_thread(tx, connected);
 
+        // Coerce gamepads vector to slice
         Ok(Gilrs { gamepads, rx })
     }
 
@@ -68,15 +66,16 @@ impl Gilrs {
         self.gamepads.len()
     }
 
-    fn spawn_thread(tx: Sender<Event>, connected: [bool; 4]) {
+    fn spawn_thread(tx: Sender<Event>, connected: [bool; MAX_XINPUT_CONTROLLERS]) {
         thread::spawn(move || unsafe {
-            let mut prev_state = mem::zeroed::<XState>();
+            // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
+            let mut prev_states:[XState; MAX_XINPUT_CONTROLLERS] = [mem::zeroed::<XState>(); MAX_XINPUT_CONTROLLERS];
             let mut state = mem::zeroed::<XState>();
             let mut connected = connected;
             let mut counter = 0;
 
             loop {
-                for id in 0..4 {
+                for id in 0..MAX_XINPUT_CONTROLLERS {
                     if *connected.get_unchecked(id)
                         || counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
                     {
@@ -88,9 +87,9 @@ impl Gilrs {
                                 let _ = tx.send(Event::new(id, EventType::Connected));
                             }
 
-                            if state.dwPacketNumber != prev_state.dwPacketNumber {
-                                Self::compare_state(id, &state.Gamepad, &prev_state.Gamepad, &tx);
-                                prev_state = state;
+                            if state.dwPacketNumber != prev_states[id].dwPacketNumber {
+                                Self::compare_state(id, &state.Gamepad, &prev_states[id].Gamepad, &tx);
+                                prev_states[id] = state;
                             }
                         } else if val == ERROR_DEVICE_NOT_CONNECTED && *connected.get_unchecked(id)
                         {
@@ -314,7 +313,7 @@ impl Gilrs {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Gamepad {
     uuid: Uuid,
     id: u32,
