@@ -95,7 +95,8 @@ impl Gilrs {
 
     fn spawn_thread(tx: Sender<RawEvent>, connected: [bool; 4]) {
         thread::spawn(move || unsafe {
-            let mut prev_state = mem::zeroed::<XState>();
+            // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
+            let mut prev_states:[XState; 4] = [mem::zeroed::<XState>(); 4];
             let mut state = mem::zeroed::<XState>();
             let mut connected = connected;
             let mut counter = 0;
@@ -113,9 +114,9 @@ impl Gilrs {
                                 let _ = tx.send(RawEvent::new(id, RawEventType::Connected));
                             }
 
-                            if state.dwPacketNumber != prev_state.dwPacketNumber {
-                                Self::compare_state(id, &state.Gamepad, &prev_state.Gamepad, &tx);
-                                prev_state = state;
+                            if state.dwPacketNumber != prev_states[id].dwPacketNumber {
+                                Self::compare_state(id, &state.Gamepad, &prev_states[id].Gamepad, &tx);
+                                prev_states[id] = state;
                             }
                         } else if val == ERROR_DEVICE_NOT_CONNECTED && *connected.get_unchecked(id)
                         {
