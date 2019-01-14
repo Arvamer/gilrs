@@ -47,7 +47,7 @@
 //! effect.play().unwrap();
 //! ```
 //!
-//! See [`examples/ff_pos.rs`](https://gitlab.com/gilrs-project/gilrs/blob/v0.6.2/examples/ff_pos.rs) for
+//! See [`examples/ff_pos.rs`](https://gitlab.com/gilrs-project/gilrs/blob/v1.6.3/examples/ff_pos.rs) for
 //! more advanced example.
 pub(crate) mod server;
 mod base_effect;

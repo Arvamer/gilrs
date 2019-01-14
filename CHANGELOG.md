@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+v0.6.3 - 2019-01-14
+-------------------
+
+### Fixed
+
+- Deadzone filter no longer emits additional events. This resulted in
+  emitting more events until values normalized on some,
+  often unrelated (like 0 for axis around 0.5), value.
+
 v0.6.2 - 2019-01-12
 -------------------
 
