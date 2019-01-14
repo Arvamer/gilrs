@@ -143,14 +143,6 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
                 let other_val = gilrs.gamepad(id).unwrap().state().value(other_code);
                 let val = apply_deadzone(val, other_val, threshold);
 
-                if other_val != val.1 {
-                    gilrs.insert_event(Event {
-                        id,
-                        time,
-                        event: EventType::AxisChanged(other, val.1, other_code),
-                    });
-                }
-
                 Some(if gilrs.gamepad(id).unwrap().state().value(nec) == val.0 {
                     Event::dropped()
                 } else {
