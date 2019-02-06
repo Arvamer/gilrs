@@ -32,10 +32,15 @@ mod platform;
 #[path = "windows/mod.rs"]
 mod platform;
 
+#[cfg(target_arch = "wasm32")]
+#[path = "wasm/mod.rs"]
+mod platform;
+
 #[cfg(all(
     not(target_os = "linux"),
     not(target_os = "macos"),
-    not(target_os = "windows")
+    not(target_os = "windows"),
+    not(target_arch = "wasm32")
 ))]
 #[path = "default/mod.rs"]
 mod platform;
