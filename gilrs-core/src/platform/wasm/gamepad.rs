@@ -36,16 +36,19 @@ impl Gilrs {
         if !self.event_cache.is_empty() {
             return self.event_cache.pop_front();
         }
+
         let new_gamepads: Vec<Gamepad> = WebGamepad::get_all()
             .into_iter()
             .filter_map(|gamepad| gamepad.map(|gamepad| Gamepad::new(gamepad)))
             .collect();
         let mut old_index = 0;
         let mut new_index = 0;
+
         loop {
             match (self.gamepads.get(old_index), new_gamepads.get(new_index)) {
                 (Some(old), Some(new)) if old.gamepad.index() == new.gamepad.index() => {
                     let index = old.index();
+
                     // Compare the two gamepads and generate events
                     let buttons = old.buttons.iter().cloned()
                         .zip(new.buttons.iter().cloned())
@@ -58,6 +61,7 @@ impl Gilrs {
                             _ => (),
                         }
                     }
+
                     let axes = old.axes.iter().cloned()
                         .zip(new.axes.iter().cloned());
                     for (axis_index, (old_axis, new_axis)) in axes.enumerate() {
@@ -97,6 +101,7 @@ impl Gilrs {
                 }
             }
         }
+
         self.gamepads = new_gamepads;
         self.event_cache.pop_front()
     }
@@ -124,12 +129,15 @@ impl Gamepad {
         let name = gamepad.id();
         let mut buttons = [false; 17];
         let mut axes = [0.0; 4];
+
         for (index, button) in gamepad.buttons().into_iter().enumerate().take(buttons.len()) {
             buttons[index] = button.pressed();
         }
+
         for (index, axis) in gamepad.axes().into_iter().enumerate().take(axes.len()) {
             axes[index] = axis;
         }
+
         Gamepad {
             uuid: Uuid::nil(),
             gamepad,
@@ -244,18 +252,18 @@ pub mod native_ev_codes {
         BTN_NORTH,
         BTN_WEST,
         BTN_LT,
-        BTN_LT2,
         BTN_RT,
+        BTN_LT2,
         BTN_RT2,
         BTN_SELECT,
         BTN_START,
-        BTN_MODE,
         BTN_LTHUMB,
         BTN_RTHUMB,
         BTN_DPAD_UP,
         BTN_DPAD_DOWN,
         BTN_DPAD_LEFT,
         BTN_DPAD_RIGHT,
+        BTN_MODE,
     ];
 
     pub(super) static AXES: [EvCode; 4] = [
@@ -265,7 +273,7 @@ pub mod native_ev_codes {
         AXIS_RSTICKY,
     ];
 
-    // TODO: Web does not support getting deadzones
+    // Web does not support getting deadzones
     pub(super) static AXES_INFO: [Option<AxisInfo>; 12] = [
         // LeftStickX
         Some(AxisInfo {
