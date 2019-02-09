@@ -9,7 +9,7 @@ use super::FfDevice;
 use uuid::Uuid;
 use {AxisInfo, Event, EventType, PlatformError};
 
-use stdweb::web::Gamepad as WebGamepad;
+use stdweb::web::{Gamepad as WebGamepad, GamepadMappingType};
 use PowerInfo;
 use std::collections::VecDeque;
 
@@ -50,11 +50,11 @@ impl Gilrs {
                     let index = old.index();
 
                     // Compare the two gamepads and generate events
-                    let buttons = old.buttons.iter().cloned()
-                        .zip(new.buttons.iter().cloned())
+                    let buttons = old.mapping.buttons()
+                        .zip(new.mapping.buttons())
                         .enumerate();
                     for (btn_index, (old_button, new_button)) in buttons {
-                        let ev_code = ::EvCode(new.buttons()[btn_index]);
+                        let ev_code = ::EvCode(new.button_code(btn_index));
                         match (old_button, new_button) {
                             (false, true) => self.event_cache.push_back(Event::new(index, EventType::ButtonPressed(ev_code))),
                             (true, false) => self.event_cache.push_back(Event::new(index, EventType::ButtonReleased(ev_code))),
@@ -62,11 +62,12 @@ impl Gilrs {
                         }
                     }
 
-                    let axes = old.axes.iter().cloned()
-                        .zip(new.axes.iter().cloned());
-                    for (axis_index, (old_axis, new_axis)) in axes.enumerate() {
+                    let axes = old.mapping.axes()
+                        .zip(new.mapping.axes())
+                        .enumerate();
+                    for (axis_index, (old_axis, new_axis)) in axes {
                         if old_axis != new_axis {
-                            let ev_code = ::EvCode(new.axes()[axis_index]);
+                            let ev_code = ::EvCode(new.axis_code(axis_index));
                             let value = (new_axis * I32_MAX as f64) as i32;
                             self.event_cache.push_back(Event::new(index, EventType::AxisValueChanged(value, ev_code)));
                         }
@@ -112,7 +113,35 @@ impl Gilrs {
 
     pub fn last_gamepad_hint(&self) -> usize {
         self.gamepads.len()
-    } 
+    }
+}
+
+#[derive(Debug)]
+enum Mapping {
+    Standard {
+        buttons: [bool; 17],
+        axes: [f64; 4]
+    },
+    NoMapping {
+        buttons: Vec<bool>,
+        axes: Vec<f64>
+    }
+}
+
+impl Mapping {
+    fn buttons<'a>(&'a self) -> impl Iterator<Item = bool> + 'a {
+        match self {
+            Mapping::Standard { buttons, .. } => buttons.iter(),
+            Mapping::NoMapping { buttons, .. } => buttons.iter(),
+        }.cloned()
+    }
+
+    fn axes<'a>(&'a self) -> impl Iterator<Item = f64> + 'a {
+        match self {
+            Mapping::Standard { axes, .. } => axes.iter(),
+            Mapping::NoMapping { axes, .. } => axes.iter(),
+        }.cloned()
+    }
 }
 
 #[derive(Debug)]
@@ -120,30 +149,40 @@ pub struct Gamepad {
     uuid: Uuid,
     gamepad: WebGamepad,
     name: String,
-    buttons: [bool; 17],
-    axes: [f64; 4]
+    mapping: Mapping,
 }
 
 impl Gamepad {
     fn new(gamepad: WebGamepad) -> Gamepad {
         let name = gamepad.id();
-        let mut buttons = [false; 17];
-        let mut axes = [0.0; 4];
 
-        for (index, button) in gamepad.buttons().into_iter().enumerate().take(buttons.len()) {
-            buttons[index] = button.pressed();
-        }
+        let mapping = match gamepad.mapping() {
+            GamepadMappingType::Standard => {
+                let mut buttons = [false; 17];
+                let mut axes = [0.0; 4];
 
-        for (index, axis) in gamepad.axes().into_iter().enumerate().take(axes.len()) {
-            axes[index] = axis;
-        }
+                for (index, button) in gamepad.buttons().into_iter().enumerate().take(buttons.len()) {
+                    buttons[index] = button.pressed();
+                }
+
+                for (index, axis) in gamepad.axes().into_iter().enumerate().take(axes.len()) {
+                    axes[index] = axis;
+                }
+
+                Mapping::Standard { buttons, axes }
+            }
+            GamepadMappingType::NoMapping => {
+                let buttons = gamepad.buttons().into_iter().map(|button| button.pressed()).collect();
+                let axes = gamepad.axes();
+                Mapping::NoMapping { buttons, axes }
+            }
+        };
 
         Gamepad {
             uuid: Uuid::nil(),
             gamepad,
             name,
-            buttons,
-            axes,
+            mapping,
         }
     }
 
@@ -181,6 +220,20 @@ impl Gamepad {
 
     pub fn axes(&self) -> &[EvCode] {
         &native_ev_codes::AXES
+    }
+
+    fn button_code(&self, index: usize) -> EvCode {
+        self.buttons()
+            .get(index)
+            .map(|ev| ev.clone())
+            .unwrap_or(EvCode(index as u8 + 31))
+    }
+
+    fn axis_code(&self, index: usize) -> EvCode {
+        self.axes()
+            .get(index)
+            .map(|ev| ev.clone())
+            .unwrap_or(EvCode((index + self.mapping.buttons().count()) as u8 + 31))
     }
 
     pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
