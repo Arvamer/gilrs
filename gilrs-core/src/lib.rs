@@ -19,6 +19,10 @@ extern crate vec_map;
 #[cfg(target_os = "windows")]
 extern crate winapi;
 
+#[cfg(target_arch = "wasm32")]
+#[macro_use]
+extern crate stdweb;
+
 extern crate uuid;
 #[macro_use]
 extern crate log;
@@ -65,10 +69,20 @@ pub struct Event {
 impl Event {
     /// Creates new event with current time.
     pub fn new(id: usize, event: EventType) -> Self {
+        // SystemTime::now panic on WASM, so a workaround is required
+        #[cfg(not(target_arch = "wasm32"))]
+        let time = SystemTime::now();
+        #[cfg(target_arch = "wasm32")]
+        let time = {
+            let epoch = SystemTime::UNIX_EPOCH;
+            let time = stdweb::web::Date::new().get_time();
+            let offset = Duration::from_millis(time as u64);
+            epoch + offset
+        };
         Event {
             id,
             event,
-            time: SystemTime::now(),
+            time,
         }
     }
 }
