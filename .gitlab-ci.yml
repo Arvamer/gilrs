@@ -1,13 +1,11 @@
-image: "liuchong/rustup:1.24.1"
+image: "liuchong/rustup:1.31.1"
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/cargo
+  GIT_SUBMODULE_STRATEGY: normal
 
 before_script:
-  - dpkg --add-architecture i386
-  - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git gcc-multilib libudev1:i386 libudev-dev:i386
-  - git submodule sync
-  - git submodule update --init
+  - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git
   - rustc -Vv && cargo -Vv
 
 cache:
@@ -32,8 +30,6 @@ build:i686-unknown-linux-gnu:
   before_script: &i386_before
     - dpkg --add-architecture i386
     - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git gcc-multilib libudev1:i386 libudev-dev:i386
-    - git submodule sync
-    - git submodule update --init
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
@@ -46,6 +42,26 @@ test:i686-unknown-linux-gnu:
   before_script: *i386_before
   script:
     - cargo test --verbose --target=i686-unknown-linux-gnu --all
+
+build:wasm32-unknown-unknown:
+  stage: build
+  before_script:
+    - rustc -Vv && cargo -Vv
+    - rustup target add wasm32-unknown-unknown
+    # TODO: Use precompiled binaries when new version released
+    - cargo install --git https://github.com/koute/cargo-web.git cargo-web
+  script:
+    - cargo web test --no-run --verbose --package gilrs-core
+    - cargo web test --no-run --verbose --package gilrs
+
+check:x86_64-apple-darwin:
+  stage: build
+  before_script:
+    - rustc -Vv && cargo -Vv
+    - rustup target add x86_64-apple-darwin
+  script:
+    - cargo check --target=x86_64-apple-darwin --verbose --all
+
 
 pages:
   stage: deploy
