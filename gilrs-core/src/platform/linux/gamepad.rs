@@ -98,7 +98,7 @@ impl Gilrs {
                         id: self.event_counter,
                         event,
                         time,
-                    })
+                    });
                 }
                 None => {
                     self.event_counter += 1;
@@ -737,7 +737,8 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
             0,
             0,
         ],
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 unsafe fn cstr_new(bytes: &[u8]) -> &CStr {

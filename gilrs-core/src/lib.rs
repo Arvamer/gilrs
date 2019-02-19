@@ -78,11 +78,7 @@ impl Event {
             let offset = Duration::from_millis(time as u64);
             epoch + offset
         };
-        Event {
-            id,
-            event,
-            time,
-        }
+        Event { id, event, time }
     }
 }
 

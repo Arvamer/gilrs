@@ -39,11 +39,11 @@ impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
         let mut gamepads: [Gamepad; MAX_XINPUT_CONTROLLERS] = Default::default();
         let mut connected: [bool; MAX_XINPUT_CONTROLLERS] = Default::default();
-        
+
         // Iterate through each controller ID and set connected state
         for id in 0..MAX_XINPUT_CONTROLLERS {
-          gamepads[id] = Gamepad::new(id as u32);
-          connected[id] = gamepads[id].is_connected;
+            gamepads[id] = Gamepad::new(id as u32);
+            connected[id] = gamepads[id].is_connected;
         }
 
         unsafe { xinput::XInputEnable(1) };
@@ -69,7 +69,8 @@ impl Gilrs {
     fn spawn_thread(tx: Sender<Event>, connected: [bool; MAX_XINPUT_CONTROLLERS]) {
         thread::spawn(move || unsafe {
             // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
-            let mut prev_states:[XState; MAX_XINPUT_CONTROLLERS] = [mem::zeroed::<XState>(); MAX_XINPUT_CONTROLLERS];
+            let mut prev_states: [XState; MAX_XINPUT_CONTROLLERS] =
+                [mem::zeroed::<XState>(); MAX_XINPUT_CONTROLLERS];
             let mut state = mem::zeroed::<XState>();
             let mut connected = connected;
             let mut counter = 0;
@@ -88,7 +89,12 @@ impl Gilrs {
                             }
 
                             if state.dwPacketNumber != prev_states[id].dwPacketNumber {
-                                Self::compare_state(id, &state.Gamepad, &prev_states[id].Gamepad, &tx);
+                                Self::compare_state(
+                                    id,
+                                    &state.Gamepad,
+                                    &prev_states[id].Gamepad,
+                                    &tx,
+                                );
                                 prev_states[id] = state;
                             }
                         } else if val == ERROR_DEVICE_NOT_CONNECTED && *connected.get_unchecked(id)

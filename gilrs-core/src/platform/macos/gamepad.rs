@@ -173,12 +173,14 @@ impl Gamepad {
         };
 
         let page = match device.get_page() {
-            Some(page) => if page == kHIDPage_GenericDesktop {
-                page
-            } else {
-                error!("Failed to get valid device: {:?}", page);
-                return None;
-            },
+            Some(page) => {
+                if page == kHIDPage_GenericDesktop {
+                    page
+                } else {
+                    error!("Failed to get valid device: {:?}", page);
+                    return None;
+                }
+            }
             None => {
                 error!("Failed to get page of device");
                 return None;
@@ -186,15 +188,17 @@ impl Gamepad {
         };
 
         let usage = match device.get_usage() {
-            Some(usage) => if usage == kHIDUsage_GD_GamePad
-                || usage == kHIDUsage_GD_Joystick
-                || usage == kHIDUsage_GD_MultiAxisController
-            {
-                usage
-            } else {
-                error!("Failed to get valid device: {:?}", usage);
-                return None;
-            },
+            Some(usage) => {
+                if usage == kHIDUsage_GD_GamePad
+                    || usage == kHIDUsage_GD_Joystick
+                    || usage == kHIDUsage_GD_MultiAxisController
+                {
+                    usage
+                } else {
+                    error!("Failed to get valid device: {:?}", usage);
+                    return None;
+                }
+            }
             None => {
                 error!("Failed to get usage of device");
                 return None;
