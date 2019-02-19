@@ -102,19 +102,7 @@ pub enum EventType {
 pub struct AxisInfo {
     pub min: i32,
     pub max: i32,
-    pub deadzone: u32,
-}
-
-impl AxisInfo {
-    pub fn deadzone(&self) -> f32 {
-        let range = self.max as f32 - self.min as f32;
-
-        if range == 0.0 {
-            0.0
-        } else {
-            self.deadzone as f32 / range * 2.0
-        }
-    }
+    pub deadzone: Option<u32>,
 }
 
 /// State of device's power supply.

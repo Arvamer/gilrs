@@ -332,13 +332,13 @@ pub mod native_ev_codes {
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: 0 as u32,
+            deadzone: None,
         }),
         // LeftStickY
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: 0 as u32,
+            deadzone: None,
         }),
         // LeftZ
         None,
@@ -346,13 +346,13 @@ pub mod native_ev_codes {
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: 0 as u32,
+            deadzone: None,
         }),
         // RightStickY
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: 0 as u32,
+            deadzone: None,
         }),
         // RightZ
         None,

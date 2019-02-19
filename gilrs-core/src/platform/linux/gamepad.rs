@@ -214,7 +214,7 @@ impl AxesInfo {
                     AxisInfo {
                         min: info.minimum,
                         max: info.maximum,
-                        deadzone: info.flat as u32,
+                        deadzone: Some(info.flat as u32),
                     },
                 );
             }

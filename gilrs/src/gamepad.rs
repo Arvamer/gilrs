@@ -27,6 +27,8 @@ use std::sync::mpsc::Sender;
 use utils;
 use MappingError;
 
+const DEFAULT_DEADZONE: f32 = 0.1;
+
 /// Main object responsible of managing gamepads.
 ///
 /// In order to get gamepad handle, use `gamepad()`, or `connected_gamepad()`. The main difference
@@ -852,7 +854,15 @@ impl<'a> Gamepad<'a> {
 
     /// Returns area in which axis events should be ignored.
     pub fn deadzone(&self, axis: Code) -> Option<f32> {
-        self.inner.axis_info(axis.0).map(|i| i.deadzone())
+        self.inner.axis_info(axis.0).map(|i| {
+            let range = i.max as f32 - i.min as f32;
+
+            if range == 0.0 {
+                0.0
+            } else {
+                i.deadzone.map(|d| d as f32 / range * 2.0).unwrap_or(DEFAULT_DEADZONE)
+            }
+        })
     }
 
     /// Returns ID of gamepad.

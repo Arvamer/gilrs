@@ -352,7 +352,7 @@ impl Gamepad {
                     AxisInfo {
                         min: element.get_logical_min() as _,
                         max: element.get_logical_max() as _,
-                        deadzone: 0,
+                        deadzone: None,
                     },
                 );
                 self.axes.push(EvCode::new(page, usage));

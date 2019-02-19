@@ -506,13 +506,13 @@ pub mod native_ev_codes {
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32,
+            deadzone: Some(XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32),
         }),
         // LeftStickY
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32,
+            deadzone: Some(XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32),
         }),
         // LeftZ
         None,
@@ -520,13 +520,13 @@ pub mod native_ev_codes {
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32,
+            deadzone: Some(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32),
         }),
         // RightStickY
         Some(AxisInfo {
             min: I16_MIN as i32,
             max: I16_MAX as i32,
-            deadzone: XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32,
+            deadzone: Some(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32),
         }),
         // RightZ
         None,
@@ -542,13 +542,13 @@ pub mod native_ev_codes {
         Some(AxisInfo {
             min: U8_MIN as i32,
             max: U8_MAX as i32,
-            deadzone: XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32,
+            deadzone: Some(XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32),
         }),
         // LeftTrigger2
         Some(AxisInfo {
             min: U8_MIN as i32,
             max: U8_MAX as i32,
-            deadzone: XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32,
+            deadzone: Some(XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32),
         }),
     ];
 }
