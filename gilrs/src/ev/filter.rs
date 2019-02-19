@@ -133,7 +133,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
                 None => return ev,
             };
 
-            if let Some((other, other_code)) = axis.second_axis().and_then(|axis| {
+            if let Some((_, other_code)) = axis.second_axis().and_then(|axis| {
                 gilrs
                     .gamepad(id)
                     .unwrap()

@@ -20,7 +20,6 @@ extern crate vec_map;
 extern crate winapi;
 
 #[cfg(target_arch = "wasm32")]
-#[macro_use]
 extern crate stdweb;
 
 extern crate uuid;
