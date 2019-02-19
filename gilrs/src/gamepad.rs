@@ -860,7 +860,9 @@ impl<'a> Gamepad<'a> {
             if range == 0.0 {
                 0.0
             } else {
-                i.deadzone.map(|d| d as f32 / range * 2.0).unwrap_or(DEFAULT_DEADZONE)
+                i.deadzone
+                    .map(|d| d as f32 / range * 2.0)
+                    .unwrap_or(DEFAULT_DEADZONE)
             }
         })
     }

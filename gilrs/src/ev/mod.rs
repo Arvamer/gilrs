@@ -196,7 +196,8 @@ impl Button {
             Button::DPadLeft => Some(necs::BTN_DPAD_LEFT),
             Button::DPadRight => Some(necs::BTN_DPAD_RIGHT),
             _ => None,
-        }.map(|nec| Code(nec))
+        }
+        .map(|nec| Code(nec))
     }
 }
 

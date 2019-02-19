@@ -172,9 +172,11 @@ impl Mapping {
             let token = token?;
 
             match token {
-                Token::Platform(platform) => if platform != SDL_PLATFORM_NAME {
-                    warn!("Mappings for different platform – {}", platform);
-                },
+                Token::Platform(platform) => {
+                    if platform != SDL_PLATFORM_NAME {
+                        warn!("Mappings for different platform – {}", platform);
+                    }
+                }
                 Token::Uuid(_) => (),
                 Token::Name(name) => mapping.name = name.to_owned(),
                 Token::AxisMapping { from, to, .. } => {

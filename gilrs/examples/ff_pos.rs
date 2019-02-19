@@ -85,10 +85,12 @@ fn main() {
         .add_effect(BaseEffect {
             kind: BaseEffectType::Strong { magnitude: 45_000 },
             ..Default::default()
-        }).add_effect(BaseEffect {
+        })
+        .add_effect(BaseEffect {
             kind: BaseEffectType::Weak { magnitude: 45_000 },
             ..Default::default()
-        }).distance_model(DistanceModel::None)
+        })
+        .distance_model(DistanceModel::None)
         .gamepads(&support_ff)
         .clone();
 

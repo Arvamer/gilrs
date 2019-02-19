@@ -221,78 +221,70 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             event: EventType::AxisChanged(Axis::DPadX, val, _),
             id,
             time,
-        })
-            if can_map(&gilrs.gamepad(id).unwrap()) =>
+        }) if can_map(&gilrs.gamepad(id).unwrap()) => Some(if val == 1.0 {
+            Event {
+                id,
+                time,
+                event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
+            }
+        } else if val == -1.0 {
+            Event {
+                id,
+                time,
+                event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
+            }
+        } else if gilrs
+            .gamepad(id)
+            .unwrap()
+            .state()
+            .is_pressed(Code(necs::BTN_DPAD_RIGHT))
         {
-            Some(if val == 1.0 {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
-                }
-            } else if val == -1.0 {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
-                }
-            } else if gilrs
-                .gamepad(id)
-                .unwrap()
-                .state()
-                .is_pressed(Code(necs::BTN_DPAD_RIGHT))
-            {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
-                }
-            } else {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonReleased(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
-                }
-            })
-        }
+            Event {
+                id,
+                time,
+                event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
+            }
+        } else {
+            Event {
+                id,
+                time,
+                event: EventType::ButtonReleased(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
+            }
+        }),
         Some(Event {
             event: EventType::AxisChanged(Axis::DPadY, val, _),
             id,
             time,
-        })
-            if can_map(&gilrs.gamepad(id).unwrap()) =>
+        }) if can_map(&gilrs.gamepad(id).unwrap()) => Some(if val == 1.0 {
+            Event {
+                id,
+                time,
+                event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
+            }
+        } else if val == -1.0 {
+            Event {
+                id,
+                time,
+                event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
+            }
+        } else if gilrs
+            .gamepad(id)
+            .unwrap()
+            .state()
+            .is_pressed(Code(necs::BTN_DPAD_UP))
         {
-            Some(if val == 1.0 {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
-                }
-            } else if val == -1.0 {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
-                }
-            } else if gilrs
-                .gamepad(id)
-                .unwrap()
-                .state()
-                .is_pressed(Code(necs::BTN_DPAD_UP))
-            {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
-                }
-            } else {
-                Event {
-                    id,
-                    time,
-                    event: EventType::ButtonReleased(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
-                }
-            })
-        }
+            Event {
+                id,
+                time,
+                event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
+            }
+        } else {
+            Event {
+                id,
+                time,
+                event: EventType::ButtonReleased(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
+            }
+        }),
         _ => ev,
     }
 }
