@@ -13,6 +13,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use gamepad::GamepadId;
 use gilrs_core::FfDevice;
 
 use vec_map::VecMap;
@@ -49,7 +50,7 @@ pub(crate) enum Message {
     },
     AddGamepad {
         id: usize,
-        gamepad_id: usize,
+        gamepad_id: GamepadId,
     },
     SetRepeat {
         id: usize,
@@ -199,7 +200,7 @@ pub(crate) fn run(rx: Receiver<Message>) {
                 }
                 Message::AddGamepad { id, gamepad_id } => {
                     if let Some(eff) = effects.get_mut(id) {
-                        eff.source.devices.insert(gamepad_id, ());
+                        eff.source.devices.insert(gamepad_id.0, ());
                     } else {
                         error!("Invalid effect id {} when changing gamepads.", id);
                     }

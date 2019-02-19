@@ -139,7 +139,7 @@ fn main() {
         for &mut (idx, ref mut pos) in &mut listeners {
             let velocity = 0.5;
 
-            let gp = gilrs.gamepad(idx).unwrap();
+            let gp = gilrs.gamepad(idx);
             let (sx, sy) = (gp.value(Axis::LeftStickX), gp.value(Axis::LeftStickY));
 
             if sx.abs() > 0.5 || sy.abs() > 0.5 {
@@ -150,11 +150,7 @@ fn main() {
                     pos[1] += velocity * sy.signum();
                 }
 
-                gilrs
-                    .gamepad(idx)
-                    .unwrap()
-                    .set_listener_position(*pos)
-                    .unwrap();
+                gilrs.gamepad(idx).set_listener_position(*pos).unwrap();
 
                 let dist = ((pos[0] - pos1[0]).powi(2) + (pos[1] - pos1[1]).powi(2)).sqrt();
                 print!(

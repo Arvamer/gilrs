@@ -60,10 +60,10 @@
 //! impl FilterFn for UnknownSlayer {
 //!     fn filter(&self, ev: Option<Event>, _gilrs: &mut Gilrs) -> Option<Event> {
 //!         match ev {
-//!             Some(Event { event: EventType::ButtonPressed(Button::Unknown, ..), .. })
-//!             | Some(Event { event: EventType::ButtonReleased(Button::Unknown, ..), .. })
-//!             | Some(Event { event: EventType::AxisChanged(Axis::Unknown, ..), .. })
-//!             => Some(Event::dropped()),
+//!             Some(Event { event: EventType::ButtonPressed(Button::Unknown, ..), id, .. })
+//!             | Some(Event { event: EventType::ButtonReleased(Button::Unknown, ..), id, .. })
+//!             | Some(Event { event: EventType::AxisChanged(Axis::Unknown, ..), id, .. })
+//!             => Some(Event::new(id, EventType::Dropped)),
 //!             _ => ev,
 //!         }
 //!     }
@@ -99,9 +99,9 @@ impl FilterFn for Jitter {
                 event: EventType::AxisChanged(_, val, axis),
                 id,
                 ..
-            }) => match gilrs.gamepad(id).unwrap().state().axis_data(axis) {
+            }) => match gilrs.gamepad(id).state().axis_data(axis) {
                 Some(data) if val != 0.0 && (val - data.value()).abs() < self.threshold => {
-                    Some(Event::dropped())
+                    Some(Event::new(id, EventType::Dropped))
                 }
                 _ => ev,
             },
@@ -128,23 +128,20 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
             id,
             time,
         }) => {
-            let threshold = match gilrs.gamepad(id).unwrap().deadzone(nec) {
+            let threshold = match gilrs.gamepad(id).deadzone(nec) {
                 Some(t) => t,
                 None => return ev,
             };
 
-            if let Some((_, other_code)) = axis.second_axis().and_then(|axis| {
-                gilrs
-                    .gamepad(id)
-                    .unwrap()
-                    .axis_code(axis)
-                    .map(|code| (axis, code))
-            }) {
-                let other_val = gilrs.gamepad(id).unwrap().state().value(other_code);
+            if let Some((_, other_code)) = axis
+                .second_axis()
+                .and_then(|axis| gilrs.gamepad(id).axis_code(axis).map(|code| (axis, code)))
+            {
+                let other_val = gilrs.gamepad(id).state().value(other_code);
                 let val = apply_deadzone(val, other_val, threshold);
 
-                Some(if gilrs.gamepad(id).unwrap().state().value(nec) == val.0 {
-                    Event::dropped()
+                Some(if gilrs.gamepad(id).state().value(nec) == val.0 {
+                    Event::new(id, EventType::Dropped)
                 } else {
                     Event {
                         id,
@@ -155,8 +152,8 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
             } else {
                 let val = apply_deadzone(val, 0.0, threshold).0;
 
-                Some(if gilrs.gamepad(id).unwrap().state().value(nec) == val {
-                    Event::dropped()
+                Some(if gilrs.gamepad(id).state().value(nec) == val {
+                    Event::new(id, EventType::Dropped)
                 } else {
                     Event {
                         id,
@@ -171,7 +168,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
             id,
             time,
         }) => {
-            let gp = &gilrs.gamepad(id).unwrap();
+            let gp = &gilrs.gamepad(id);
             let threshold = match gp.deadzone(nec) {
                 Some(t) => t,
                 None => return ev,
@@ -179,7 +176,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
             let val = apply_deadzone(val, 0.0, threshold).0;
 
             Some(if gp.state().value(nec) == val {
-                Event::dropped()
+                Event::new(id, EventType::Dropped)
             } else {
                 Event {
                     id,
@@ -221,7 +218,7 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             event: EventType::AxisChanged(Axis::DPadX, val, _),
             id,
             time,
-        }) if can_map(&gilrs.gamepad(id).unwrap()) => Some(if val == 1.0 {
+        }) if can_map(&gilrs.gamepad(id)) => Some(if val == 1.0 {
             Event {
                 id,
                 time,
@@ -235,7 +232,6 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             }
         } else if gilrs
             .gamepad(id)
-            .unwrap()
             .state()
             .is_pressed(Code(necs::BTN_DPAD_RIGHT))
         {
@@ -255,7 +251,7 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             event: EventType::AxisChanged(Axis::DPadY, val, _),
             id,
             time,
-        }) if can_map(&gilrs.gamepad(id).unwrap()) => Some(if val == 1.0 {
+        }) if can_map(&gilrs.gamepad(id)) => Some(if val == 1.0 {
             Event {
                 id,
                 time,
@@ -269,7 +265,6 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             }
         } else if gilrs
             .gamepad(id)
-            .unwrap()
             .state()
             .is_pressed(Code(necs::BTN_DPAD_UP))
         {

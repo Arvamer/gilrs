@@ -67,7 +67,7 @@ use std::{f32, fmt};
 
 use self::effect_source::EffectSource;
 use ff::server::Message;
-use gamepad::{Gamepad, Gilrs};
+use gamepad::{Gamepad, GamepadId, Gilrs};
 use utils;
 
 use vec_map::VecMap;
@@ -129,7 +129,7 @@ impl Effect {
     ///
     /// Returns `Error::Disconnected(id)` or `Error::FfNotSupported(id)` on first gamepad in `ids`
     /// that is disconnected or doesn't support force feedback.
-    pub fn set_gamepads(&self, ids: &[usize], gilrs: &Gilrs) -> Result<(), Error> {
+    pub fn set_gamepads(&self, ids: &[GamepadId], gilrs: &Gilrs) -> Result<(), Error> {
         let mut gamepads = VecMap::new();
 
         for dev in ids.iter().cloned() {
@@ -140,7 +140,7 @@ impl Effect {
             {
                 return Err(Error::FfNotSupported(dev));
             } else {
-                gamepads.insert(dev, ());
+                gamepads.insert(dev.0, ());
             }
         }
 
@@ -251,16 +251,16 @@ impl EffectBuilder {
 
     /// Changes gamepads that are associated with effect. Effect will be only played on gamepads
     /// from last call to this function.
-    pub fn gamepads(&mut self, ids: &[usize]) -> &mut Self {
+    pub fn gamepads(&mut self, ids: &[GamepadId]) -> &mut Self {
         for dev in ids {
-            self.devices.insert(*dev, ());
+            self.devices.insert(dev.0, ());
         }
         self
     }
 
     /// Adds gamepad to the list of gamepads associated with effect.
     pub fn add_gamepad(&mut self, gamepad: &Gamepad) -> &mut Self {
-        self.devices.insert(gamepad.id(), ());
+        self.devices.insert(gamepad.id().0, ());
 
         self
     }
@@ -300,6 +300,7 @@ impl EffectBuilder {
     /// [`DistanceModel`](enum.DistanceModelError.html) for details.
     pub fn finish(&mut self, gilrs: &mut Gilrs) -> Result<Effect, Error> {
         for (dev, _) in &self.devices {
+            let dev = GamepadId(dev);
             if !gilrs
                 .connected_gamepad(dev)
                 .ok_or(Error::Disconnected(dev))?
@@ -333,9 +334,9 @@ impl EffectBuilder {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Error {
     /// Force feedback is not supported by device with this ID
-    FfNotSupported(usize),
+    FfNotSupported(GamepadId),
     /// Device is not connected
-    Disconnected(usize),
+    Disconnected(GamepadId),
     /// Distance model is invalid.
     InvalidDistanceModel(DistanceModelError),
     /// The other end of channel was dropped.
@@ -362,10 +363,11 @@ impl StdError for Error {
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.write_str(&match *self {
-            Error::FfNotSupported(id) => {
-                format!("Force feedback is not supported by device with id {}.", id)
-            }
-            Error::Disconnected(id) => format!("Device with id {} is not connected.", id),
+            Error::FfNotSupported(id) => format!(
+                "Force feedback is not supported by device with id {}.",
+                id.0
+            ),
+            Error::Disconnected(id) => format!("Device with id {} is not connected.", id.0),
             Error::InvalidDistanceModel(err) => {
                 format!("Distance model is invalid: {}.", err.description())
             }

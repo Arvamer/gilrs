@@ -14,6 +14,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::time::SystemTime;
 
 use constants::*;
+use gamepad::GamepadId;
 use gilrs_core;
 
 /// Platform specific event code.
@@ -36,7 +37,7 @@ impl Code {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Event {
     /// Id of gamepad.
-    pub id: usize,
+    pub id: GamepadId,
     /// Event's data.
     pub event: EventType,
     /// Time when event was emitted.
@@ -45,7 +46,7 @@ pub struct Event {
 
 impl Event {
     /// Creates new event with current time.
-    pub fn new(id: usize, event: EventType) -> Self {
+    pub fn new(id: GamepadId, event: EventType) -> Self {
         Event {
             id,
             event,
@@ -58,15 +59,6 @@ impl Event {
         self.event = EventType::Dropped;
 
         self
-    }
-
-    /// Creates `Event` with `EventType::Dropped`.
-    pub fn dropped() -> Event {
-        Event {
-            id: ::std::usize::MAX,
-            event: EventType::Dropped,
-            time: SystemTime::now(),
-        }
     }
 
     /// Returns true if event is `Dropped` and should be ignored.
