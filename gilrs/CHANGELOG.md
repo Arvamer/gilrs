@@ -6,10 +6,12 @@ v0.7.0 - Unreleased
 
 ### Added
 
-- `Gilrs::gamepad(id) -> Option<Gamepad<'_>'`. This function is replacement
-  for `Index` operator and will return `Some(gamepad)` if gamepad is
-  currently disconnected. `None` is only returned if gamepad with given id
-  has never existed.
+- `GamepadId`
+- `Gilrs::gamepad(id)`. This function is replacement
+  for `Index` operator and can return disconnected gamepads.
+- Initial support for macOS (@jtakakura). There are still some functionality
+  missing, check related issues in #58.
+- Wasm support, using stdweb (@ryanisaacg).
 
 ### Changed
 
@@ -20,6 +22,10 @@ v0.7.0 - Unreleased
 - Renamed `Gilrs::get(id)` to `Gilrs::connected_gamepad(id)`.
 - Moved `Gamepad::set_mapping{,_strict}()` to `Gilrs`. These functions now
   also take gamepad id as additional argument.
+- Minimal supported version is now 1.31.1. The crate can still be build with
+  older rustc, but it may change during next patch release.
+- Instead using `usize` for gamepad ID, `GamepadId` is now used.
+- Updated bundled SDL_GameControllerDB.
 
 ### Removed
 
@@ -28,6 +34,15 @@ v0.7.0 - Unreleased
   `Gilrs::gamepad(id)` instead.
 - `Gamepad::status()` and `Status` enum. `Gamepad::is_connected()` is
   now sufficient to determine status of gamepad.
+
+### Fixed
+
+- xinput: Incorrect gamepad ID when more than one gamepad is connected
+  (@DTibbs).
+- Deadzone filter no longer emits additional events. This resulted in emitting
+  more events until values normalized on some, often unrelated (like 0 for axis
+  around 0.5), value.
+- Mappings from environment variable had lower priority than bundled mappings.
 
 v0.6.1 - 2018-07-18
 -------------------
