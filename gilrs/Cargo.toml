@@ -1,6 +1,6 @@
 [package]
 name = "gilrs"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Arvamer <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 exclude = ["controller.svg"]
@@ -19,7 +19,7 @@ vec_map = "0.8"
 uuid = "0.7.0"
 log = "0.4.1"
 fnv = "1.0"
-gilrs-core = { path = "../gilrs-core", version = "0.1" }
+gilrs-core = { path = "../gilrs-core", version = "0.2" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 stdweb = "0.4.13"
