@@ -33,7 +33,7 @@ Example
 
 ```toml
 [dependencies]
-gilrs = "0.6.1"
+gilrs = "0.7.0"
 ```
 
 ```rust
@@ -71,8 +71,8 @@ Supported features
 |------------------|:-----:|:-----------:|:--------------:|
 | Linux            |   ✓   |      ✓      |        ✓       |
 | Windows (XInput) |   ✓   |      ✓      |        ✓       |
-| OS X             |   ✕   |      ✕      |        ✕       |
-| Emscripten       |   ✕   |      ✕      |       n/a      |
+| OS X             |   ✓   |      ✓      |        ✕       |
+| Wasm             |   ✓   |      ✓      |       n/a      |
 | Android          |   ✕   |      ✕      |        ✕       |
 
 
@@ -88,6 +88,14 @@ On most distros it shouldn't be a problem, but if it is, you will have to create
 
 To build GilRs, you will need pkg-config and libudev .pc file. On some
 distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
+
+Wasm
+----
+
+Wasm implementation uses stdweb, so you will need
+[cargo-web](https://github.com/koute/cargo-web) to build gilrs for
+wasm32-unknown-unknown. Unlike other platforms, events are only generated
+when you call `Gilrs::next_event()`.
 
 License
 =======
