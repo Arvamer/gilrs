@@ -233,8 +233,8 @@ impl Gamepad {
         }
     }
 
-    /// Returns information about specific axis or `None` if device doesn't have axis with provided
-    /// `EvCode`.
+    /// Returns information about specific axis. `None` may be returned if device doesn't have axis
+    /// with provided `EvCode`.
     pub fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
         self.inner.axis_info(nec.0)
     }

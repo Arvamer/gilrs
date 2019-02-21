@@ -249,10 +249,12 @@ impl Gamepad {
             .unwrap_or(EvCode((index + self.mapping.buttons().count()) as u8 + 31))
     }
 
-    pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
-        native_ev_codes::AXES_INFO
-            .get(nec.0 as usize)
-            .and_then(|o| o.as_ref())
+    pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
+        Some(&AxisInfo {
+            min: i16::min_value() as i32,
+            max: i16::max_value() as i32,
+            deadzone: None,
+        })
     }
 }
 
@@ -272,10 +274,7 @@ impl Display for EvCode {
 }
 
 pub mod native_ev_codes {
-    use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
-
     use super::EvCode;
-    use AxisInfo;
 
     pub const AXIS_LSTICKX: EvCode = EvCode(0);
     pub const AXIS_LSTICKY: EvCode = EvCode(1);
@@ -332,48 +331,4 @@ pub mod native_ev_codes {
     ];
 
     pub(super) static AXES: [EvCode; 4] = [AXIS_LSTICKX, AXIS_LSTICKY, AXIS_RSTICKX, AXIS_RSTICKY];
-
-    // Web does not support getting deadzones
-    pub(super) static AXES_INFO: [Option<AxisInfo>; 12] = [
-        // LeftStickX
-        Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
-            deadzone: None,
-        }),
-        // LeftStickY
-        Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
-            deadzone: None,
-        }),
-        // LeftZ
-        None,
-        // RightStickX
-        Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
-            deadzone: None,
-        }),
-        // RightStickY
-        Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
-            deadzone: None,
-        }),
-        // RightZ
-        None,
-        // DPadX
-        None,
-        // DPadY
-        None,
-        // RightTrigger
-        None,
-        // LeftTrigger
-        None,
-        // RightTrigger2
-        None,
-        // LeftTrigger2
-        None,
-    ];
 }
