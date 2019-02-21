@@ -1032,8 +1032,8 @@ impl Display for GamepadId {
 }
 
 fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
-    let range = (info.max - info.min) as f32;
-    let mut val = (val - info.min) as f32;
+    let range = info.max as f32 - info.min as f32;
+    let mut val = val as f32 - info.min as f32;
     val = val / range * 2.0 - 1.0;
 
     if gilrs_core::IS_Y_AXIS_REVERSED
