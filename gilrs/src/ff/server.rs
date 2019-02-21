@@ -253,11 +253,11 @@ pub(crate) fn run(rx: Receiver<Message>) {
 }
 
 pub(crate) fn init() -> Sender<Message> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, _rx) = mpsc::channel();
 
     // Wasm doesn't support threads and force feedback
     #[cfg(not(target_arch = "wasm32"))]
-    thread::spawn(move || run(rx));
+    thread::spawn(move || run(_rx));
 
     tx
 }

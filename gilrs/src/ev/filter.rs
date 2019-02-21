@@ -77,7 +77,7 @@ use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
 use gamepad::{Gamepad, Gilrs};
 use utils;
 
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 /// Discard axis events that changed less than `threshold`.
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -306,7 +306,7 @@ impl FilterFn for Repeat {
         match ev {
             Some(ev) => Some(ev),
             None => {
-                let now = SystemTime::now();
+                let now = utils::time_now();
                 for (id, gamepad) in gilrs.gamepads() {
                     for (nec, btn_data) in gamepad.state().buttons() {
                         match (

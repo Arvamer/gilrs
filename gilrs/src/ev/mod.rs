@@ -16,6 +16,7 @@ use std::time::SystemTime;
 use constants::*;
 use gamepad::GamepadId;
 use gilrs_core;
+use utils;
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -50,7 +51,7 @@ impl Event {
         Event {
             id,
             event,
-            time: SystemTime::now(),
+            time: utils::time_now(),
         }
     }
 

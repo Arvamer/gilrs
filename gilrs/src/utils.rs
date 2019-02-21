@@ -5,12 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(dead_code)]
-
-/// Returns true if nth bit in array is 1.
-pub fn test_bit(n: u16, array: &[u8]) -> bool {
-    (array[(n / 8) as usize] >> (n % 8)) & 1 != 0
-}
+use std::time::SystemTime;
 
 /// Like `(a: f32 / b).ceil()` but for integers.
 pub fn ceil_div(a: u32, b: u32) -> u32 {
@@ -25,19 +20,24 @@ pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
     x.max(min).min(max)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn time_now() -> SystemTime {
+    SystemTime::now()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn time_now() -> SystemTime {
+    use std::time::Duration;
+
+    let epoch = SystemTime::UNIX_EPOCH;
+    let time = stdweb::web::Date::new().get_time();
+    let offset = Duration::from_millis(time as u64);
+    epoch + offset
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn t_test_bit() {
-        let buf = [0b1001_0001u8, 0b0010_0001];
-        assert_eq!(test_bit(0, &buf), true);
-        assert_eq!(test_bit(3, &buf), false);
-        assert_eq!(test_bit(7, &buf), true);
-        assert_eq!(test_bit(8, &buf), true);
-        assert_eq!(test_bit(15, &buf), false);
-    }
 
     #[test]
     fn t_clamp() {

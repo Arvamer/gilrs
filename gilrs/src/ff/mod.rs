@@ -5,6 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+// This code is not used on wasm
+#![cfg_attr(target_arch = "wasm32", allow(dead_code))]
+
 //! Force feedback module.
 //!
 //! To use force feedback, you have to create one or more [`Effect`s](struct.Effect.html). Each

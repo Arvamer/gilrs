@@ -100,6 +100,9 @@ extern crate log;
 extern crate uuid;
 extern crate vec_map;
 
+#[cfg(target_arch = "wasm32")]
+extern crate stdweb;
+
 mod constants;
 mod gamepad;
 mod mapping;
