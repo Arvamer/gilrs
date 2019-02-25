@@ -905,7 +905,7 @@ impl GamepadData {
             .and_then(|s| Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()).ok())
             .unwrap_or_default();
 
-        if gamepad.is_ff_supported() {
+        if gamepad.is_ff_supported() && gamepad.is_connected() {
             if let Some(device) = gamepad.ff_device() {
                 let _ = tx.send(Message::Open { id: id.0, device });
             }
