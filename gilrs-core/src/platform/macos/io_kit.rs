@@ -9,10 +9,12 @@
 #![allow(non_snake_case)]
 
 use core_foundation::array::{
-    kCFTypeArrayCallBacks, CFArray, CFArrayAppendValue, CFArrayCreateMutable, CFArrayGetCount,
-    CFArrayGetValueAtIndex,
+    kCFTypeArrayCallBacks, CFArray, CFArrayCallBacks, CFArrayGetCount, CFArrayGetValueAtIndex,
+    __CFArray,
 };
-use core_foundation::base::{kCFAllocatorDefault, CFRelease, CFType, TCFType};
+use core_foundation::base::{
+    kCFAllocatorDefault, CFAllocatorRef, CFIndex, CFRelease, CFType, TCFType,
+};
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::runloop::{CFRunLoop, CFRunLoopMode};
@@ -41,6 +43,17 @@ use std::ptr;
 #[repr(C)]
 #[derive(Debug)]
 pub struct IOHIDManager(IOHIDManagerRef);
+
+pub type CFMutableArrayRef = *mut __CFArray;
+
+extern "C" {
+    pub fn CFArrayCreateMutable(
+        allocator: CFAllocatorRef,
+        capacity: CFIndex,
+        callBacks: *const CFArrayCallBacks,
+    ) -> CFMutableArrayRef;
+    pub fn CFArrayAppendValue(theArray: CFMutableArrayRef, value: *const c_void);
+}
 
 impl_TCFType!(IOHIDManager, IOHIDManagerRef, IOHIDManagerGetTypeID);
 

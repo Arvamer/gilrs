@@ -2,6 +2,3 @@
 members = [
     "gilrs"
 ]
-
-[patch.crates-io]
-core-foundation-sys = { git = "https://github.com/jtakakura/core-foundation-rs", branch = "cf-sys-patch-1" }
