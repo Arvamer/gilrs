@@ -12,16 +12,19 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 use std::{mem, thread, u16, u32};
+use std::error::Error as StdError;
+
 use uuid::Uuid;
-use winapi::shared::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
 use winapi::um::xinput::{
-    self, XINPUT_BATTERY_INFORMATION as XBatteryInfo, XINPUT_GAMEPAD as XGamepad, XINPUT_GAMEPAD_A,
+    XINPUT_GAMEPAD as XGamepad, XINPUT_GAMEPAD_A,
     XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT,
     XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_LEFT_SHOULDER,
     XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB,
     XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y, XINPUT_STATE as XState,
 };
+use rusty_xinput::{self, XInputState, XInputUsageError, BatteryType, BatteryLevel};
 use PowerInfo;
+use rusty_xinput::XInputLoadingFailure;
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -37,6 +40,8 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
+        rusty_xinput::dynamic_load_xinput().map_err(|e| PlatformError::Other(Box::new(Error::FailedToLoadDll(e))))?;
+
         let mut gamepads: [Gamepad; MAX_XINPUT_CONTROLLERS] = Default::default();
         let mut connected: [bool; MAX_XINPUT_CONTROLLERS] = Default::default();
 
@@ -46,7 +51,6 @@ impl Gilrs {
             connected[id] = gamepads[id].is_connected;
         }
 
-        unsafe { xinput::XInputEnable(1) };
         let (tx, rx) = mpsc::channel();
         Self::spawn_thread(tx, connected);
 
@@ -81,7 +85,6 @@ impl Gilrs {
             // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
             let mut prev_states: [XState; MAX_XINPUT_CONTROLLERS] =
                 [mem::zeroed::<XState>(); MAX_XINPUT_CONTROLLERS];
-            let mut state = mem::zeroed::<XState>();
             let mut connected = connected;
             let mut counter = 0;
 
@@ -90,27 +93,30 @@ impl Gilrs {
                     if *connected.get_unchecked(id)
                         || counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
                     {
-                        let val = xinput::XInputGetState(id as u32, &mut state);
+                        match rusty_xinput::xinput_get_state(id as u32) {
+                            Ok(XInputState { raw: state }) => {
+                                if !connected[id] {
+                                    connected[id] = true;
+                                    let _ = tx.send(Event::new(id, EventType::Connected));
+                                }
 
-                        if val == ERROR_SUCCESS {
-                            if !connected.get_unchecked(id) {
-                                *connected.get_unchecked_mut(id) = true;
-                                let _ = tx.send(Event::new(id, EventType::Connected));
+                                if state.dwPacketNumber != prev_states[id].dwPacketNumber {
+                                    Self::compare_state(
+                                        id,
+                                        &state.Gamepad,
+                                        &prev_states[id].Gamepad,
+                                        &tx,
+                                    );
+                                    prev_states[id] = state;
+                                }
                             }
-
-                            if state.dwPacketNumber != prev_states[id].dwPacketNumber {
-                                Self::compare_state(
-                                    id,
-                                    &state.Gamepad,
-                                    &prev_states[id].Gamepad,
-                                    &tx,
-                                );
-                                prev_states[id] = state;
+                            Err(XInputUsageError::DeviceNotConnected) if connected[id] => {
+                                connected[id] = false;
+                                let _ = tx.send(Event::new(id, EventType::Disconnected));
                             }
-                        } else if val == ERROR_DEVICE_NOT_CONNECTED && *connected.get_unchecked(id)
-                        {
-                            *connected.get_unchecked_mut(id) = false;
-                            let _ = tx.send(Event::new(id, EventType::Disconnected));
+                            Err(e) => {
+                                error!("Failed to get gamepad state: {:?}", e)
+                            }
                         }
                     }
                 }
@@ -338,9 +344,8 @@ pub struct Gamepad {
 
 impl Gamepad {
     fn new(id: u32) -> Gamepad {
-        let is_connected = unsafe {
-            let mut state = mem::zeroed::<XState>();
-            if xinput::XInputGetState(id, &mut state) == ERROR_SUCCESS {
+        let is_connected = {
+            if rusty_xinput::xinput_get_state(id).is_ok() {
                 true
             } else {
                 false
@@ -369,23 +374,21 @@ impl Gamepad {
     }
 
     pub fn power_info(&self) -> PowerInfo {
-        unsafe {
-            let mut binfo = mem::uninitialized::<XBatteryInfo>();
-            if xinput::XInputGetBatteryInformation(
-                self.id,
-                xinput::BATTERY_DEVTYPE_GAMEPAD,
-                &mut binfo,
-            ) == ERROR_SUCCESS
-            {
-                match binfo.BatteryType {
-                    xinput::BATTERY_TYPE_WIRED => PowerInfo::Wired,
-                    xinput::BATTERY_TYPE_ALKALINE | xinput::BATTERY_TYPE_NIMH => {
-                        let lvl = match binfo.BatteryLevel {
-                            xinput::BATTERY_LEVEL_EMPTY => 0,
-                            xinput::BATTERY_LEVEL_LOW => 33,
-                            xinput::BATTERY_LEVEL_MEDIUM => 67,
-                            xinput::BATTERY_LEVEL_FULL => 100,
-                            _ => unreachable!(),
+        match rusty_xinput::xinput_get_gamepad_battery_information(self.id) {
+            Ok(binfo) => {
+                match binfo.battery_type {
+                    BatteryType::WIRED => PowerInfo::Wired,
+                    BatteryType::ALKALINE | BatteryType::NIMH => {
+                        let lvl = match binfo.battery_level {
+                            BatteryLevel::EMPTY => 0,
+                            BatteryLevel::LOW => 33,
+                            BatteryLevel::MEDIUM => 67,
+                            BatteryLevel::FULL => 100,
+                            lvl => {
+                                trace!("Unexpected battery level: {}", lvl.0);
+
+                                100
+                            }
                         };
                         if lvl == 100 {
                             PowerInfo::Charged
@@ -395,7 +398,10 @@ impl Gamepad {
                     }
                     _ => PowerInfo::Unknown,
                 }
-            } else {
+            }
+            Err(e) => {
+                debug!("Failed to get battery info: {:?}", e);
+
                 PowerInfo::Unknown
             }
         }
@@ -441,6 +447,21 @@ impl EvCode {
 impl Display for EvCode {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         self.0.fmt(f)
+    }
+}
+
+#[derive(Debug)]
+enum Error {
+    FailedToLoadDll(XInputLoadingFailure),
+}
+
+impl StdError for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match self {
+            Error::FailedToLoadDll(e) => f.write_fmt(format_args!("Failed to load XInput DLL {:?}", e)),
+        }
     }
 }
 

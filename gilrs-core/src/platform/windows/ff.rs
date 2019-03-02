@@ -6,8 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::time::Duration;
-use winapi::shared::winerror::{ERROR_DEVICE_NOT_CONNECTED, ERROR_SUCCESS};
-use winapi::um::xinput::{self, XINPUT_VIBRATION as XInputVibration};
+use rusty_xinput::{self, XInputUsageError};
 
 #[derive(Debug)]
 pub struct Device {
@@ -20,26 +19,19 @@ impl Device {
     }
 
     pub fn set_ff_state(&mut self, strong: u16, weak: u16, _min_duration: Duration) {
-        let mut effect = XInputVibration {
-            wLeftMotorSpeed: strong,
-            wRightMotorSpeed: weak,
-        };
-        unsafe {
-            let err = xinput::XInputSetState(self.id, &mut effect);
-            match err {
-                ERROR_SUCCESS => (),
-                ERROR_DEVICE_NOT_CONNECTED => {
-                    error!(
-                        "Failed to change FF state – gamepad with id {} is no longer connected.",
-                        self.id
-                    );
-                }
-                _ => {
-                    error!(
-                        "Failed to change FF state – unknown error. ID = {}, error code = {}.",
-                        self.id, err
-                    );
-                }
+        match rusty_xinput::xinput_set_state(self.id, strong, weak) {
+            Ok(()) => (),
+            Err(XInputUsageError::DeviceNotConnected) => {
+                error!(
+                    "Failed to change FF state – gamepad with id {} is no longer connected.",
+                    self.id
+                );
+            }
+            Err(err) => {
+                error!(
+                    "Failed to change FF state – unknown error. ID = {}, error = {:?}.",
+                    self.id, err
+                );
             }
         }
     }

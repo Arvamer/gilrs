@@ -17,6 +17,8 @@ extern crate io_kit_sys;
 extern crate vec_map;
 
 #[cfg(target_os = "windows")]
+extern crate rusty_xinput;
+#[cfg(target_os = "windows")]
 extern crate winapi;
 
 #[cfg(target_arch = "wasm32")]
