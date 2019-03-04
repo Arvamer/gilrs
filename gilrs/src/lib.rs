@@ -59,10 +59,9 @@
 //! |------------------|:-----:|:-----------:|:--------------:|
 //! | Linux            |   ✓   |      ✓      |        ✓       |
 //! | Windows (XInput) |   ✓   |      ✓      |        ✓       |
-//! | OS X             |   ✕   |      ✕      |        ✕       |
-//! | Emscripten       |   ✕   |      ✕      |       n/a      |
+//! | OS X             |   ✓   |      ✓      |        ✕       |
+//! | Wasm             |   ✓   |      ✓      |       n/a      |
 //! | Android          |   ✕   |      ✕      |        ✕       |
-//!
 //!
 //! Controller layout
 //! -----------------
@@ -92,6 +91,14 @@
 //!
 //! To build GilRs, you will need pkg-config and libudev .pc file. On some
 //! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
+//!
+//! Wasm
+//! ----
+//!
+//! Wasm implementation uses stdweb, so you will need
+//! [cargo-web](https://github.com/koute/cargo-web) to build gilrs for
+//! wasm32-unknown-unknown. Unlike other platforms, events are only generated
+//! when you call `Gilrs::next_event()`.
 
 extern crate fnv;
 extern crate gilrs_core;
