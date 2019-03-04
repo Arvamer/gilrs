@@ -1,7 +1,16 @@
 Change Log
 ==========
 
-v0.7.0 - Unreleased
+v0.7.1 - 2019-03-04
+-------------------
+
+### Fixed
+
+- Compilation on macOS.
+- xinput: Calling `set_ff_state()` on devices that were never connected.
+- `GamepadId` was not reexported from private module.
+
+v0.7.0 - 2019-02-21
 -------------------
 
 ### Added
