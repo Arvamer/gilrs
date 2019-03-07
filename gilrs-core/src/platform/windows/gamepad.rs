@@ -55,7 +55,17 @@ impl Gilrs {
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
-        self.rx.try_recv().ok()
+        let ev= self.rx.try_recv().ok();
+
+        if let Some(ev) = ev {
+            match ev.event {
+                EventType::Connected => self.gamepads[ev.id].is_connected = true,
+                EventType::Disconnected => self.gamepads[ev.id].is_connected = false,
+                _ => (),
+            }
+        }
+
+        ev
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
