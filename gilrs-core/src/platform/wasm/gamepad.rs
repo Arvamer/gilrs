@@ -86,10 +86,10 @@ impl Gilrs {
                         .push_back(Event::new(new.index(), EventType::Connected));
                     new_index += 1;
                 }
-                (Some(_), Some(new)) => {
+                (Some(old), Some(new)) => {
                     // Create a disconnect event
                     self.event_cache
-                        .push_back(Event::new(new.index(), EventType::Disconnected));
+                        .push_back(Event::new(old.index(), EventType::Disconnected));
                     old_index += 1;
                 }
                 (Some(old), None) => {
