@@ -1,6 +1,18 @@
 Change Log
 ==========
 
+v0.2.2 - 2018-04-06
+-------------------
+
+### Changed
+
+- Windows: XInput is now dynamically loaded using rusty-xinput
+
+### Fixed
+
+- xinput: incorrect `is_connected()` after hotplugging
+- wasm: Incorrect gamepad IDs in `Disconnected` event (@ryanisaacg)
+
 v0.2.1 - 2018-02-25
 -------------------
 
