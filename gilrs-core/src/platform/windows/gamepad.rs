@@ -8,23 +8,23 @@
 use super::FfDevice;
 use {AxisInfo, Event, EventType, PlatformError};
 
+use std::error::Error as StdError;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 use std::{mem, thread, u16, u32};
-use std::error::Error as StdError;
 
+use rusty_xinput::XInputLoadingFailure;
+use rusty_xinput::{self, BatteryLevel, BatteryType, XInputState, XInputUsageError};
 use uuid::Uuid;
 use winapi::um::xinput::{
-    XINPUT_GAMEPAD as XGamepad, XINPUT_GAMEPAD_A,
-    XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK, XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT,
-    XINPUT_GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_LEFT_SHOULDER,
-    XINPUT_GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB,
-    XINPUT_GAMEPAD_START, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y, XINPUT_STATE as XState,
+    XINPUT_GAMEPAD as XGamepad, XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK,
+    XINPUT_GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_RIGHT,
+    XINPUT_GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_LEFT_THUMB,
+    XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB, XINPUT_GAMEPAD_START,
+    XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y, XINPUT_STATE as XState,
 };
-use rusty_xinput::{self, XInputState, XInputUsageError, BatteryType, BatteryLevel};
 use PowerInfo;
-use rusty_xinput::XInputLoadingFailure;
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -64,7 +64,7 @@ impl Gilrs {
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
-        let ev= self.rx.try_recv().ok();
+        let ev = self.rx.try_recv().ok();
 
         if let Some(ev) = ev {
             match ev.event {
@@ -119,9 +119,7 @@ impl Gilrs {
                                 connected[id] = false;
                                 let _ = tx.send(Event::new(id, EventType::Disconnected));
                             }
-                            Err(e) => {
-                                error!("Failed to get gamepad state: {:?}", e)
-                            }
+                            Err(e) => error!("Failed to get gamepad state: {:?}", e),
                         }
                     }
                 }
@@ -380,30 +378,28 @@ impl Gamepad {
 
     pub fn power_info(&self) -> PowerInfo {
         match rusty_xinput::xinput_get_gamepad_battery_information(self.id) {
-            Ok(binfo) => {
-                match binfo.battery_type {
-                    BatteryType::WIRED => PowerInfo::Wired,
-                    BatteryType::ALKALINE | BatteryType::NIMH => {
-                        let lvl = match binfo.battery_level {
-                            BatteryLevel::EMPTY => 0,
-                            BatteryLevel::LOW => 33,
-                            BatteryLevel::MEDIUM => 67,
-                            BatteryLevel::FULL => 100,
-                            lvl => {
-                                trace!("Unexpected battery level: {}", lvl.0);
+            Ok(binfo) => match binfo.battery_type {
+                BatteryType::WIRED => PowerInfo::Wired,
+                BatteryType::ALKALINE | BatteryType::NIMH => {
+                    let lvl = match binfo.battery_level {
+                        BatteryLevel::EMPTY => 0,
+                        BatteryLevel::LOW => 33,
+                        BatteryLevel::MEDIUM => 67,
+                        BatteryLevel::FULL => 100,
+                        lvl => {
+                            trace!("Unexpected battery level: {}", lvl.0);
 
-                                100
-                            }
-                        };
-                        if lvl == 100 {
-                            PowerInfo::Charged
-                        } else {
-                            PowerInfo::Discharging(lvl)
+                            100
                         }
+                    };
+                    if lvl == 100 {
+                        PowerInfo::Charged
+                    } else {
+                        PowerInfo::Discharging(lvl)
                     }
-                    _ => PowerInfo::Unknown,
                 }
-            }
+                _ => PowerInfo::Unknown,
+            },
             Err(e) => {
                 debug!("Failed to get battery info: {:?}", e);
 
@@ -465,7 +461,9 @@ impl StdError for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
-            Error::FailedToLoadDll(e) => f.write_fmt(format_args!("Failed to load XInput DLL {:?}", e)),
+            Error::FailedToLoadDll(e) => {
+                f.write_fmt(format_args!("Failed to load XInput DLL {:?}", e))
+            }
         }
     }
 }

@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::time::Duration;
 use rusty_xinput::{self, XInputUsageError};
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Device {
