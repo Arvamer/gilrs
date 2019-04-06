@@ -40,7 +40,12 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
-        rusty_xinput::dynamic_load_xinput().map_err(|e| PlatformError::Other(Box::new(Error::FailedToLoadDll(e))))?;
+        match rusty_xinput::dynamic_load_xinput() {
+            Ok(()) => (),
+            Err(XInputLoadingFailure::AlreadyLoading)
+            | Err(XInputLoadingFailure::AlreadyActive) => (),
+            Err(e) => return Err(PlatformError::Other(Box::new(Error::FailedToLoadDll(e)))),
+        }
 
         let mut gamepads: [Gamepad; MAX_XINPUT_CONTROLLERS] = Default::default();
         let mut connected: [bool; MAX_XINPUT_CONTROLLERS] = Default::default();
