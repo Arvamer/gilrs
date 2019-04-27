@@ -48,8 +48,10 @@ build:wasm32-unknown-unknown:
   before_script:
     - rustc -Vv && cargo -Vv
     - rustup target add wasm32-unknown-unknown
-    # TODO: Use precompiled binaries when new version released
-    - cargo install --git https://github.com/koute/cargo-web.git --rev 2336e687b6dc03b2987f1194cd8bd013f8022a98 cargo-web || true
+    - curl -L https://github.com/koute/cargo-web/releases/download/0.6.24/cargo-web-x86_64-unknown-linux-gnu.gz | gzip -d > cargo-web
+    - chmod +x cargo-web
+    - mkdir -p $CARGO_HOME/bin
+    - mv cargo-web $CARGO_HOME/bin
   script:
     - cargo web test --no-run --verbose --package gilrs-core
     - cargo web test --no-run --verbose --package gilrs
