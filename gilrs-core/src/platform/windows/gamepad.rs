@@ -119,6 +119,7 @@ impl Gilrs {
                                 connected[id] = false;
                                 let _ = tx.send(Event::new(id, EventType::Disconnected));
                             }
+                            Err(XInputUsageError::DeviceNotConnected) => (),
                             Err(e) => error!("Failed to get gamepad state: {:?}", e),
                         }
                     }
