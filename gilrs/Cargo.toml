@@ -25,4 +25,4 @@ gilrs-core = { path = "../gilrs-core", version = "0.2" }
 stdweb = "0.4.13"
 
 [dev-dependencies]
-env_logger = "0.5.3"
+env_logger = "0.6.1"
