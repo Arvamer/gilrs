@@ -175,9 +175,9 @@ impl Gilrs {
 
 /// Provides information about gamepad.
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct Gamepad {
     inner: platform::Gamepad,
-    // Do not add any fields to this struct, it must have same memory layout as platform::Gamepad.
 }
 
 impl Gamepad {
@@ -244,6 +244,7 @@ impl Gamepad {
 
 /// Platform specific representation of axis or button.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(transparent)]
 pub struct EvCode(platform::EvCode);
 
 impl EvCode {
