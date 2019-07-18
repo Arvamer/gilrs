@@ -31,7 +31,6 @@ extern crate log;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::mem;
 
 use std::error;
 use std::time::Duration;
@@ -158,7 +157,7 @@ impl Gilrs {
         unsafe {
             let gp: Option<&platform::Gamepad> = self.inner.gamepad(id);
 
-            gp.map(|gp| mem::transmute(gp))
+            gp.map(|gp| &*(gp as *const _ as *const Gamepad))
         }
     }
 
@@ -199,7 +198,7 @@ impl Gamepad {
     /// It is recommended to process with the [UUID crate](https://crates.io/crates/uuid).
     /// Use `Uuid::from_bytes` method to create a `Uuid` from the returned bytes.
     pub fn uuid(&self) -> [u8; 16] {
-        self.inner.uuid().as_bytes().clone()
+        *self.inner.uuid().as_bytes()
     }
 
     /// Returns device's power supply state.
@@ -222,7 +221,7 @@ impl Gamepad {
         unsafe {
             let bt: &[platform::EvCode] = self.inner.buttons();
 
-            mem::transmute(bt)
+            &*(bt as *const _ as *const [EvCode])
         }
     }
 
@@ -231,7 +230,7 @@ impl Gamepad {
         unsafe {
             let ax: &[platform::EvCode] = self.inner.axes();
 
-            mem::transmute(ax)
+            &*(ax as *const _ as *const [EvCode])
         }
     }
 
@@ -268,32 +267,32 @@ enum PlatformError {
     NotImplemented(platform::Gilrs),
     /// Platform specific error.
     #[allow(dead_code)]
-    Other(Box<error::Error + Send + Sync>),
+    Other(Box<dyn error::Error + Send + Sync>),
 }
 
 impl Display for PlatformError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &PlatformError::NotImplemented(_) => {
+        match *self {
+            PlatformError::NotImplemented(_) => {
                 f.write_str("Gilrs does not support current platform.")
             }
-            &PlatformError::Other(ref e) => e.fmt(f),
+            PlatformError::Other(ref e) => e.fmt(f),
         }
     }
 }
 
 impl error::Error for PlatformError {
     fn description(&self) -> &str {
-        match self {
-            &PlatformError::NotImplemented(_) => "platform not supported",
-            &PlatformError::Other(_) => "platform specific error",
+        match *self {
+            PlatformError::NotImplemented(_) => "platform not supported",
+            PlatformError::Other(_) => "platform specific error",
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
-        match self {
-            &PlatformError::NotImplemented(_) => None,
-            &PlatformError::Other(ref e) => Some(&**e),
+    fn cause(&self) -> Option<&dyn error::Error> {
+        match *self {
+            PlatformError::NotImplemented(_) => None,
+            PlatformError::Other(ref e) => Some(&**e),
         }
     }
 }
@@ -307,30 +306,30 @@ pub enum Error {
     NotImplemented(Gilrs),
     /// Platform specific error.
     #[allow(dead_code)]
-    Other(Box<error::Error + Send + Sync>),
+    Other(Box<dyn error::Error + Send + Sync>),
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
-            &Error::Other(ref e) => e.fmt(f),
+        match *self {
+            Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
+            Error::Other(ref e) => e.fmt(f),
         }
     }
 }
 
 impl error::Error for Error {
     fn description(&self) -> &str {
-        match self {
-            &Error::NotImplemented(_) => "platform not supported",
-            &Error::Other(_) => "platform specific error",
+        match *self {
+            Error::NotImplemented(_) => "platform not supported",
+            Error::Other(_) => "platform specific error",
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
-        match self {
-            &Error::NotImplemented(_) => None,
-            &Error::Other(ref e) => Some(&**e),
+    fn cause(&self) -> Option<&dyn error::Error> {
+        match *self {
+            Error::NotImplemented(_) => None,
+            Error::Other(ref e) => Some(&**e),
         }
     }
 }

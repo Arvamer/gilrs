@@ -16,7 +16,8 @@
 //! * A constant which define whether Y axis of sticks points upwards or downwards
 //! * A module with the platform-specific constants for common gamepad buttons
 //!   called `native_ev_codes`
-//!
+
+#![allow(clippy::module_inception)]
 
 pub use self::platform::*;
 

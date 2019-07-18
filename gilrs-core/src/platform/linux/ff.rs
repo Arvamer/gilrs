@@ -31,6 +31,8 @@ impl Device {
             replay: Default::default(),
             u: Default::default(),
         };
+
+        #[allow(clippy::unnecessary_mut_passed)]
         let res = unsafe { ioctl::eviocsff(file.as_raw_fd(), &mut effect) };
 
         if res.is_err() {
@@ -38,15 +40,14 @@ impl Device {
         } else {
             Ok(Device {
                 effect: effect.id,
-                file: file,
+                file,
             })
         }
     }
 
     pub fn set_ff_state(&mut self, strong: u16, weak: u16, min_duration: Duration) {
-        let duration =
-            min_duration.as_secs() * 1000 + (min_duration.subsec_nanos() / 1_000_000) as u64;
-        let duration = if duration > U16_MAX as u64 {
+        let duration = min_duration.as_secs() * 1000 + u64::from(min_duration.subsec_millis());
+        let duration = if duration > u64::from(U16_MAX) {
             U16_MAX
         } else {
             duration as u16
@@ -69,15 +70,13 @@ impl Device {
             (*rumble).strong_magnitude = strong;
             (*rumble).weak_magnitude = weak;
 
-            match ioctl::eviocsff(self.file.as_raw_fd(), &mut effect) {
-                Err(err) => {
-                    error!(
-                        "Failed to modify effect of gamepad {:?}, error: {}",
-                        self.file, err
-                    );
-                    return;
-                }
-                Ok(_) => (),
+            if let Err(err) = ioctl::eviocsff(self.file.as_raw_fd(), &effect) {
+                error!(
+                    "Failed to modify effect of gamepad {:?}, error: {}",
+                    self.file, err
+                );
+
+                return;
             }
         };
 
@@ -106,12 +105,11 @@ impl Drop for Device {
         #[cfg(target_pointer_width = "32")]
         let effect = self.effect as u32;
 
-        match unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), effect) } {
-            Err(err) => error!(
+        if let Err(err) = unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), effect) } {
+            error!(
                 "Failed to remove effect of gamepad {:?}: {}",
                 self.file, err
-            ),
-            Ok(_) => (),
+            )
         };
     }
 }

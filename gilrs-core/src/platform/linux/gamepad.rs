@@ -172,7 +172,7 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
     unsafe {
         let mut l_ptr = l.as_ptr();
         let mut r_ptr = r.as_ptr();
-        let end = r_ptr.offset(r.len() as isize);
+        let end = r_ptr.add(r.len());
         while *l_ptr != 0 && r_ptr != end {
             if *l_ptr != *r_ptr as c_char {
                 return false;
@@ -180,11 +180,8 @@ fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
             l_ptr = l_ptr.offset(1);
             r_ptr = r_ptr.offset(1);
         }
-        if *l_ptr == 0 && r_ptr == end {
-            true
-        } else {
-            false
-        }
+
+        *l_ptr == 0 && r_ptr == end
     }
 }
 
@@ -201,14 +198,14 @@ impl AxesInfo {
             let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
             ioctl::eviocgbit(
                 fd,
-                EV_ABS as u32,
+                u32::from(EV_ABS),
                 abs_bits.len() as i32,
                 abs_bits.as_mut_ptr(),
             );
 
             for axis in Gamepad::find_axes(&abs_bits) {
                 let mut info = input_absinfo::default();
-                ioctl::eviocgabs(fd, axis.code as u32, &mut info);
+                ioctl::eviocgabs(fd, u32::from(axis.code), &mut info);
                 map.insert(
                     axis.code as usize,
                     AxisInfo {
@@ -338,13 +335,13 @@ impl Gamepad {
         unsafe {
             ioctl::eviocgbit(
                 self.fd,
-                EV_KEY as u32,
+                u32::from(EV_KEY),
                 key_bits.len() as i32,
                 key_bits.as_mut_ptr(),
             );
             ioctl::eviocgbit(
                 self.fd,
-                EV_ABS as u32,
+                u32::from(EV_ABS),
                 abs_bits.len() as i32,
                 abs_bits.as_mut_ptr(),
             );
@@ -372,16 +369,17 @@ impl Gamepad {
     fn test_ff(fd: i32) -> bool {
         unsafe {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
-            if ioctl::eviocgbit(fd, EV_FF as u32, ff_bits.len() as i32, ff_bits.as_mut_ptr()) >= 0 {
-                if utils::test_bit(FF_SQUARE, &ff_bits)
+            if ioctl::eviocgbit(
+                fd,
+                u32::from(EV_FF),
+                ff_bits.len() as i32,
+                ff_bits.as_mut_ptr(),
+            ) >= 0
+            {
+                utils::test_bit(FF_SQUARE, &ff_bits)
                     && utils::test_bit(FF_TRIANGLE, &ff_bits)
                     && utils::test_bit(FF_SINE, &ff_bits)
                     && utils::test_bit(FF_GAIN, &ff_bits)
-                {
-                    true
-                } else {
-                    false
-                }
             } else {
                 false
             }
@@ -390,11 +388,7 @@ impl Gamepad {
 
     fn is_gamepad(&self) -> bool {
         // TODO: improve it (for example check for buttons in range)
-        if self.buttons.len() >= 1 && self.axes.len() >= 2 {
-            true
-        } else {
-            false
-        }
+        !self.buttons.is_empty() && self.axes.len() >= 2
     }
 
     fn create_uuid(fd: i32) -> Option<Uuid> {
@@ -522,13 +516,13 @@ impl Gamepad {
     }
 
     fn next_event(&mut self) -> Option<input_event> {
-        if self.dropped_events.len() > 0 {
+        if !self.dropped_events.is_empty() {
             self.dropped_events.pop()
         } else {
             unsafe {
                 let mut event = mem::uninitialized::<ioctl::input_event>();
                 let size = mem::size_of::<ioctl::input_event>();
-                let n = c::read(self.fd, mem::transmute(&mut event), size);
+                let n = c::read(self.fd, &mut event as *mut _ as *mut c::c_void, size);
 
                 if n == -1 || n == 0 {
                     // Nothing to read (non-blocking IO)
@@ -546,7 +540,7 @@ impl Gamepad {
         for axis in self.axes.iter().cloned() {
             let value = unsafe {
                 let mut absinfo = mem::uninitialized();
-                ioctl::eviocgabs(self.fd, axis.code as u32, &mut absinfo);
+                ioctl::eviocgabs(self.fd, u32::from(axis.code), &mut absinfo);
                 absinfo.value
             };
 
@@ -614,7 +608,7 @@ impl Gamepad {
 
                 let len = c::read(
                     self.bt_capacity_fd,
-                    mem::transmute(buff.as_mut_ptr()),
+                    buff.as_mut_ptr() as *mut c::c_void,
                     buff.len(),
                 ) as usize;
 
@@ -632,7 +626,7 @@ impl Gamepad {
 
                     let len = c::read(
                         self.bt_status_fd,
-                        mem::transmute(buff.as_mut_ptr()),
+                        buff.as_mut_ptr() as *mut c::c_void,
                         buff.len(),
                     ) as usize;
 
@@ -650,12 +644,10 @@ impl Gamepad {
                 }
             }
             PowerInfo::Unknown
+        } else if self.fd > -1 {
+            PowerInfo::Wired
         } else {
-            if self.fd > -1 {
-                PowerInfo::Wired
-            } else {
-                PowerInfo::Unknown
-            }
+            PowerInfo::Unknown
         }
     }
 
@@ -719,7 +711,7 @@ impl PartialEq for Gamepad {
 }
 
 fn create_uuid(iid: ioctl::input_id) -> Uuid {
-    let bus = (iid.bustype as u32).to_be();
+    let bus = (u32::from(iid.bustype)).to_be();
     let vendor = iid.vendor.to_be();
     let product = iid.product.to_be();
     let version = iid.version.to_be();
@@ -757,7 +749,7 @@ impl EvCode {
     }
 
     pub fn into_u32(self) -> u32 {
-        (self.kind as u32) << 16 | self.code as u32
+        u32::from(self.kind) << 16 | u32::from(self.code)
     }
 }
 
@@ -787,6 +779,7 @@ impl Display for EvCode {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
 enum Error {
     UdevCtx,
     UdevEnumerate,

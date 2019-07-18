@@ -1,5 +1,5 @@
-extern crate gilrs_core;
 extern crate env_logger;
+extern crate gilrs_core;
 
 use gilrs_core::Gilrs;
 
