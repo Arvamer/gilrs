@@ -1063,7 +1063,7 @@ pub enum Error {
     /// Either `pressed ≤ released` or one of values is outside [0.0, 1.0] range.
     InvalidAxisToBtn,
     /// Platform specific error.
-    Other(Box<error::Error + Send + Sync>),
+    Other(Box<dyn error::Error + Send + Sync>),
 }
 
 impl Display for Error {
@@ -1087,7 +1087,7 @@ impl error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match self {
             &Error::NotImplemented(_) => None,
             &Error::InvalidAxisToBtn => None,

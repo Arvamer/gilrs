@@ -376,7 +376,7 @@ impl Error for ParseSdlMappingError {
         }
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         if let &ParseSdlMappingError::ParseError(ref err) = self {
             Some(err)
         } else {

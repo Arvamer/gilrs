@@ -216,12 +216,12 @@ impl Gamepad {
         };
 
         let mut gamepad = Gamepad {
-            name: name,
-            uuid: uuid,
-            entry_id: entry_id,
-            location_id: location_id,
-            page: page,
-            usage: usage,
+            name,
+            uuid,
+            entry_id,
+            location_id,
+            page,
+            usage,
             axes_info: VecMap::with_capacity(8),
             axes: Vec::with_capacity(8),
             buttons: Vec::with_capacity(16),
@@ -553,8 +553,8 @@ pub mod native_ev_codes {
 
 extern "C" fn device_matching_cb(
     context: *mut c_void,
-    result: IOReturn,
-    sender: *mut c_void,
+    _result: IOReturn,
+    _sender: *mut c_void,
     value: IOHIDDeviceRef,
 ) {
     let (tx, device_infos): &(
@@ -617,8 +617,8 @@ extern "C" fn device_matching_cb(
 
 extern "C" fn device_removal_cb(
     context: *mut c_void,
-    result: IOReturn,
-    sender: *mut c_void,
+    _result: IOReturn,
+    _sender: *mut c_void,
     value: IOHIDDeviceRef,
 ) {
     let (tx, device_infos): &(
@@ -659,7 +659,7 @@ extern "C" fn device_removal_cb(
 
 extern "C" fn input_value_cb(
     context: *mut c_void,
-    result: IOReturn,
+    _result: IOReturn,
     sender: *mut c_void,
     value: IOHIDValueRef,
 ) {
