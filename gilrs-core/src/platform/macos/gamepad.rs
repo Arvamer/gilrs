@@ -233,13 +233,8 @@ impl Gamepad {
     }
 
     fn create_uuid(device: &IOHIDDevice) -> Option<Uuid> {
-        let bustype = match device.get_bustype() {
-            Some(bustype) => (bustype as u32).to_be(),
-            None => {
-                warn!("Failed to get transport key of device");
-                0
-            }
-        };
+        // SDL always uses USB bus for UUID
+        let bustype = 0x03;
 
         let vendor_id = match device.get_vendor_id() {
             Some(vendor_id) => vendor_id.to_be(),
