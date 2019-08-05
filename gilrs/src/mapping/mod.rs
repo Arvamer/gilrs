@@ -425,6 +425,16 @@ impl MappingDb {
 
     pub fn insert(&mut self, s: &str) {
         for mapping in s.lines() {
+            let pat = "platform:";
+            if let Some(offset) = mapping.find(pat).map(|o| o + pat.len()) {
+                let s = &mapping[offset..];
+                let end = s.find(',').unwrap_or(s.len());
+
+                if &s[..end] != SDL_PLATFORM_NAME {
+                    continue;
+                }
+            }
+
             mapping
                 .split(',')
                 .next()
@@ -435,6 +445,10 @@ impl MappingDb {
 
     pub fn get(&self, uuid: Uuid) -> Option<&str> {
         self.mappings.get(&uuid).map(String::as_ref)
+    }
+
+    pub fn len(&self) -> usize {
+        self.mappings.len()
     }
 }
 

@@ -643,6 +643,8 @@ impl GilrsBuilder {
             self.mappings.add_env_mappings();
         }
 
+        debug!("Loaded {} mappings.", self.mappings.len());
+
         if self.axis_to_btn_pressed <= self.axis_to_btn_released
             || self.axis_to_btn_pressed < 0.0
             || self.axis_to_btn_pressed > 1.0
