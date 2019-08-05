@@ -234,7 +234,7 @@ impl Gamepad {
 
     fn create_uuid(device: &IOHIDDevice) -> Option<Uuid> {
         // SDL always uses USB bus for UUID
-        let bustype = 0x03;
+        let bustype = u32::to_be(0x03);
 
         let vendor_id = match device.get_vendor_id() {
             Some(vendor_id) => vendor_id.to_be(),
