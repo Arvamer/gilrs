@@ -12,4 +12,4 @@ pub use self::ff::Device as FfDevice;
 pub use self::gamepad::{native_ev_codes, EvCode, Gamepad, Gilrs};
 
 // True, if Y axis of sticks points downwards.
-pub const IS_Y_AXIS_REVERSED: bool = false;
+pub const IS_Y_AXIS_REVERSED: bool = true;
