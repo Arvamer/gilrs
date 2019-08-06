@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+v0.7.2 - 2019-08-06
+-------------------
+
+### Fixed
+
+- Fixed loading mappings for wrong platform
+
 v0.7.1 - 2019-03-04
 -------------------
 
