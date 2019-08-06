@@ -1,7 +1,17 @@
 Change Log
 ==========
 
-v0.2.2 - 2018-04-06
+v0.2.3 - 2019-04-06
+-------------------
+
+### Fixed
+
+xinput: Removed unneeded logging
+macos: `IS_Y_AXIS_REVERSED` is now correctly set to `true`
+macos: Fixed UUID calculation
+
+
+v0.2.2 - 2019-04-06
 -------------------
 
 ### Changed
@@ -13,14 +23,14 @@ v0.2.2 - 2018-04-06
 - xinput: incorrect `is_connected()` after hotplugging
 - wasm: Incorrect gamepad IDs in `Disconnected` event (@ryanisaacg)
 
-v0.2.1 - 2018-02-25
+v0.2.1 - 2019-02-25
 -------------------
 
 ### Fixed
 
 - Compilation error on macOS
 
-v0.2.0 - 2018-02-21
+v0.2.0 - 2019-02-21
 -------------------
 
 ### Added
