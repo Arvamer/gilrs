@@ -36,7 +36,7 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    _priv: (),
+    _priv: u8, // required for `#[repr(transparent)]`
 }
 
 impl Gamepad {
