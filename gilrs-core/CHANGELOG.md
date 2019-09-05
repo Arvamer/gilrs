@@ -1,14 +1,21 @@
 Change Log
 ==========
 
+v0.2.4 - 2019-09-05
+-------------------
+
+### Fixed
+
+- Fixed compilation on platforms with dummy impl
+
 v0.2.3 - 2019-08-06
 -------------------
 
 ### Fixed
 
-xinput: Removed unneeded logging
-macos: `IS_Y_AXIS_REVERSED` is now correctly set to `true`
-macos: Fixed UUID calculation
+- xinput: Removed unneeded logging
+- macos: `IS_Y_AXIS_REVERSED` is now correctly set to `true`
+- macos: Fixed UUID calculation
 
 
 v0.2.2 - 2019-04-06
