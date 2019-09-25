@@ -106,6 +106,9 @@ extern crate gilrs_core;
 extern crate log;
 extern crate uuid;
 extern crate vec_map;
+#[cfg(feature = "serde")]
+#[macro_use]
+extern crate serde;
 
 #[cfg(target_arch = "wasm32")]
 extern crate stdweb;

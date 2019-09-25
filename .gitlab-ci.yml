@@ -16,12 +16,12 @@ cache:
 build:x86_64-unknown-linux-gnu:
   stage: build
   script:
-    - cargo test --no-run --verbose --all
+    - cargo test --no-run --verbose --all --all-features
 
 test:x86_64-unknown-linux-gnu:
   stage: test
   script:
-    - cargo test --verbose --all
+    - cargo test --verbose --all --all-features
 
 build:i686-unknown-linux-gnu:
   stage: build
@@ -33,7 +33,7 @@ build:i686-unknown-linux-gnu:
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
-    - cargo test --no-run --verbose --target=i686-unknown-linux-gnu --all
+    - cargo test --no-run --verbose --target=i686-unknown-linux-gnu --all --all-features
 
 test:i686-unknown-linux-gnu:
   stage: test
@@ -41,7 +41,7 @@ test:i686-unknown-linux-gnu:
     PKG_CONFIG_ALLOW_CROSS: 1
   before_script: *i386_before
   script:
-    - cargo test --verbose --target=i686-unknown-linux-gnu --all
+    - cargo test --verbose --target=i686-unknown-linux-gnu --all --all-features
 
 build:wasm32-unknown-unknown:
   image: "liuchong/rustup:1.33.0"
@@ -54,8 +54,8 @@ build:wasm32-unknown-unknown:
     - mkdir -p $CARGO_HOME/bin
     - mv cargo-web $CARGO_HOME/bin
   script:
-    - cargo web test --no-run --verbose --package gilrs-core
-    - cargo web test --no-run --verbose --package gilrs
+    - cargo web test --no-run --verbose --package gilrs-core --all-features
+    - cargo web test --no-run --verbose --package gilrs --all-features
 
 check:x86_64-apple-darwin:
   stage: build
@@ -63,7 +63,7 @@ check:x86_64-apple-darwin:
     - rustc -Vv && cargo -Vv
     - rustup target add x86_64-apple-darwin
   script:
-    - cargo check --target=x86_64-apple-darwin --verbose --all
+    - cargo check --target=x86_64-apple-darwin --verbose --all --all-features
 
 
 pages:
