@@ -66,7 +66,7 @@
 //! Controller layout
 //! -----------------
 //!
-//! ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
+//! ![Controller layout](https://gilrs-project.gitlab.io/gilrs/img/controller.svg)
 //! [original image by nicefrog](http://opengameart.org/content/generic-gamepad-template)
 //!
 //! Mappings

@@ -95,7 +95,7 @@ pub enum EventType {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 /// Gamepad's elements which state can be represented by value from 0.0 to 1.0.
 ///
-/// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
+/// ![Controller layout](https://gilrs-project.gitlab.io/gilrs/img/controller.svg)
 pub enum Button {
     // Action Pad
     South = BTN_SOUTH,
@@ -206,7 +206,7 @@ impl Default for Button {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 /// Gamepad's elements which state can be represented by value from -1.0 to 1.0.
 ///
-/// ![Controller layout](https://arvamer.gitlab.io/gilrs/img/controller.svg)
+/// ![Controller layout](https://gilrs-project.gitlab.io/gilrs/img/controller.svg)
 pub enum Axis {
     LeftStickX = AXIS_LSTICKX,
     LeftStickY = AXIS_LSTICKY,
