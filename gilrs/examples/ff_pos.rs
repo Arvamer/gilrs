@@ -130,7 +130,7 @@ fn main() {
                 EventType::ButtonReleased(Button::RightTrigger, ..)
                     if modify == Modify::DistModel =>
                 {
-                    model.wrapping_add(1);
+                    model = model.wrapping_add(1);
                 }
                 _ => (),
             }
