@@ -905,7 +905,7 @@ impl GamepadData {
         let mapping = db
             .get(Uuid::from_bytes(gamepad.uuid()))
             .and_then(|s| Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()).ok())
-            .unwrap_or_default();
+            .unwrap_or_else(|| Mapping::default(gamepad));
 
         if gamepad.is_ff_supported() && gamepad.is_connected() {
             if let Some(device) = gamepad.ff_device() {

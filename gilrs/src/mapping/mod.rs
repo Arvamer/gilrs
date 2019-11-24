@@ -59,6 +59,116 @@ impl Mapping {
         }
     }
 
+    pub fn default(gamepad: &gilrs_core::Gamepad) -> Self {
+        use self::Axis as Ax;
+        use self::AxisOrBtn::*;
+
+        macro_rules! fnv_map {
+            ( $( $key:expr => $elem:expr ),* ) => {
+                {
+                    let mut map = FnvHashMap::default();
+                    $(
+                        map.insert($key, $elem);
+                    )*
+
+                    map
+                }
+            };
+        }
+
+        let mut mappings = fnv_map![
+            nec::BTN_SOUTH => Btn(Button::South),
+            nec::BTN_EAST => Btn(Button::East),
+            nec::BTN_C => Btn(Button::C),
+            nec::BTN_NORTH => Btn(Button::North),
+            nec::BTN_WEST => Btn(Button::West),
+            nec::BTN_Z => Btn(Button::Z),
+            nec::BTN_LT => Btn(Button::LeftTrigger),
+            nec::BTN_RT => Btn(Button::RightTrigger),
+            nec::BTN_LT2 => Btn(Button::LeftTrigger2),
+            nec::BTN_RT2 => Btn(Button::RightTrigger2),
+            nec::BTN_SELECT => Btn(Button::Select),
+            nec::BTN_START => Btn(Button::Start),
+            nec::BTN_MODE => Btn(Button::Mode),
+            nec::BTN_LTHUMB => Btn(Button::LeftThumb),
+            nec::BTN_RTHUMB => Btn(Button::RightThumb),
+            nec::BTN_DPAD_UP => Btn(Button::DPadUp),
+            nec::BTN_DPAD_DOWN => Btn(Button::DPadDown),
+            nec::BTN_DPAD_LEFT => Btn(Button::DPadLeft),
+            nec::BTN_DPAD_RIGHT => Btn(Button::DPadRight),
+
+            nec::AXIS_LT => Btn(Button::LeftTrigger),
+            nec::AXIS_RT => Btn(Button::RightTrigger),
+            nec::AXIS_LT2 => Btn(Button::LeftTrigger2),
+            nec::AXIS_RT2 => Btn(Button::RightTrigger2),
+
+            nec::AXIS_LSTICKX => Axis(Ax::LeftStickX),
+            nec::AXIS_LSTICKY => Axis(Ax::LeftStickY),
+            nec::AXIS_LEFTZ => Axis(Ax::LeftZ),
+            nec::AXIS_RSTICKX => Axis(Ax::RightStickX),
+            nec::AXIS_RSTICKY => Axis(Ax::RightStickY),
+            nec::AXIS_RIGHTZ => Axis(Ax::RightZ),
+            nec::AXIS_DPADX => Axis(Ax::DPadX),
+            nec::AXIS_DPADY => Axis(Ax::DPadY)
+        ];
+
+        // Remove all mappings that don't have corresponding element in gamepad. Partial fix to #83
+        let axes = [
+            nec::AXIS_DPADX,
+            nec::AXIS_DPADY,
+            nec::AXIS_LEFTZ,
+            nec::AXIS_LSTICKX,
+            nec::AXIS_LSTICKY,
+            nec::AXIS_RSTICKX,
+            nec::AXIS_RSTICKY,
+            nec::AXIS_LT,
+            nec::AXIS_LT2,
+            nec::AXIS_RT,
+            nec::AXIS_RT2,
+            nec::AXIS_RIGHTZ,
+        ];
+        let btns = [
+            nec::BTN_SOUTH,
+            nec::BTN_NORTH,
+            nec::BTN_WEST,
+            nec::BTN_WEST,
+            nec::BTN_C,
+            nec::BTN_Z,
+            nec::BTN_LT,
+            nec::BTN_LT2,
+            nec::BTN_RT,
+            nec::BTN_RT2,
+            nec::BTN_SELECT,
+            nec::BTN_START,
+            nec::BTN_MODE,
+            nec::BTN_LTHUMB,
+            nec::BTN_RTHUMB,
+            nec::BTN_DPAD_DOWN,
+            nec::BTN_DPAD_LEFT,
+            nec::BTN_DPAD_RIGHT,
+            nec::BTN_DPAD_UP,
+        ];
+
+        for axis in &axes {
+            if !gamepad.axes().contains(axis) {
+                mappings.remove(axis);
+            }
+        }
+
+        for btn in &btns {
+            if !gamepad.buttons().contains(btn) {
+                mappings.remove(btn);
+            }
+        }
+
+        Mapping {
+            mappings,
+            name: String::new(),
+            default: true,
+            hats_mapped: 0,
+        }
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -286,69 +396,6 @@ impl Mapping {
     /// can return non-zero value.
     pub fn hats_mapped(&self) -> u8 {
         self.hats_mapped
-    }
-}
-
-impl Default for Mapping {
-    fn default() -> Self {
-        use self::Axis as Ax;
-        use self::AxisOrBtn::*;
-
-        macro_rules! fnv_map {
-            ( $( $key:expr => $elem:expr ),* ) => {
-                {
-                    let mut map = FnvHashMap::default();
-                    $(
-                        map.insert($key, $elem);
-                    )*
-
-                    map
-                }
-            };
-        }
-
-        let mappings = fnv_map![
-            nec::BTN_SOUTH => Btn(Button::South),
-            nec::BTN_EAST => Btn(Button::East),
-            nec::BTN_C => Btn(Button::C),
-            nec::BTN_NORTH => Btn(Button::North),
-            nec::BTN_WEST => Btn(Button::West),
-            nec::BTN_Z => Btn(Button::Z),
-            nec::BTN_LT => Btn(Button::LeftTrigger),
-            nec::BTN_RT => Btn(Button::RightTrigger),
-            nec::BTN_LT2 => Btn(Button::LeftTrigger2),
-            nec::BTN_RT2 => Btn(Button::RightTrigger2),
-            nec::BTN_SELECT => Btn(Button::Select),
-            nec::BTN_START => Btn(Button::Start),
-            nec::BTN_MODE => Btn(Button::Mode),
-            nec::BTN_LTHUMB => Btn(Button::LeftThumb),
-            nec::BTN_RTHUMB => Btn(Button::RightThumb),
-            nec::BTN_DPAD_UP => Btn(Button::DPadUp),
-            nec::BTN_DPAD_DOWN => Btn(Button::DPadDown),
-            nec::BTN_DPAD_LEFT => Btn(Button::DPadLeft),
-            nec::BTN_DPAD_RIGHT => Btn(Button::DPadRight),
-
-            nec::AXIS_LT => Btn(Button::LeftTrigger),
-            nec::AXIS_RT => Btn(Button::RightTrigger),
-            nec::AXIS_LT2 => Btn(Button::LeftTrigger2),
-            nec::AXIS_RT2 => Btn(Button::RightTrigger2),
-
-            nec::AXIS_LSTICKX => Axis(Ax::LeftStickX),
-            nec::AXIS_LSTICKY => Axis(Ax::LeftStickY),
-            nec::AXIS_LEFTZ => Axis(Ax::LeftZ),
-            nec::AXIS_RSTICKX => Axis(Ax::RightStickX),
-            nec::AXIS_RSTICKY => Axis(Ax::RightStickY),
-            nec::AXIS_RIGHTZ => Axis(Ax::RightZ),
-            nec::AXIS_DPADX => Axis(Ax::DPadX),
-            nec::AXIS_DPADY => Axis(Ax::DPadY)
-        ];
-
-        Mapping {
-            mappings,
-            name: String::new(),
-            default: true,
-            hats_mapped: 0,
-        }
     }
 }
 
