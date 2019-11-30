@@ -16,7 +16,7 @@ gitlab = { repository = "gilrs-project/gilrs" }
 
 [dependencies]
 vec_map = "0.8"
-uuid = "0.7.0"
+uuid = "0.8.0"
 log = "0.4.1"
 fnv = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
@@ -26,4 +26,4 @@ gilrs-core = { path = "../gilrs-core", version = "0.2" }
 stdweb = "0.4.13"
 
 [dev-dependencies]
-env_logger = "0.6.1"
+env_logger = "0.7.1"
