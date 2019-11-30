@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+v0.7.3 - 2019-11-30
+-------------------
+
+### Added
+
+- Added support for serialization and deserialization for `Button`, `Axis`
+  and `AxisOrButton` with optional `serde` feature (@aleksijuvani).  
+
+### Fixed
+
+- Fixed defaults mappings containing elements that gamepad doesn't have.
+  This also fixes state not working for `LeftTrigger`  button on Windows.
+
 v0.7.2 - 2019-08-06
 -------------------
 
