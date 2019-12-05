@@ -8,7 +8,7 @@
 use super::effect_source::{DistanceModel, EffectSource, EffectState, Magnitude};
 use super::time::{Repeat, Ticks, TICK_DURATION};
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -118,6 +118,12 @@ impl Deref for Effect {
 
     fn deref(&self) -> &Self::Target {
         &self.source
+    }
+}
+
+impl DerefMut for Effect {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.source
     }
 }
 
@@ -236,7 +242,7 @@ pub(crate) fn run(rx: Receiver<Message>) {
             }
         }
 
-        combine_and_play(&effects, &mut devices, tick);
+        combine_and_play(&mut effects, &mut devices, tick);
 
         let dur = Instant::now().duration_since(t1);
         if dur > sleep_dur {
@@ -262,10 +268,10 @@ pub(crate) fn init() -> Sender<Message> {
     tx
 }
 
-fn combine_and_play(effects: &VecMap<Effect>, devices: &mut VecMap<Device>, tick: Ticks) {
+fn combine_and_play(effects: &mut VecMap<Effect>, devices: &mut VecMap<Device>, tick: Ticks) {
     for (dev_id, dev) in devices {
         let mut magnitude = Magnitude::zero();
-        for (_, effect) in effects {
+        for (_, ref mut effect) in effects.iter_mut() {
             if effect.devices.contains_key(dev_id) {
                 magnitude += effect.combine_base_effects(tick, dev.position);
             }
