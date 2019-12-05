@@ -33,6 +33,9 @@ pub(crate) enum Message {
     Play {
         id: usize,
     },
+    Stop {
+        id: usize,
+    },
     Open {
         id: usize,
         device: FfDevice,
@@ -159,6 +162,13 @@ pub(crate) fn run(rx: Receiver<Message>) {
                 Message::Play { id } => {
                     if let Some(effect) = effects.get_mut(id) {
                         effect.source.state = EffectState::Playing { since: tick }
+                    } else {
+                        error!("{:?} with wrong ID", ev);
+                    }
+                }
+                Message::Stop { id } => {
+                    if let Some(effect) = effects.get_mut(id) {
+                        effect.source.state = EffectState::Stopped
                     } else {
                         error!("{:?} with wrong ID", ev);
                     }
