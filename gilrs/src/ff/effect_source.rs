@@ -279,7 +279,7 @@ impl EffectSource {
         }
     }
 
-    pub(super) fn combine_base_effects(&self, ticks: Ticks, actor_pos: [f32; 3]) -> Magnitude {
+    pub(super) fn combine_base_effects(&mut self, ticks: Ticks, actor_pos: [f32; 3]) -> Magnitude {
         let ticks = match self.state {
             EffectState::Playing { since } => {
                 debug_assert!(ticks >= since);
@@ -289,10 +289,8 @@ impl EffectSource {
         };
 
         match self.repeat {
-            Repeat::For(max_dur) if max_dur > ticks => {
-                // TODO: Maybe change to new state, "Ended"?
-                // self.state = EffectState::Stopped;
-                return Magnitude::zero();
+            Repeat::For(max_dur) if ticks > max_dur => {
+                self.state = EffectState::Stopped;
             }
             _ => (),
         }

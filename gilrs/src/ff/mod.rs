@@ -125,6 +125,12 @@ impl Effect {
         Ok(())
     }
 
+    pub fn stop(&self) -> Result<(), Error> {
+        self.tx.send(Message::Stop { id: self.id })?;
+
+        Ok(())
+    }
+
     /// Changes gamepads that are associated with effect. Effect will be only played on gamepads
     /// from last call to this function.
     ///
