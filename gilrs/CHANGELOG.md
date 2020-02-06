@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+v0.7.4 - 2020-02-06
+-------------------
+
+### Added
+
+- Added method to stop playing force feedback effect. (@photex)
+
+### Fixed
+
+- Fixed bug that caused forced feedback effects to never stop. (@photex)
+
 v0.7.3 - 2019-11-30
 -------------------
 
