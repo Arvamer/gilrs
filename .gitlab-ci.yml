@@ -8,44 +8,26 @@ before_script:
   - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git
   - rustc -Vv && cargo -Vv
 
-cache:
-  paths:
-    - cargo
-    - target
-
-build:x86_64-unknown-linux-gnu:
-  stage: build
-  script:
-    - cargo test --no-run --verbose --all --all-features
-
 test:x86_64-unknown-linux-gnu:
   stage: test
   script:
     - cargo test --verbose --all --all-features
 
-build:i686-unknown-linux-gnu:
-  stage: build
+test:i686-unknown-linux-gnu:
+  stage: test
   variables:
     PKG_CONFIG_ALLOW_CROSS: 1
-  before_script: &i386_before
+  before_script:
     - dpkg --add-architecture i386
     - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git gcc-multilib libudev1:i386 libudev-dev:i386
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
-    - cargo test --no-run --verbose --target=i686-unknown-linux-gnu --all --all-features
-
-test:i686-unknown-linux-gnu:
-  stage: test
-  variables:
-    PKG_CONFIG_ALLOW_CROSS: 1
-  before_script: *i386_before
-  script:
     - cargo test --verbose --target=i686-unknown-linux-gnu --all --all-features
 
 build:wasm32-unknown-unknown:
   image: "liuchong/rustup:1.33.0"
-  stage: build
+  stage: test
   before_script:
     - rustc -Vv && cargo -Vv
     - rustup target add wasm32-unknown-unknown
@@ -58,7 +40,7 @@ build:wasm32-unknown-unknown:
     - cargo web test --no-run --verbose --package gilrs --all-features
 
 check:x86_64-apple-darwin:
-  stage: build
+  stage: test
   before_script:
     - rustc -Vv && cargo -Vv
     - rustup target add x86_64-apple-darwin
