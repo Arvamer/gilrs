@@ -11,6 +11,11 @@
 
 use libc;
 
+#[cfg(target_env = "musl")]
+pub type IoctlRequest = libc::c_int;
+#[cfg(not(target_env = "musl"))]
+pub type IoctlRequest = libc::c_ulong;
+
 ioctl_read!(eviocgid, b'E', 0x02, /*struct*/ input_id);
 ioctl_write_int!(eviocrmff, b'E', 0x81);
 ioctl_write_ptr!(eviocsff, b'E', 0x80, ff_effect);
@@ -20,7 +25,7 @@ ioctl_read_buf!(eviocgkey, b'E', 0x18, u8);
 pub unsafe fn eviocgbit(fd: libc::c_int, ev: u32, len: libc::c_int, buf: *mut u8) -> libc::c_int {
     ::nix::libc::ioctl(
         fd,
-        request_code_read!(b'E', 0x20 + ev, len) as libc::c_ulong,
+        request_code_read!(b'E', 0x20 + ev, len) as IoctlRequest,
         buf,
     )
 }
@@ -29,7 +34,7 @@ pub unsafe fn eviocgabs(fd: ::libc::c_int, abs: u32, buf: *mut input_absinfo) ->
     ::nix::libc::ioctl(
         fd,
         request_code_read!(b'E', 0x40 + abs, ::std::mem::size_of::<input_absinfo>())
-            as libc::c_ulong,
+            as IoctlRequest,
         buf,
     )
 }
