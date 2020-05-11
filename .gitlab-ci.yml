@@ -1,11 +1,11 @@
-image: "liuchong/rustup:1.31.1"
+image: "rust:1.36"
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/cargo
   GIT_SUBMODULE_STRATEGY: normal
 
 before_script:
-  - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git
+  - apt-get update -yqq && apt-get install -yqq libudev-dev
   - rustc -Vv && cargo -Vv
 
 test:x86_64-unknown-linux-gnu:
@@ -19,14 +19,13 @@ test:i686-unknown-linux-gnu:
     PKG_CONFIG_ALLOW_CROSS: 1
   before_script:
     - dpkg --add-architecture i386
-    - apt-get update -yqq && apt-get install  -yqq libudev-dev pkg-config git gcc-multilib libudev1:i386 libudev-dev:i386
+    - apt-get update -yqq && apt-get install -yqq gcc-multilib libudev-dev libudev1:i386 libudev-dev:i386
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
     - cargo test --verbose --target=i686-unknown-linux-gnu --all --all-features
 
 build:wasm32-unknown-unknown:
-  image: "liuchong/rustup:1.33.0"
   stage: test
   before_script:
     - rustc -Vv && cargo -Vv
