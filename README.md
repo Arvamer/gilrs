@@ -4,7 +4,7 @@ GilRs - Game Input Library for Rust
 [![pipeline status](https://gitlab.com/gilrs-project/gilrs/badges/master/pipeline.svg)](https://gitlab.com/gilrs-project/gilrs/commits/master)
 [![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
 [![Documentation](https://docs.rs/gilrs/badge.svg)](https://docs.rs/gilrs/)
-[![Minimum rustc version](https://img.shields.io/badge/rustc-1.31.1+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.36.0+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
 
 [**Documentation (master)**](https://gilrs-project.gitlab.io/gilrs/doc/gilrs/)
 
