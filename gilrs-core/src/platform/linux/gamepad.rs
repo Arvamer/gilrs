@@ -20,7 +20,7 @@ use vec_map::VecMap;
 use std::error;
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::ops::Index;
 use std::os::raw::c_char;
 use std::str;
@@ -353,7 +353,7 @@ impl Gamepad {
 
     fn get_name(fd: i32) -> Option<String> {
         unsafe {
-            let mut namebuff = mem::uninitialized::<[u8; 128]>();
+            let mut namebuff: [MaybeUninit<u8>; 128] = MaybeUninit::uninit().assume_init();
             if ioctl::eviocgname(fd, &mut namebuff).is_err() {
                 None
             } else {
@@ -392,13 +392,14 @@ impl Gamepad {
     }
 
     fn create_uuid(fd: i32) -> Option<Uuid> {
-        let mut iid;
-        unsafe {
-            iid = mem::uninitialized::<ioctl::input_id>();
-            if ioctl::eviocgid(fd, &mut iid).is_err() {
+        let iid = unsafe {
+            let mut iid = MaybeUninit::<ioctl::input_id>::uninit();
+            if ioctl::eviocgid(fd, iid.as_mut_ptr()).is_err() {
                 return None;
             }
-        }
+
+            iid.assume_init()
+        };
         Some(create_uuid(iid))
     }
 
@@ -520,9 +521,9 @@ impl Gamepad {
             self.dropped_events.pop()
         } else {
             unsafe {
-                let mut event = mem::uninitialized::<ioctl::input_event>();
+                let mut event = MaybeUninit::<ioctl::input_event>::uninit();
                 let size = mem::size_of::<ioctl::input_event>();
-                let n = c::read(self.fd, &mut event as *mut _ as *mut c::c_void, size);
+                let n = c::read(self.fd, event.as_mut_ptr() as *mut c::c_void, size);
 
                 if n == -1 || n == 0 {
                     // Nothing to read (non-blocking IO)
@@ -531,15 +532,15 @@ impl Gamepad {
                     unreachable!()
                 }
 
-                Some(event)
+                Some(event.assume_init())
             }
         }
     }
 
     fn compare_state(&mut self) {
+        let mut absinfo = input_absinfo::default();
         for axis in self.axes.iter().cloned() {
             let value = unsafe {
-                let mut absinfo = mem::uninitialized();
                 ioctl::eviocgabs(self.fd, u32::from(axis.code), &mut absinfo);
                 absinfo.value
             };

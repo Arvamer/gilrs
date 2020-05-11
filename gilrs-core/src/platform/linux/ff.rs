@@ -80,11 +80,15 @@ impl Device {
             }
         };
 
+        let time = libc::timeval {
+            tv_sec: 0,
+            tv_usec: 0,
+        };
         let ev = input_event {
             type_: EV_FF,
             code: self.effect as u16,
             value: 1,
-            time: unsafe { mem::uninitialized() },
+            time,
         };
 
         let size = mem::size_of::<input_event>();

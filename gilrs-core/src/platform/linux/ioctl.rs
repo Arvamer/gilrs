@@ -10,6 +10,7 @@
 // difference, so it looks like conditional compilation is not needed.
 
 use libc;
+use std::mem::MaybeUninit;
 
 #[cfg(target_env = "musl")]
 pub type IoctlRequest = libc::c_int;
@@ -19,7 +20,7 @@ pub type IoctlRequest = libc::c_ulong;
 ioctl_read!(eviocgid, b'E', 0x02, /*struct*/ input_id);
 ioctl_write_int!(eviocrmff, b'E', 0x81);
 ioctl_write_ptr!(eviocsff, b'E', 0x80, ff_effect);
-ioctl_read_buf!(eviocgname, b'E', 0x06, u8);
+ioctl_read_buf!(eviocgname, b'E', 0x06, MaybeUninit<u8>);
 ioctl_read_buf!(eviocgkey, b'E', 0x18, u8);
 
 pub unsafe fn eviocgbit(fd: libc::c_int, ev: u32, len: libc::c_int, buf: *mut u8) -> libc::c_int {
