@@ -30,13 +30,8 @@ build:wasm32-unknown-unknown:
   before_script:
     - rustc -Vv && cargo -Vv
     - rustup target add wasm32-unknown-unknown
-    - curl -L https://github.com/koute/cargo-web/releases/download/0.6.24/cargo-web-x86_64-unknown-linux-gnu.gz | gzip -d > cargo-web
-    - chmod +x cargo-web
-    - mkdir -p $CARGO_HOME/bin
-    - mv cargo-web $CARGO_HOME/bin
   script:
-    - cargo web test --no-run --verbose --package gilrs-core --all-features
-    - cargo web test --no-run --verbose --package gilrs --all-features
+    - cargo test --no-run --target wasm32-unknown-unknown --all --all-features
 
 check:x86_64-apple-darwin:
   stage: test
