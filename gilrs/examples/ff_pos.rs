@@ -5,9 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-extern crate env_logger;
-extern crate gilrs;
-
 use gilrs::ff::{BaseEffect, BaseEffectType, DistanceModel, EffectBuilder};
 use gilrs::{Axis, Button, EventType, Gilrs};
 
@@ -25,7 +22,7 @@ enum Modify {
 
 impl Modify {
     fn next(&mut self) {
-        use Modify::*;
+        use crate::Modify::*;
         *self = match *self {
             DistModel => RefDistance,
             RefDistance => RolloffFactor,
@@ -37,7 +34,7 @@ impl Modify {
     }
 
     fn prev(&mut self) {
-        use Modify::*;
+        use crate::Modify::*;
         *self = match *self {
             DistModel => MaxDistance,
             RefDistance => DistModel,

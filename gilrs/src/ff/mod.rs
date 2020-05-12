@@ -69,9 +69,9 @@ use std::sync::mpsc::{SendError, Sender};
 use std::{f32, fmt};
 
 use self::effect_source::EffectSource;
-use ff::server::Message;
-use gamepad::{Gamepad, GamepadId, Gilrs};
-use utils;
+use crate::ff::server::Message;
+use crate::gamepad::{Gamepad, GamepadId, Gilrs};
+use crate::utils;
 
 use vec_map::VecMap;
 
@@ -167,7 +167,7 @@ impl Effect {
     ///
     /// Returns `Error::Disconnected(id)` or `Error::FfNotSupported(id)` if gamepad is not connected
     /// or does not support force feedback.
-    pub fn add_gamepad(&self, gamepad: &Gamepad) -> Result<(), Error> {
+    pub fn add_gamepad(&self, gamepad: &Gamepad<'_>) -> Result<(), Error> {
         if !gamepad.is_connected() {
             Err(Error::Disconnected(gamepad.id()))
         } else if !gamepad.is_ff_supported() {
@@ -268,7 +268,7 @@ impl EffectBuilder {
     }
 
     /// Adds gamepad to the list of gamepads associated with effect.
-    pub fn add_gamepad(&mut self, gamepad: &Gamepad) -> &mut Self {
+    pub fn add_gamepad(&mut self, gamepad: &Gamepad<'_>) -> &mut Self {
         self.devices.insert(gamepad.id().0, ());
 
         self
@@ -365,7 +365,7 @@ impl StdError for Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sbuf;
         let s = match self {
             Error::FfNotSupported(id) => {

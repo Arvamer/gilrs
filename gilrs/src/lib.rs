@@ -100,18 +100,8 @@
 //! wasm32-unknown-unknown. Unlike other platforms, events are only generated
 //! when you call `Gilrs::next_event()`.
 
-extern crate fnv;
-extern crate gilrs_core;
 #[macro_use]
 extern crate log;
-extern crate uuid;
-extern crate vec_map;
-#[cfg(feature = "serde")]
-#[macro_use]
-extern crate serde;
-
-#[cfg(target_arch = "wasm32")]
-extern crate stdweb;
 
 mod constants;
 mod gamepad;
@@ -121,10 +111,10 @@ mod utils;
 pub mod ev;
 pub mod ff;
 
-pub use ev::filter::Filter;
-pub use ev::{Axis, Button, Event, EventType};
-pub use gamepad::{
+pub use crate::ev::filter::Filter;
+pub use crate::ev::{Axis, Button, Event, EventType};
+pub use crate::gamepad::{
     ConnectedGamepadsIterator, Error, Gamepad, GamepadId, Gilrs, GilrsBuilder, MappingSource,
     PowerInfo,
 };
-pub use mapping::{MappingData as Mapping, MappingError};
+pub use crate::mapping::{MappingData as Mapping, MappingError};

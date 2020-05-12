@@ -225,7 +225,7 @@ pub enum DistanceModelError {
 impl Error for DistanceModelError {}
 
 impl fmt::Display for DistanceModelError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             DistanceModelError::InvalidReferenceDistance => "reference distance is < 0",
             DistanceModelError::InvalidRolloffFactor => "rolloff factor is < 0",

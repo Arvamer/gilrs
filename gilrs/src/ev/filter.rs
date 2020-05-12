@@ -73,9 +73,9 @@
 //! `FilterFn` is also implemented for all `Fn(Option<Event>, &Gilrs) -> Option<Event>`, so above
 //! example could be simplified to passing closure to `filter()` function.
 
-use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
-use gamepad::{Gamepad, Gilrs};
-use utils;
+use crate::ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
+use crate::gamepad::{Gamepad, Gilrs};
+use crate::utils;
 
 use std::time::Duration;
 
@@ -197,7 +197,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
 pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
     use gilrs_core::native_ev_codes as necs;
 
-    fn can_map(gp: &Gamepad) -> bool {
+    fn can_map(gp: &Gamepad<'_>) -> bool {
         let hats_mapped = gp.mapping().hats_mapped();
         if hats_mapped == 0b0000_1111 {
             true

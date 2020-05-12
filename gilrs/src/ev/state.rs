@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ev::Code;
+use crate::ev::Code;
 
 use fnv::FnvHashMap;
 
@@ -50,12 +50,12 @@ impl GamepadState {
     }
 
     /// Iterate over buttons data.
-    pub fn buttons(&self) -> ButtonDataIter {
+    pub fn buttons(&self) -> ButtonDataIter<'_> {
         ButtonDataIter(self.buttons.iter())
     }
 
     /// Iterate over axes data.
-    pub fn axes(&self) -> AxisDataIter {
+    pub fn axes(&self) -> AxisDataIter<'_> {
         AxisDataIter(self.axes.iter())
     }
 

@@ -10,20 +10,22 @@
 pub mod filter;
 pub mod state;
 
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::time::SystemTime;
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    time::SystemTime,
+};
 
-use constants::*;
-use gamepad::GamepadId;
-use gilrs_core;
-use utils;
+use crate::{constants::*, gamepad::GamepadId, utils};
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Code(pub(crate) gilrs_core::EvCode);
 
 impl Display for Code {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.0.fmt(f)
     }
 }
@@ -127,7 +129,7 @@ pub enum Button {
 
 impl Button {
     pub fn is_action(self) -> bool {
-        use Button::*;
+        use crate::Button::*;
         match self {
             South | East | North | West | C | Z => true,
             _ => false,
@@ -135,7 +137,7 @@ impl Button {
     }
 
     pub fn is_trigger(self) -> bool {
-        use Button::*;
+        use crate::Button::*;
         match self {
             LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 => true,
             _ => false,
@@ -143,7 +145,7 @@ impl Button {
     }
 
     pub fn is_menu(self) -> bool {
-        use Button::*;
+        use crate::Button::*;
         match self {
             Select | Start | Mode => true,
             _ => false,
@@ -151,7 +153,7 @@ impl Button {
     }
 
     pub fn is_stick(self) -> bool {
-        use Button::*;
+        use crate::Button::*;
         match self {
             LeftThumb | RightThumb => true,
             _ => false,
@@ -159,7 +161,7 @@ impl Button {
     }
 
     pub fn is_dpad(self) -> bool {
-        use Button::*;
+        use crate::Button::*;
         match self {
             DPadUp | DPadDown | DPadLeft | DPadRight => true,
             _ => false,
@@ -222,7 +224,7 @@ pub enum Axis {
 impl Axis {
     /// Returns true if axis is `LeftStickX`, `LeftStickY`, `RightStickX` or `RightStickY`.
     pub fn is_stick(self) -> bool {
-        use Axis::*;
+        use crate::Axis::*;
         match self {
             LeftStickX | LeftStickY | RightStickX | RightStickY => true,
             _ => false,
@@ -239,7 +241,7 @@ impl Axis {
     /// |`RightStickY`|`Some(RightStickX`)|
     /// | …           |`None`             |
     pub fn second_axis(self) -> Option<Self> {
-        use Axis::*;
+        use crate::Axis::*;
         match self {
             LeftStickX => Some(LeftStickY),
             LeftStickY => Some(LeftStickX),

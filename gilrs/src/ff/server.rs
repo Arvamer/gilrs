@@ -13,7 +13,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use gamepad::GamepadId;
+use crate::gamepad::GamepadId;
 use gilrs_core::FfDevice;
 
 use vec_map::VecMap;

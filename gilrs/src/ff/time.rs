@@ -8,7 +8,7 @@
 use std::ops::{Add, AddAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 use std::time::Duration;
 
-use utils;
+use crate::utils;
 
 pub(crate) const TICK_DURATION: u32 = 50;
 
