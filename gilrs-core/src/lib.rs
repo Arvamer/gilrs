@@ -1,30 +1,3 @@
-#[cfg(target_os = "linux")]
-extern crate libc;
-#[cfg(target_os = "linux")]
-extern crate libudev_sys;
-#[cfg(target_os = "linux")]
-#[macro_use]
-extern crate nix;
-#[cfg(target_os = "linux")]
-extern crate vec_map;
-
-#[cfg(target_os = "macos")]
-#[macro_use(impl_TCFType)]
-extern crate core_foundation;
-#[cfg(target_os = "macos")]
-extern crate io_kit_sys;
-#[cfg(target_os = "macos")]
-extern crate vec_map;
-
-#[cfg(target_os = "windows")]
-extern crate rusty_xinput;
-#[cfg(target_os = "windows")]
-extern crate winapi;
-
-#[cfg(target_arch = "wasm32")]
-extern crate stdweb;
-
-extern crate uuid;
 #[macro_use]
 extern crate log;
 
@@ -253,7 +226,7 @@ impl EvCode {
 }
 
 impl Display for EvCode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -271,7 +244,7 @@ enum PlatformError {
 }
 
 impl Display for PlatformError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             PlatformError::NotImplemented(_) => {
                 f.write_str("Gilrs does not support current platform.")
@@ -310,7 +283,7 @@ pub enum Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
             Error::Other(ref e) => e.fmt(f),
@@ -338,7 +311,7 @@ impl error::Error for Error {
 /// Some (or most) gamepads may use different mappings.
 pub mod native_ev_codes {
     use super::EvCode;
-    use platform::native_ev_codes as nec;
+    use crate::platform::native_ev_codes as nec;
 
     pub const AXIS_LSTICKX: EvCode = EvCode(nec::AXIS_LSTICKX);
     pub const AXIS_LSTICKY: EvCode = EvCode(nec::AXIS_LSTICKY);

@@ -9,6 +9,7 @@ repository = "https://gitlab.com/gilrs-project/gilrs"
 readme = "README.md"
 keywords = ["gamepad", "joystick", "input"]
 categories = ["game-engines"]
+edition = "2018"
 
 [dependencies]
 uuid = "0.8"
@@ -34,3 +35,6 @@ rusty-xinput = "1.1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 stdweb = "0.4.13"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = "0.2.62"
