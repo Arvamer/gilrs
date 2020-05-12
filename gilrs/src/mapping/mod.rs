@@ -423,7 +423,7 @@ impl Error for ParseSdlMappingError {
         }
     }
 
-    fn cause(&self) -> Option<&dyn Error> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         if let &ParseSdlMappingError::ParseError(ref err) = self {
             Some(err)
         } else {
@@ -434,15 +434,14 @@ impl Error for ParseSdlMappingError {
 
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        match self {
-            &ParseSdlMappingError::InvalidButton
-            | &ParseSdlMappingError::InvalidAxis
-            | &ParseSdlMappingError::UnknownHatDirection => fmt.write_str(self.description()),
-            &ParseSdlMappingError::ParseError(ref err) => fmt.write_fmt(format_args!(
-                "Error while parsing gamepad mapping: {}.",
-                err
-            )),
-        }
+        let s = match self {
+            &ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
+            &ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
+            &ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
+            &ParseSdlMappingError::ParseError(_) => "parsing error",
+        };
+
+        fmt.write_str(s)
     }
 }
 

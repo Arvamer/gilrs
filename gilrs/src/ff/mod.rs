@@ -341,6 +341,7 @@ impl EffectBuilder {
 
 /// Basic error type in force feedback module.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Force feedback is not supported by device with this ID
     FfNotSupported(GamepadId),
@@ -352,38 +353,38 @@ pub enum Error {
     SendFailed,
     /// Unexpected error has occurred
     Other,
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
 impl StdError for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::FfNotSupported(_) => "force feedback is not supported",
-            Error::Disconnected(_) => "device is not connected",
-            Error::InvalidDistanceModel(_) => "distance model is invalid",
-            Error::SendFailed => "receiving end of a channel is disconnected",
-            Error::Other => "unexpected error has occurred",
-            Error::__Nonexhaustive => unreachable!(),
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Error::InvalidDistanceModel(m) => Some(m),
+            _ => None,
         }
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_str(&match *self {
-            Error::FfNotSupported(id) => format!(
-                "Force feedback is not supported by device with id {}.",
-                id.0
-            ),
-            Error::Disconnected(id) => format!("Device with id {} is not connected.", id.0),
-            Error::InvalidDistanceModel(err) => {
-                format!("Distance model is invalid: {}.", err.description())
+        let sbuf;
+        let s = match self {
+            Error::FfNotSupported(id) => {
+                sbuf = format!(
+                    "force feedback is not supported by device with id {}.",
+                    id.0
+                );
+                sbuf.as_ref()
             }
-            Error::SendFailed => "Receiving end of a channel is disconnected.".to_owned(),
-            Error::Other => "Unexpected error has occurred.".to_owned(),
-            Error::__Nonexhaustive => unreachable!(),
-        })
+            Error::Disconnected(id) => {
+                sbuf = format!("device with id {} is not connected.", id.0);
+                sbuf.as_ref()
+            }
+            Error::InvalidDistanceModel(_) => "distance model is invalid",
+            Error::SendFailed => "receiving end of a channel is disconnected.",
+            Error::Other => "unespected error has occurred.",
+        };
+
+        fmt.write_str(s)
     }
 }
 

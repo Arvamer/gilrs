@@ -377,9 +377,11 @@ pub enum ErrorKind {
     UnexpectedEnd,
 }
 
-impl StdError for Error {
-    fn description(&self) -> &str {
-        match self.kind {
+impl StdError for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self.kind {
             ErrorKind::InvalidGuid => "GUID is invalid",
             ErrorKind::InvalidKeyValPair => "expected key value pair",
             ErrorKind::InvalidValue => "value is not valid",
@@ -388,12 +390,8 @@ impl StdError for Error {
             ErrorKind::UnknownButton => "invalid button name",
             ErrorKind::InvalidParserState => "attempt to parse after unrecoverable error",
             ErrorKind::UnexpectedEnd => "mapping does not have all required fields",
-        }
-    }
-}
+        };
 
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_fmt(format_args!("{} at {}", self.description(), self.position))
+        f.write_fmt(format_args!("{} at {}", s, self.position))
     }
 }

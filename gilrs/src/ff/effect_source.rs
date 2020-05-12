@@ -76,7 +76,7 @@ impl DistanceModel {
             } => {
                 distance = distance.min(max_distance);
 
-                (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
+                1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance)
             }
             DistanceModel::LinearClamped {
                 ref_distance,
@@ -86,7 +86,7 @@ impl DistanceModel {
                 distance = distance.max(ref_distance);
                 distance = distance.min(max_distance);
 
-                (1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance))
+                1.0 - rolloff_factor * (distance - ref_distance) / (max_distance - ref_distance)
             }
             DistanceModel::Inverse {
                 ref_distance,
@@ -210,6 +210,7 @@ impl Default for DistanceModel {
 /// Error that can be returned when passing [`DistanceModel`](struct.DistanceModel.html) with
 /// invalid value.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum DistanceModelError {
     /// Reference distance is < 0.
     InvalidReferenceDistance,
@@ -219,25 +220,20 @@ pub enum DistanceModelError {
     InvalidMaxDistance,
     /// Possible divide by zero
     InvalidModelParameter,
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
-impl Error for DistanceModelError {
-    fn description(&self) -> &str {
-        match *self {
+impl Error for DistanceModelError {}
+
+impl fmt::Display for DistanceModelError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
             DistanceModelError::InvalidReferenceDistance => "reference distance is < 0",
             DistanceModelError::InvalidRolloffFactor => "rolloff factor is < 0",
             DistanceModelError::InvalidMaxDistance => "max distance is < 0",
             DistanceModelError::InvalidModelParameter => "possible divide by zero",
-            DistanceModelError::__Nonexhaustive => unreachable!(),
-        }
-    }
-}
+        };
 
-impl fmt::Display for DistanceModelError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.description())
+        f.write_str(s)
     }
 }
 
