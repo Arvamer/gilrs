@@ -811,15 +811,7 @@ impl Display for Error {
     }
 }
 
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::UdevCtx => "Failed to create udev context",
-            Error::UdevEnumerate => "Failed to create udev enumerate object",
-            Error::UdevMonitor => "Failed to create udev monitor.",
-        }
-    }
-}
+impl error::Error for Error {}
 
 const KEY_MAX: u16 = 0x2ff;
 #[allow(dead_code)]

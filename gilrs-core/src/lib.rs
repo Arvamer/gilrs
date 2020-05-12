@@ -232,6 +232,8 @@ impl Display for EvCode {
 }
 
 /// Error type which can be returned when creating `Gilrs`.
+///
+/// Private version of `Error` that use `platform::Gilrs`.
 #[derive(Debug)]
 enum PlatformError {
     /// Gilrs does not support current platform, but you can use dummy context from this error if
@@ -255,17 +257,10 @@ impl Display for PlatformError {
 }
 
 impl error::Error for PlatformError {
-    fn description(&self) -> &str {
-        match *self {
-            PlatformError::NotImplemented(_) => "platform not supported",
-            PlatformError::Other(_) => "platform specific error",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            PlatformError::NotImplemented(_) => None,
-            PlatformError::Other(ref e) => Some(&**e),
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            PlatformError::Other(e) => Some(e.as_ref()),
+            _ => None,
         }
     }
 }
@@ -275,11 +270,9 @@ impl error::Error for PlatformError {
 pub enum Error {
     /// Gilrs does not support current platform, but you can use dummy context from this error if
     /// gamepad input is not essential.
-    #[allow(dead_code)]
     NotImplemented(Gilrs),
     /// Platform specific error.
-    #[allow(dead_code)]
-    Other(Box<dyn error::Error + Send + Sync>),
+    Other(Box<dyn error::Error + Send + Sync + 'static>),
 }
 
 impl Display for Error {
@@ -292,17 +285,10 @@ impl Display for Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::NotImplemented(_) => "platform not supported",
-            Error::Other(_) => "platform specific error",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            Error::NotImplemented(_) => None,
-            Error::Other(ref e) => Some(&**e),
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Error::Other(e) => Some(e.as_ref()),
+            _ => None,
         }
     }
 }
