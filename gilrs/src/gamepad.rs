@@ -1073,7 +1073,7 @@ pub enum Error {
     /// Either `pressed ≤ released` or one of values is outside [0.0, 1.0] range.
     InvalidAxisToBtn,
     /// Platform specific error.
-    Other(Box<dyn error::Error + Send + Sync>),
+    Other(Box<dyn error::Error + Send + Sync + 'static>),
 }
 
 impl Display for Error {
@@ -1089,19 +1089,10 @@ impl Display for Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Error::NotImplemented(_) => "platform not supported",
-            Error::InvalidAxisToBtn => "values passed to set_axis_to_btn() are invalid",
-            Error::Other(_) => "platform specific error",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match self {
-            Error::NotImplemented(_) => None,
-            Error::InvalidAxisToBtn => None,
-            Error::Other(e) => Some(&**e),
+            Error::Other(e) => Some(e.as_ref()),
+            _ => None,
         }
     }
 }

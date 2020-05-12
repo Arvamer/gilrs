@@ -16,12 +16,8 @@ use super::time::Ticks;
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[non_exhaustive]
 pub enum BaseEffectType {
-    Weak {
-        magnitude: u16,
-    },
-    Strong {
-        magnitude: u16,
-    },
+    Weak { magnitude: u16 },
+    Strong { magnitude: u16 },
 }
 
 impl BaseEffectType {

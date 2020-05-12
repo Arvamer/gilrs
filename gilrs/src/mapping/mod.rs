@@ -414,15 +414,6 @@ impl From<ParserError> for ParseSdlMappingError {
 }
 
 impl Error for ParseSdlMappingError {
-    fn description(&self) -> &str {
-        match self {
-            ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
-            ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
-            ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
-            ParseSdlMappingError::ParseError(_) => "parsing error",
-        }
-    }
-
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         if let ParseSdlMappingError::ParseError(ref err) = self {
             Some(err)
@@ -571,11 +562,15 @@ pub enum MappingError {
     NotSdl2Compatible,
 }
 
-impl MappingError {
-    fn into_str(self) -> &'static str {
-        match self {
-            MappingError::InvalidCode(_) => {
-                "gamepad does not have element with requested event code"
+impl Error for MappingError {}
+
+impl Display for MappingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let sbuf;
+        let s = match self {
+            MappingError::InvalidCode(code) => {
+                sbuf = format!("gamepad does not have element with {}", code);
+                sbuf.as_ref()
             }
             MappingError::InvalidName => "name can not contain comma",
             MappingError::NotImplemented => {
@@ -587,19 +582,9 @@ impl MappingError {
             }
             MappingError::UnknownElement => "Button::Unknown and Axis::Unknown are not allowed",
             MappingError::NotSdl2Compatible => "one of buttons or axes is not compatible with SDL2",
-        }
-    }
-}
+        };
 
-impl Error for MappingError {
-    fn description(&self) -> &str {
-        self.into_str()
-    }
-}
-
-impl Display for MappingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(self.into_str())
+        f.write_str(s)
     }
 }
 
