@@ -78,7 +78,7 @@ fn main() {
 
     let pos1 = [-100.0, 0.0, 0.0];
 
-    let effect_builder = EffectBuilder::new()
+    let mut effect_builder = EffectBuilder::new()
         .add_effect(BaseEffect {
             kind: BaseEffectType::Strong { magnitude: 45_000 },
             ..Default::default()
