@@ -5,27 +5,33 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ev::state::{AxisData, ButtonData, GamepadState};
-use ev::{Axis, AxisOrBtn, Button, Code, Event, EventType};
-use ff::server::{self, Message};
-use ff::Error as FfError;
-use gilrs_core::{self, Error as PlatformError};
-use mapping::{Mapping, MappingDb};
+use crate::{
+    ev::{
+        state::{AxisData, ButtonData, GamepadState},
+        Axis, AxisOrBtn, Button, Code, Event, EventType,
+    },
+    ff::{
+        server::{self, Message},
+        Error as FfError,
+    },
+    mapping::{Mapping, MappingData, MappingDb},
+    utils, MappingError,
+};
 
-pub use gilrs_core::PowerInfo;
+use gilrs_core::{
+    self, AxisInfo, Error as PlatformError, Event as RawEvent, EventType as RawEventType,
+};
 
 use uuid::Uuid;
 
-use gilrs_core::AxisInfo;
-use gilrs_core::Event as RawEvent;
-use gilrs_core::EventType as RawEventType;
-use mapping::MappingData;
-use std::collections::VecDeque;
-use std::error;
-use std::fmt::{self, Display};
-use std::sync::mpsc::Sender;
-use utils;
-use MappingError;
+use std::{
+    collections::VecDeque,
+    error,
+    fmt::{self, Display},
+    sync::mpsc::Sender,
+};
+
+pub use gilrs_core::PowerInfo;
 
 const DEFAULT_DEADZONE: f32 = 0.1;
 
@@ -142,7 +148,7 @@ impl Gilrs {
 
     /// Returns next pending event.
     pub fn next_event(&mut self) -> Option<Event> {
-        use ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
+        use crate::ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
 
         let ev = if self.default_filters {
             let jitter_filter = Jitter::new();
@@ -319,7 +325,7 @@ impl Gilrs {
     /// Please note, that it's not necessary to call this function unless you modify events by using
     /// additional filters and disabled automatic updates when creating `Gilrs`.
     pub fn update(&mut self, event: &Event) {
-        use EventType::*;
+        use crate::EventType::*;
 
         let counter = self.counter;
 
@@ -415,7 +421,7 @@ impl Gilrs {
     }
 
     /// Returns a reference to connected gamepad or `None`.
-    pub fn connected_gamepad(&self, id: GamepadId) -> Option<Gamepad> {
+    pub fn connected_gamepad(&self, id: GamepadId) -> Option<Gamepad<'_>> {
         // Make sure that it will not panic even with invalid GamepadId, so ConnectedGamepadIterator
         // will always work.
         if let Some(data) = self.gamepads_data.get(id.0) {
@@ -441,7 +447,7 @@ impl Gilrs {
     ///              id, gamepad.name());
     /// }
     /// ```
-    pub fn gamepads(&self) -> ConnectedGamepadsIterator {
+    pub fn gamepads(&self) -> ConnectedGamepadsIterator<'_> {
         ConnectedGamepadsIterator(self, 0)
     }
 
@@ -1028,7 +1034,7 @@ impl Into<usize> for GamepadId {
 }
 
 impl Display for GamepadId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -1069,7 +1075,7 @@ pub enum Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
             &Error::InvalidAxisToBtn => f.write_str(

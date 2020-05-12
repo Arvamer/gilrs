@@ -6,12 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
+use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 use uuid::Uuid;
-use {AxisInfo, Event, EventType, PlatformError};
 
 use std::collections::VecDeque;
 use stdweb::web::{Gamepad as WebGamepad, GamepadMappingType};
-use PowerInfo;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::i32::MAX as I32_MAX;
@@ -54,7 +53,7 @@ impl Gilrs {
                     // Compare the two gamepads and generate events
                     let buttons = old.mapping.buttons().zip(new.mapping.buttons()).enumerate();
                     for (btn_index, (old_button, new_button)) in buttons {
-                        let ev_code = ::EvCode(new.button_code(btn_index));
+                        let ev_code = crate::EvCode(new.button_code(btn_index));
                         match (old_button, new_button) {
                             (false, true) => self
                                 .event_cache
@@ -69,7 +68,7 @@ impl Gilrs {
                     let axes = old.mapping.axes().zip(new.mapping.axes()).enumerate();
                     for (axis_index, (old_axis, new_axis)) in axes {
                         if old_axis != new_axis {
-                            let ev_code = ::EvCode(new.axis_code(axis_index));
+                            let ev_code = crate::EvCode(new.axis_code(axis_index));
                             let value = (new_axis * I32_MAX as f64) as i32;
                             self.event_cache.push_back(Event::new(
                                 index,
@@ -86,7 +85,7 @@ impl Gilrs {
                         .push_back(Event::new(new.index(), EventType::Connected));
                     new_index += 1;
                 }
-                (Some(old), Some(new)) => {
+                (Some(old), Some(_new)) => {
                     // Create a disconnect event
                     self.event_cache
                         .push_back(Event::new(old.index(), EventType::Disconnected));
@@ -268,7 +267,7 @@ impl EvCode {
 }
 
 impl Display for EvCode {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.0.fmt(f)
     }
 }

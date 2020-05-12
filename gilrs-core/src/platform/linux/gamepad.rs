@@ -9,9 +9,9 @@ use super::ff::Device as FfDevice;
 use super::ioctl;
 use super::ioctl::{input_absinfo, input_event};
 use super::udev::*;
-use utils;
-use {AxisInfo, Event, EventType};
-use {PlatformError, PowerInfo};
+use crate::utils;
+use crate::{AxisInfo, Event, EventType};
+use crate::{PlatformError, PowerInfo};
 
 use libc as c;
 use uuid::Uuid;
@@ -768,9 +768,9 @@ impl EvCode {
     }
 }
 
-impl From<input_event> for ::EvCode {
+impl From<input_event> for crate::EvCode {
     fn from(f: input_event) -> Self {
-        ::EvCode(EvCode {
+        crate::EvCode(EvCode {
             kind: f.type_,
             code: f.code,
         })
@@ -778,7 +778,7 @@ impl From<input_event> for ::EvCode {
 }
 
 impl Display for EvCode {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.kind {
             EV_SYN => f.write_str("SYN")?,
             EV_KEY => f.write_str("KEY")?,
@@ -802,7 +802,7 @@ enum Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match *self {
             Error::UdevCtx => f.write_str("Failed to create udev context"),
             Error::UdevEnumerate => f.write_str("Failed to create udev enumerate object"),

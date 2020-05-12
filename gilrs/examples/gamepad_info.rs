@@ -1,6 +1,3 @@
-extern crate gilrs;
-extern crate uuid;
-
 use gilrs::{Axis, Button, Gilrs};
 use uuid::Uuid;
 

@@ -16,6 +16,7 @@ use core_foundation::base::{
     kCFAllocatorDefault, CFAllocatorRef, CFIndex, CFRelease, CFType, TCFType,
 };
 use core_foundation::dictionary::CFDictionary;
+use core_foundation::impl_TCFType;
 use core_foundation::number::CFNumber;
 use core_foundation::runloop::{CFRunLoop, CFRunLoopMode};
 use core_foundation::set::CFSetApplyFunction;

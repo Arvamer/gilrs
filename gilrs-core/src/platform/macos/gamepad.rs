@@ -7,8 +7,8 @@
 
 use super::io_kit::*;
 use super::FfDevice;
+use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 use uuid::Uuid;
-use {AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 use core_foundation::runloop::{kCFRunLoopDefaultMode, CFRunLoop};
 use io_kit_sys::hid::base::{IOHIDDeviceRef, IOHIDValueRef};
@@ -400,9 +400,9 @@ impl EvCode {
     }
 }
 
-impl From<IOHIDElement> for ::EvCode {
+impl From<IOHIDElement> for crate::EvCode {
     fn from(e: IOHIDElement) -> Self {
-        ::EvCode(EvCode {
+        crate::EvCode(EvCode {
             page: e.get_page(),
             usage: e.get_usage(),
         })
@@ -729,7 +729,7 @@ extern "C" fn input_value_cb(
             id,
             EventType::AxisValueChanged(
                 value.get_value() as i32,
-                ::EvCode(EvCode {
+                crate::EvCode(EvCode {
                     page: page,
                     usage: usage,
                 }),
@@ -740,7 +740,7 @@ extern "C" fn input_value_cb(
         if value.get_value() == 0 {
             let event = Event::new(
                 id,
-                EventType::ButtonReleased(::EvCode(EvCode {
+                EventType::ButtonReleased(crate::EvCode(EvCode {
                     page: page,
                     usage: usage,
                 })),
@@ -749,7 +749,7 @@ extern "C" fn input_value_cb(
         } else {
             let event = Event::new(
                 id,
-                EventType::ButtonPressed(::EvCode(EvCode {
+                EventType::ButtonPressed(crate::EvCode(EvCode {
                     page: page,
                     usage: usage,
                 })),

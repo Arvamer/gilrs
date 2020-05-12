@@ -9,7 +9,7 @@ use std::fmt::{self, Display};
 
 use uuid::Uuid;
 
-use ev::{Axis, AxisOrBtn, Button};
+use crate::ev::{Axis, AxisOrBtn, Button};
 
 // Must be sorted!
 static BUTTONS_SDL: [&'static str; 19] = [
@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Option<Result<Token, Error>> {
+    pub fn next_token(&mut self) -> Option<Result<Token<'_>, Error>> {
         if self.pos >= self.data.len() {
             None
         } else {
@@ -139,7 +139,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_uuid(&mut self) -> Result<Token, Error> {
+    fn parse_uuid(&mut self) -> Result<Token<'_>, Error> {
         let next_comma = self.next_comma_or_end();
         let uuid = Uuid::parse_str(&self.data[self.pos..next_comma])
             .map(|uuid| Token::Uuid(uuid))
@@ -159,7 +159,7 @@ impl<'a> Parser<'a> {
         uuid
     }
 
-    fn parse_name(&mut self) -> Result<Token, Error> {
+    fn parse_name(&mut self) -> Result<Token<'_>, Error> {
         let next_comma = self.next_comma_or_end();
         let name = &self.data[self.pos..next_comma];
 
@@ -169,7 +169,7 @@ impl<'a> Parser<'a> {
         Ok(Token::Name(name))
     }
 
-    fn parse_key_val(&mut self) -> Result<Token, Error> {
+    fn parse_key_val(&mut self) -> Result<Token<'_>, Error> {
         let next_comma = self.next_comma_or_end();
         let pair = &self.data[self.pos..next_comma];
         let pos = self.pos;
@@ -377,9 +377,11 @@ pub enum ErrorKind {
     UnexpectedEnd,
 }
 
-impl StdError for Error {
-    fn description(&self) -> &str {
-        match self.kind {
+impl StdError for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self.kind {
             ErrorKind::InvalidGuid => "GUID is invalid",
             ErrorKind::InvalidKeyValPair => "expected key value pair",
             ErrorKind::InvalidValue => "value is not valid",
@@ -388,12 +390,8 @@ impl StdError for Error {
             ErrorKind::UnknownButton => "invalid button name",
             ErrorKind::InvalidParserState => "attempt to parse after unrecoverable error",
             ErrorKind::UnexpectedEnd => "mapping does not have all required fields",
-        }
-    }
-}
+        };
 
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_fmt(format_args!("{} at {}", self.description(), self.position))
+        f.write_fmt(format_args!("{} at {}", s, self.position))
     }
 }

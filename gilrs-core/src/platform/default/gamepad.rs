@@ -8,7 +8,7 @@
 
 use super::FfDevice;
 use uuid::Uuid;
-use {AxisInfo, Event, PlatformError, PowerInfo};
+use crate::{AxisInfo, Event, PlatformError, PowerInfo};
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 

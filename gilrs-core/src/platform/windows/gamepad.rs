@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
-use {AxisInfo, Event, EventType, PlatformError};
+use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -24,7 +24,6 @@ use winapi::um::xinput::{
     XINPUT_GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_THUMB, XINPUT_GAMEPAD_START,
     XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y, XINPUT_STATE as XState,
 };
-use PowerInfo;
 
 // Chosen by dice roll ;)
 const EVENT_THREAD_SLEEP_TIME: u64 = 10;
@@ -135,48 +134,66 @@ impl Gilrs {
         if g.bLeftTrigger != pg.bLeftTrigger {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisValueChanged(g.bLeftTrigger as i32, ::native_ev_codes::AXIS_LT2),
+                EventType::AxisValueChanged(
+                    g.bLeftTrigger as i32,
+                    crate::native_ev_codes::AXIS_LT2,
+                ),
             ));
         }
         if g.bRightTrigger != pg.bRightTrigger {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisValueChanged(g.bRightTrigger as i32, ::native_ev_codes::AXIS_RT2),
+                EventType::AxisValueChanged(
+                    g.bRightTrigger as i32,
+                    crate::native_ev_codes::AXIS_RT2,
+                ),
             ));
         }
         if g.sThumbLX != pg.sThumbLX {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisValueChanged(g.sThumbLX as i32, ::native_ev_codes::AXIS_LSTICKX),
+                EventType::AxisValueChanged(
+                    g.sThumbLX as i32,
+                    crate::native_ev_codes::AXIS_LSTICKX,
+                ),
             ));
         }
         if g.sThumbLY != pg.sThumbLY {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisValueChanged(g.sThumbLY as i32, ::native_ev_codes::AXIS_LSTICKY),
+                EventType::AxisValueChanged(
+                    g.sThumbLY as i32,
+                    crate::native_ev_codes::AXIS_LSTICKY,
+                ),
             ));
         }
         if g.sThumbRX != pg.sThumbRX {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisValueChanged(g.sThumbRX as i32, ::native_ev_codes::AXIS_RSTICKX),
+                EventType::AxisValueChanged(
+                    g.sThumbRX as i32,
+                    crate::native_ev_codes::AXIS_RSTICKX,
+                ),
             ));
         }
         if g.sThumbRY != pg.sThumbRY {
             let _ = tx.send(Event::new(
                 id,
-                EventType::AxisValueChanged(g.sThumbRY as i32, ::native_ev_codes::AXIS_RSTICKY),
+                EventType::AxisValueChanged(
+                    g.sThumbRY as i32,
+                    crate::native_ev_codes::AXIS_RSTICKY,
+                ),
             ));
         }
         if !is_mask_eq(g.wButtons, pg.wButtons, XINPUT_GAMEPAD_DPAD_UP) {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_UP != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_UP),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_DPAD_UP),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_UP),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_DPAD_UP),
                 )),
             };
         }
@@ -184,11 +201,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_DOWN != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_DOWN),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_DPAD_DOWN),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_DOWN),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_DPAD_DOWN),
                 )),
             };
         }
@@ -196,11 +213,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_LEFT != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_LEFT),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_DPAD_LEFT),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_LEFT),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_DPAD_LEFT),
                 )),
             };
         }
@@ -208,11 +225,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_DPAD_RIGHT),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_DPAD_RIGHT),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_DPAD_RIGHT),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_DPAD_RIGHT),
                 )),
             };
         }
@@ -220,11 +237,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_START != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_START),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_START),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_START),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_START),
                 )),
             };
         }
@@ -232,11 +249,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_BACK != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_SELECT),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_SELECT),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_SELECT),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_SELECT),
                 )),
             };
         }
@@ -244,11 +261,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_THUMB != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_LTHUMB),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_LTHUMB),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_LTHUMB),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_LTHUMB),
                 )),
             };
         }
@@ -256,11 +273,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_RTHUMB),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_RTHUMB),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_RTHUMB),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_RTHUMB),
                 )),
             };
         }
@@ -268,11 +285,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_LT),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_LT),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_LT),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_LT),
                 )),
             };
         }
@@ -280,11 +297,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_RT),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_RT),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_RT),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_RT),
                 )),
             };
         }
@@ -292,11 +309,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_A != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_SOUTH),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_SOUTH),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_SOUTH),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_SOUTH),
                 )),
             };
         }
@@ -304,11 +321,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_B != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_EAST),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_EAST),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_EAST),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_EAST),
                 )),
             };
         }
@@ -316,11 +333,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_X != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_WEST),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_WEST),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_WEST),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_WEST),
                 )),
             };
         }
@@ -328,11 +345,11 @@ impl Gilrs {
             let _ = match g.wButtons & XINPUT_GAMEPAD_Y != 0 {
                 true => tx.send(Event::new(
                     id,
-                    EventType::ButtonPressed(::native_ev_codes::BTN_NORTH),
+                    EventType::ButtonPressed(crate::native_ev_codes::BTN_NORTH),
                 )),
                 false => tx.send(Event::new(
                     id,
-                    EventType::ButtonReleased(::native_ev_codes::BTN_NORTH),
+                    EventType::ButtonReleased(crate::native_ev_codes::BTN_NORTH),
                 )),
             };
         }
@@ -479,7 +496,7 @@ pub mod native_ev_codes {
     };
 
     use super::EvCode;
-    use AxisInfo;
+    use crate::AxisInfo;
 
     pub const AXIS_LSTICKX: EvCode = EvCode(0);
     pub const AXIS_LSTICKY: EvCode = EvCode(1);

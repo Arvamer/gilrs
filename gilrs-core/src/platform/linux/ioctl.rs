@@ -10,6 +10,7 @@
 // difference, so it looks like conditional compilation is not needed.
 
 use libc;
+use nix::{ioctl_read, ioctl_read_buf, ioctl_write_int, ioctl_write_ptr, request_code_read};
 use std::mem::MaybeUninit;
 
 #[cfg(target_env = "musl")]
@@ -56,7 +57,7 @@ impl ::std::default::Default for input_event {
 }
 
 impl ::std::fmt::Debug for input_event {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         write!(
             f,
             "input_event {{ time: {{ tv_sec: {}, tv_usec: {} }}, type_: {}, code: {}, value: {}",

@@ -69,9 +69,9 @@ use std::sync::mpsc::{SendError, Sender};
 use std::{f32, fmt};
 
 use self::effect_source::EffectSource;
-use ff::server::Message;
-use gamepad::{Gamepad, GamepadId, Gilrs};
-use utils;
+use crate::ff::server::Message;
+use crate::gamepad::{Gamepad, GamepadId, Gilrs};
+use crate::utils;
 
 use vec_map::VecMap;
 
@@ -167,7 +167,7 @@ impl Effect {
     ///
     /// Returns `Error::Disconnected(id)` or `Error::FfNotSupported(id)` if gamepad is not connected
     /// or does not support force feedback.
-    pub fn add_gamepad(&self, gamepad: &Gamepad) -> Result<(), Error> {
+    pub fn add_gamepad(&self, gamepad: &Gamepad<'_>) -> Result<(), Error> {
         if !gamepad.is_connected() {
             Err(Error::Disconnected(gamepad.id()))
         } else if !gamepad.is_ff_supported() {
@@ -268,7 +268,7 @@ impl EffectBuilder {
     }
 
     /// Adds gamepad to the list of gamepads associated with effect.
-    pub fn add_gamepad(&mut self, gamepad: &Gamepad) -> &mut Self {
+    pub fn add_gamepad(&mut self, gamepad: &Gamepad<'_>) -> &mut Self {
         self.devices.insert(gamepad.id().0, ());
 
         self
@@ -341,6 +341,7 @@ impl EffectBuilder {
 
 /// Basic error type in force feedback module.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Force feedback is not supported by device with this ID
     FfNotSupported(GamepadId),
@@ -352,38 +353,38 @@ pub enum Error {
     SendFailed,
     /// Unexpected error has occurred
     Other,
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
 impl StdError for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::FfNotSupported(_) => "force feedback is not supported",
-            Error::Disconnected(_) => "device is not connected",
-            Error::InvalidDistanceModel(_) => "distance model is invalid",
-            Error::SendFailed => "receiving end of a channel is disconnected",
-            Error::Other => "unexpected error has occurred",
-            Error::__Nonexhaustive => unreachable!(),
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Error::InvalidDistanceModel(m) => Some(m),
+            _ => None,
         }
     }
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_str(&match *self {
-            Error::FfNotSupported(id) => format!(
-                "Force feedback is not supported by device with id {}.",
-                id.0
-            ),
-            Error::Disconnected(id) => format!("Device with id {} is not connected.", id.0),
-            Error::InvalidDistanceModel(err) => {
-                format!("Distance model is invalid: {}.", err.description())
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let sbuf;
+        let s = match self {
+            Error::FfNotSupported(id) => {
+                sbuf = format!(
+                    "force feedback is not supported by device with id {}.",
+                    id.0
+                );
+                sbuf.as_ref()
             }
-            Error::SendFailed => "Receiving end of a channel is disconnected.".to_owned(),
-            Error::Other => "Unexpected error has occurred.".to_owned(),
-            Error::__Nonexhaustive => unreachable!(),
-        })
+            Error::Disconnected(id) => {
+                sbuf = format!("device with id {} is not connected.", id.0);
+                sbuf.as_ref()
+            }
+            Error::InvalidDistanceModel(_) => "distance model is invalid",
+            Error::SendFailed => "receiving end of a channel is disconnected.",
+            Error::Other => "unespected error has occurred.",
+        };
+
+        fmt.write_str(s)
     }
 }
 
