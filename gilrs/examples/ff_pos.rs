@@ -91,11 +91,7 @@ fn main() {
         .gamepads(&support_ff)
         .clone();
 
-    let left_effect = effect_builder
-        .clone()
-        .position(pos1)
-        .finish(&mut gilrs)
-        .unwrap();
+    let left_effect = effect_builder.position(pos1).finish(&mut gilrs).unwrap();
 
     left_effect.play().unwrap();
 

@@ -1,5 +1,3 @@
-use env_logger;
-
 use gilrs_core::Gilrs;
 
 fn main() {

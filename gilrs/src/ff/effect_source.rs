@@ -345,10 +345,7 @@ impl Mul<f32> for Magnitude {
         } else {
             weak as u16
         };
-        Magnitude {
-            strong: strong,
-            weak: weak,
-        }
+        Magnitude { strong, weak }
     }
 }
 

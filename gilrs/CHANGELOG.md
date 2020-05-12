@@ -1,6 +1,23 @@
 Change Log
 ==========
 
+v0.8.0 - unreleased
+-------------------
+
+### Added
+
+- `Jitter`, `Repeat`, `GilrsBuilder`, and `Mapping` now implement `Default`.
+- Errors now implement `source()`.
+
+### Changed
+
+- Minimal supported version is now 1.40
+- Non exhaustive enums now use `#[non_exhaustive]` instead of hidden variant.
+
+### Removed
+
+- Errors now longer implement deprecated methods (`source()` and `description()`).
+
 v0.7.4 - 2020-02-06
 -------------------
 

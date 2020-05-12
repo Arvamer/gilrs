@@ -25,7 +25,7 @@ use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, T
 
 /// Platform name used by SDL mappings
 #[cfg(target_os = "linux")]
-const SDL_PLATFORM_NAME: &'static str = "Linux";
+const SDL_PLATFORM_NAME: &str = "Linux";
 #[cfg(target_os = "macos")]
 const SDL_PLATFORM_NAME: &'static str = "Mac OS X";
 #[cfg(target_os = "windows")]
@@ -416,15 +416,15 @@ impl From<ParserError> for ParseSdlMappingError {
 impl Error for ParseSdlMappingError {
     fn description(&self) -> &str {
         match self {
-            &ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
-            &ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
-            &ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
-            &ParseSdlMappingError::ParseError(_) => "parsing error",
+            ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
+            ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
+            ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
+            ParseSdlMappingError::ParseError(_) => "parsing error",
         }
     }
 
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        if let &ParseSdlMappingError::ParseError(ref err) = self {
+        if let ParseSdlMappingError::ParseError(ref err) = self {
             Some(err)
         } else {
             None
@@ -435,10 +435,10 @@ impl Error for ParseSdlMappingError {
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         let s = match self {
-            &ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
-            &ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
-            &ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
-            &ParseSdlMappingError::ParseError(_) => "parsing error",
+            ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
+            ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
+            ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
+            ParseSdlMappingError::ParseError(_) => "parsing error",
         };
 
         fmt.write_str(s)
@@ -474,7 +474,7 @@ impl MappingDb {
             let pat = "platform:";
             if let Some(offset) = mapping.find(pat).map(|o| o + pat.len()) {
                 let s = &mapping[offset..];
-                let end = s.find(',').unwrap_or(s.len());
+                let end = s.find(',').unwrap_or_else(|| s.len());
 
                 if &s[..end] != SDL_PLATFORM_NAME {
                     continue;
@@ -505,7 +505,7 @@ impl MappingDb {
 /// existing gamepad.
 ///
 /// See `examples/mapping.rs` for more detailed example.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 // Re-exported as Mapping
 pub struct MappingData {
     buttons: VecMap<EvCode>,
@@ -523,42 +523,32 @@ impl MappingData {
 
     /// Returns `EvCode` associated with button index.
     pub fn button(&self, idx: Button) -> Option<ev::Code> {
-        self.buttons
-            .get(idx as usize)
-            .cloned()
-            .map(|nec| ev::Code(nec))
+        self.buttons.get(idx as usize).cloned().map(ev::Code)
     }
 
     /// Returns `EvCode` associated with axis index.
     pub fn axis(&self, idx: Axis) -> Option<ev::Code> {
-        self.axes
-            .get(idx as usize)
-            .cloned()
-            .map(|nec| ev::Code(nec))
+        self.axes.get(idx as usize).cloned().map(ev::Code)
     }
 
     /// Inserts new button mapping.
     pub fn insert_btn(&mut self, from: ev::Code, to: Button) -> Option<ev::Code> {
-        self.buttons
-            .insert(to as usize, from.0)
-            .map(|nec| ev::Code(nec))
+        self.buttons.insert(to as usize, from.0).map(ev::Code)
     }
 
     /// Inserts new axis mapping.
     pub fn insert_axis(&mut self, from: ev::Code, to: Axis) -> Option<ev::Code> {
-        self.axes
-            .insert(to as usize, from.0)
-            .map(|nec| ev::Code(nec))
+        self.axes.insert(to as usize, from.0).map(ev::Code)
     }
 
     /// Removes button and returns associated `NativEvCode`.
     pub fn remove_button(&mut self, idx: Button) -> Option<ev::Code> {
-        self.buttons.remove(idx as usize).map(|nec| ev::Code(nec))
+        self.buttons.remove(idx as usize).map(ev::Code)
     }
 
     /// Removes axis and returns associated `NativEvCode`.
     pub fn remove_axis(&mut self, idx: Axis) -> Option<ev::Code> {
-        self.axes.remove(idx as usize).map(|nec| ev::Code(nec))
+        self.axes.remove(idx as usize).map(ev::Code)
     }
 }
 
@@ -622,10 +612,10 @@ mod tests {
     use uuid::Uuid;
     // Do not include platform, mapping from (with UUID modified)
     // https://github.com/gabomdq/SDL_GameControllerDB/blob/master/gamecontrollerdb.txt
-    const TEST_STR: &'static str = "03000000260900008888000000010001,GameCube {WiseGroup USB \
-                                    box},a:b0,b:b2,y:b3,x:b1,start:b7,rightshoulder:b6,dpup:h0.1,\
-                                    dpleft:h0.8,dpdown:h0.4,dpright:h0.2,leftx:a0,lefty:a1,rightx:\
-                                    a2,righty:a3,lefttrigger:a4,righttrigger:a5,";
+    const TEST_STR: &str = "03000000260900008888000000010001,GameCube {WiseGroup USB \
+                            box},a:b0,b:b2,y:b3,x:b1,start:b7,rightshoulder:b6,dpup:h0.1,dpleft:\
+                            h0.8,dpdown:h0.4,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,\
+                            lefttrigger:a4,righttrigger:a5,";
 
     const BUTTONS: [EvCode; 15] = [
         nec::BTN_SOUTH,

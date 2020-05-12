@@ -239,7 +239,7 @@ impl Gilrs {
                         }
                         RawEventType::AxisValueChanged(val, nec) => {
                             // Let's trust at least our backend code
-                            let axis_info = self.gamepad(id).inner.axis_info(nec).unwrap().clone();
+                            let axis_info = *self.gamepad(id).inner.axis_info(nec).unwrap();
                             let nec = Code(nec);
 
                             match self.gamepad(id).axis_or_btn_name(nec) {
@@ -413,7 +413,7 @@ impl Gilrs {
     ///     # break;
     /// }
     /// ```
-    pub fn gamepad<'a>(&'a self, id: GamepadId) -> Gamepad<'a> {
+    pub fn gamepad(&self, id: GamepadId) -> Gamepad {
         Gamepad {
             inner: self.inner.gamepad(id.0).unwrap(),
             data: &self.gamepads_data[id.0],
@@ -691,6 +691,12 @@ impl GilrsBuilder {
         } else {
             Ok(gilrs)
         }
+    }
+}
+
+impl Default for GilrsBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -995,16 +1001,12 @@ impl GamepadData {
 
     /// Returns `Code` associated with `btn`.
     pub fn button_code(&self, btn: Button) -> Option<Code> {
-        self.mapping
-            .map_rev(&AxisOrBtn::Btn(btn))
-            .map(|nec| Code(nec))
+        self.mapping.map_rev(&AxisOrBtn::Btn(btn)).map(Code)
     }
 
     /// Returns `Code` associated with `axis`.
     pub fn axis_code(&self, axis: Axis) -> Option<Code> {
-        self.mapping
-            .map_rev(&AxisOrBtn::Axis(axis))
-            .map(|nec| Code(nec))
+        self.mapping.map_rev(&AxisOrBtn::Axis(axis)).map(Code)
     }
 }
 
@@ -1057,7 +1059,7 @@ fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
 fn btn_value(info: &AxisInfo, val: i32) -> f32 {
     let range = (info.max - info.min) as f32;
     let mut val = (val - info.min) as f32;
-    val = val / range;
+    val /= range;
 
     utils::clamp(val, 0.0, 1.0)
 }
@@ -1077,11 +1079,11 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            &Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
-            &Error::InvalidAxisToBtn => f.write_str(
+            Error::NotImplemented(_) => f.write_str("Gilrs does not support current platform."),
+            Error::InvalidAxisToBtn => f.write_str(
                 "Either `pressed ≤ released` or one of values is outside [0.0, 1.0] range.",
             ),
-            &Error::Other(ref e) => e.fmt(f),
+            Error::Other(ref e) => e.fmt(f),
         }
     }
 }
@@ -1089,17 +1091,17 @@ impl Display for Error {
 impl error::Error for Error {
     fn description(&self) -> &str {
         match self {
-            &Error::NotImplemented(_) => "platform not supported",
-            &Error::InvalidAxisToBtn => "values passed to set_axis_to_btn() are invalid",
-            &Error::Other(_) => "platform specific error",
+            Error::NotImplemented(_) => "platform not supported",
+            Error::InvalidAxisToBtn => "values passed to set_axis_to_btn() are invalid",
+            Error::Other(_) => "platform specific error",
         }
     }
 
     fn cause(&self) -> Option<&dyn error::Error> {
         match self {
-            &Error::NotImplemented(_) => None,
-            &Error::InvalidAxisToBtn => None,
-            &Error::Other(ref e) => Some(&**e),
+            Error::NotImplemented(_) => None,
+            Error::InvalidAxisToBtn => None,
+            Error::Other(e) => Some(&**e),
         }
     }
 }

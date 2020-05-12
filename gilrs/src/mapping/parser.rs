@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::ev::{Axis, AxisOrBtn, Button};
 
 // Must be sorted!
-static BUTTONS_SDL: [&'static str; 19] = [
+static BUTTONS_SDL: [&str; 19] = [
     "a",
     "b",
     "back",
@@ -56,7 +56,7 @@ static BUTTONS: [Button; 19] = [
 ];
 
 // Must be sorted!
-static AXES_SDL: [&'static str; 25] = [
+static AXES_SDL: [&str; 25] = [
     "a",
     "b",
     "back",
@@ -142,8 +142,8 @@ impl<'a> Parser<'a> {
     fn parse_uuid(&mut self) -> Result<Token<'_>, Error> {
         let next_comma = self.next_comma_or_end();
         let uuid = Uuid::parse_str(&self.data[self.pos..next_comma])
-            .map(|uuid| Token::Uuid(uuid))
-            .or(Err(Error::new(ErrorKind::InvalidGuid, self.pos)));
+            .map(Token::Uuid)
+            .or_else(|_| Err(Error::new(ErrorKind::InvalidGuid, self.pos)));
 
         if uuid.is_err() {
             self.state = State::Invalid;
@@ -178,10 +178,10 @@ impl<'a> Parser<'a> {
         let mut split = pair.split(':');
         let key = split
             .next()
-            .ok_or(Error::new(ErrorKind::InvalidKeyValPair, pos))?;
+            .ok_or_else(|| Error::new(ErrorKind::InvalidKeyValPair, pos))?;
         let value = split
             .next()
-            .ok_or(Error::new(ErrorKind::InvalidKeyValPair, pos))?;
+            .ok_or_else(|| Error::new(ErrorKind::InvalidKeyValPair, pos))?;
 
         if split.next().is_some() {
             return Err(Error::new(ErrorKind::InvalidKeyValPair, pos));
@@ -240,18 +240,18 @@ impl<'a> Parser<'a> {
             Some("h") => {
                 let dot_idx = value
                     .find('.')
-                    .ok_or(Error::new(ErrorKind::InvalidValue, pos))?;
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidValue, pos))?;
                 let hat = value[1..dot_idx]
                     .parse()
-                    .or(Err(Error::new(ErrorKind::InvalidValue, pos + 1)))?;
+                    .or_else(|_| Err(Error::new(ErrorKind::InvalidValue, pos + 1)))?;
                 let direction = value
                     .get((dot_idx as usize + 1)..)
                     .and_then(|s| s.parse().ok())
-                    .ok_or(Error::new(ErrorKind::InvalidValue, pos + dot_idx + 1))?;
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidValue, pos + dot_idx + 1))?;
 
                 let idx = BUTTONS_SDL
                     .binary_search(&key)
-                    .or(Err(Error::new(ErrorKind::UnknownButton, pos)))?;
+                    .or_else(|_| Err(Error::new(ErrorKind::UnknownButton, pos)))?;
 
                 return Ok(Token::HatMapping {
                     hat,
@@ -262,7 +262,7 @@ impl<'a> Parser<'a> {
             _ => return Err(Error::new(ErrorKind::InvalidValue, pos)),
         }
         .parse::<u16>()
-        .or(Err(Error::new(ErrorKind::InvalidValue, pos)))?;
+        .or_else(|_| Err(Error::new(ErrorKind::InvalidValue, pos)))?;
 
         if is_axis {
             let key = match key.get(0..1) {
@@ -281,7 +281,7 @@ impl<'a> Parser<'a> {
 
             let idx = AXES_SDL
                 .binary_search(&key)
-                .or(Err(Error::new(ErrorKind::UnknownAxis, pos)))?;
+                .or_else(|_| Err(Error::new(ErrorKind::UnknownAxis, pos)))?;
 
             Ok(Token::AxisMapping {
                 from,
@@ -293,7 +293,7 @@ impl<'a> Parser<'a> {
         } else {
             let idx = BUTTONS_SDL
                 .binary_search(&key)
-                .or(Err(Error::new(ErrorKind::UnknownButton, pos)))?;
+                .or_else(|_| Err(Error::new(ErrorKind::UnknownButton, pos)))?;
 
             Ok(Token::ButtonMapping {
                 from,
@@ -306,7 +306,7 @@ impl<'a> Parser<'a> {
         self.data[self.pos..]
             .find(',')
             .map(|x| x + self.pos)
-            .unwrap_or(self.data.len())
+            .unwrap_or_else(|| self.data.len())
     }
 }
 

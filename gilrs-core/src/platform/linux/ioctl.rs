@@ -9,7 +9,6 @@
 // Diffing linux/input.h across different architectures (i686, x86_64 and arm) didn't show any
 // difference, so it looks like conditional compilation is not needed.
 
-use libc;
 use nix::{ioctl_read, ioctl_read_buf, ioctl_write_int, ioctl_write_ptr, request_code_read};
 use std::mem::MaybeUninit;
 

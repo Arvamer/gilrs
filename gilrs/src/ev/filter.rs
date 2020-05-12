@@ -92,6 +92,12 @@ impl Jitter {
     }
 }
 
+impl Default for Jitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FilterFn for Jitter {
     fn filter(&self, ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
         match ev {
@@ -298,6 +304,12 @@ impl Repeat {
             after: Duration::from_millis(500),
             every: Duration::from_millis(30),
         }
+    }
+}
+
+impl Default for Repeat {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

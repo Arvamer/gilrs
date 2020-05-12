@@ -7,8 +7,8 @@
 #![allow(unused_variables)]
 
 use super::FfDevice;
-use uuid::Uuid;
 use crate::{AxisInfo, Event, PlatformError, PowerInfo};
+use uuid::Uuid;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 

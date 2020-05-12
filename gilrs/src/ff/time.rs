@@ -43,13 +43,13 @@ impl Ticks {
     }
 
     pub(super) fn checked_sub(self, rhs: Ticks) -> Option<Ticks> {
-        self.0.checked_sub(rhs.0).map(|t| Ticks(t))
+        self.0.checked_sub(rhs.0).map(Ticks)
     }
 }
 
 impl From<Duration> for Ticks {
     fn from(dur: Duration) -> Self {
-        Ticks::from_ms(dur.as_secs() as u32 * 1000 + dur.subsec_nanos() / 1_000_000)
+        Ticks::from_ms(dur.as_secs() as u32 * 1000 + dur.subsec_millis())
     }
 }
 
