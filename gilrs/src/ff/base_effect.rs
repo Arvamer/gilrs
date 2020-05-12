@@ -14,6 +14,7 @@ use super::time::Ticks;
 /// Currently base effect support only xinput model of force feedback, which means that  gamepad
 /// have weak and strong motor.
 #[derive(Copy, Clone, PartialEq, Debug)]
+#[non_exhaustive]
 pub enum BaseEffectType {
     Weak {
         magnitude: u16,
@@ -21,8 +22,6 @@ pub enum BaseEffectType {
     Strong {
         magnitude: u16,
     },
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
 impl BaseEffectType {
@@ -30,7 +29,6 @@ impl BaseEffectType {
         match *self {
             BaseEffectType::Weak { magnitude } => magnitude,
             BaseEffectType::Strong { magnitude } => magnitude,
-            BaseEffectType::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -43,7 +41,6 @@ impl Mul<f32> for BaseEffectType {
         match self {
             BaseEffectType::Weak { .. } => BaseEffectType::Weak { magnitude: mg },
             BaseEffectType::Strong { .. } => BaseEffectType::Strong { magnitude: mg },
-            BaseEffectType::__Nonexhaustive => unreachable!(),
         }
     }
 }

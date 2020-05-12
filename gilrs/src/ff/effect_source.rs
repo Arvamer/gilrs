@@ -308,7 +308,6 @@ impl EffectSource {
                 BaseEffectType::Weak { magnitude } => {
                     final_magnitude.weak = final_magnitude.weak.saturating_add(magnitude)
                 }
-                BaseEffectType::__Nonexhaustive => (),
             };
         }
         final_magnitude * attenuation
