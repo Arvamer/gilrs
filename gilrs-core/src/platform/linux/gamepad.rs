@@ -243,7 +243,7 @@ pub struct Gamepad {
     bt_status_fd: i32,
     axes_values: VecMap<i32>,
     buttons_values: VecMap<bool>,
-    dropped_events: Vec<input_event>,
+    events: Vec<input_event>,
     axes: Vec<EvCode>,
     buttons: Vec<EvCode>,
     is_connected: bool,
@@ -298,7 +298,7 @@ impl Gamepad {
             bt_status_fd: status,
             axes_values: VecMap::new(),
             buttons_values: VecMap::new(),
-            dropped_events: Vec::new(),
+            events: Vec::new(),
             axes: Vec::new(),
             buttons: Vec::new(),
             is_connected: true,
@@ -502,10 +502,12 @@ impl Gamepad {
                 }
                 EV_ABS => {
                     self.axes_values.insert(event.code as usize, event.value);
-
                     Some(EventType::AxisValueChanged(event.value, event.into()))
                 }
-                _ => None,
+                _ => {
+                    trace!("Skipping event {:?}", event);
+                    None
+                }
             };
 
             if let Some(ev) = ev {
@@ -517,22 +519,34 @@ impl Gamepad {
     }
 
     fn next_event(&mut self) -> Option<input_event> {
-        if !self.dropped_events.is_empty() {
-            self.dropped_events.pop()
+        if !self.events.is_empty() {
+            self.events.pop()
         } else {
             unsafe {
-                let mut event = MaybeUninit::<ioctl::input_event>::uninit();
+                let mut event_buf: [MaybeUninit<ioctl::input_event>; 12] =
+                    MaybeUninit::uninit().assume_init();
                 let size = mem::size_of::<ioctl::input_event>();
-                let n = c::read(self.fd, event.as_mut_ptr() as *mut c::c_void, size);
+                let n = c::read(
+                    self.fd,
+                    event_buf.as_mut_ptr() as *mut c::c_void,
+                    size * event_buf.len(),
+                );
 
                 if n == -1 || n == 0 {
                     // Nothing to read (non-blocking IO)
-                    return None;
-                } else if n != size as isize {
-                    unreachable!()
-                }
+                    None
+                } else if n % size as isize != 0 {
+                    error!("Unexpected read of size {}", n);
+                    None
+                } else {
+                    let n = n as usize / size;
+                    trace!("Got {} new events", n);
+                    for ev in event_buf[1..n].iter().rev() {
+                        self.events.push(ev.assume_init());
+                    }
 
-                Some(event.assume_init())
+                    Some(event_buf[0].assume_init())
+                }
             }
         }
     }
@@ -552,7 +566,7 @@ impl Gamepad {
                 .unwrap_or(0)
                 != value
             {
-                self.dropped_events.push(input_event {
+                self.events.push(input_event {
                     type_: EV_ABS,
                     code: axis.code,
                     value,
@@ -575,7 +589,7 @@ impl Gamepad {
                 .unwrap_or(false)
                 != val
             {
-                self.dropped_events.push(input_event {
+                self.events.push(input_event {
                     type_: EV_KEY,
                     code: btn.code,
                     value: val as i32,
