@@ -21,7 +21,7 @@
 
 pub use self::platform::*;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd"))]
 #[path = "linux/mod.rs"]
 mod platform;
 
@@ -38,7 +38,7 @@ mod platform;
 mod platform;
 
 #[cfg(all(
-    not(target_os = "linux"),
+    not(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd")),
     not(target_os = "macos"),
     not(target_os = "windows"),
     not(target_arch = "wasm32")

@@ -24,14 +24,14 @@ use vec_map::VecMap;
 use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, Token};
 
 /// Platform name used by SDL mappings
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd"))]
 const SDL_PLATFORM_NAME: &str = "Linux";
 #[cfg(target_os = "macos")]
 const SDL_PLATFORM_NAME: &'static str = "Mac OS X";
 #[cfg(target_os = "windows")]
 const SDL_PLATFORM_NAME: &'static str = "Windows";
 #[cfg(all(
-    not(target_os = "linux"),
+    not(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd")),
     not(target_os = "macos"),
     not(target_os = "windows")
 ))]

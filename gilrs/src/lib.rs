@@ -57,7 +57,7 @@
 //!
 //! |                  | Input | Hotplugging | Force feedback |
 //! |------------------|:-----:|:-----------:|:--------------:|
-//! | Linux            |   ✓   |      ✓      |        ✓       |
+//! | Linux/BSD (evdev)|   ✓   |      ✓      |        ✓       |
 //! | Windows (XInput) |   ✓   |      ✓      |        ✓       |
 //! | OS X             |   ✓   |      ✓      |        ✕       |
 //! | Wasm             |   ✓   |      ✓      |       n/a      |
@@ -88,15 +88,16 @@
 //! Platform specific notes
 //! ======================
 //!
-//! Linux
+//! Linux/BSD (evdev)
 //! -----
 //!
-//! On Linux, GilRs read (and write, in case of force feedback) directly from appropriate
+//! With evdev, GilRs read (and write, in case of force feedback) directly from appropriate
 //! `/dev/input/event*` file. This mean that user have to have read and write access to this file.
 //! On most distros it shouldn't be a problem, but if it is, you will have to create udev rule.
+//! On FreeBSD generic HID gamepads use hgame(4) and special use Linux driver via `webcamd`.
 //!
-//! To build GilRs, you will need pkg-config and libudev .pc file. On some
-//! distributions this file is packaged in separate archive (for example `libudev-dev` in Debian).
+//! To build GilRs, you will need pkg-config and libudev .pc file. On some distributions this file
+//! is packaged in separate archive (e.g., `libudev-dev` in Debian, `libudev-devd` in FreeBSD).
 //!
 //! Wasm
 //! ----
