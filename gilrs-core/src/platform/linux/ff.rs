@@ -104,10 +104,10 @@ impl Device {
 
 impl Drop for Device {
     fn drop(&mut self) {
-        #[cfg(target_pointer_width = "64")]
-        let effect = self.effect as u64;
-        #[cfg(target_pointer_width = "32")]
-        let effect = self.effect as u32;
+        #[cfg(target_os = "linux")]
+        let effect = self.effect as ::libc::c_ulong;
+        #[cfg(not(target_os = "linux"))]
+        let effect = self.effect as ::libc::c_int;
 
         if let Err(err) = unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), effect) } {
             error!(
