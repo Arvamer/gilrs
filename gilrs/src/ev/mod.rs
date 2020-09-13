@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 
 /// Platform specific event code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Code(pub(crate) gilrs_core::EvCode);
 
 impl Display for Code {
@@ -38,6 +39,7 @@ impl Code {
 
 /// Holds information about gamepad event.
 #[derive(Copy, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Event {
     /// Id of gamepad.
     pub id: GamepadId,
@@ -71,6 +73,7 @@ impl Event {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 /// Gamepad event.
 pub enum EventType {
     /// Some button on gamepad has been pressed.
@@ -259,3 +262,5 @@ pub enum AxisOrBtn {
     Axis(Axis),
     Btn(Button),
 }
+
+

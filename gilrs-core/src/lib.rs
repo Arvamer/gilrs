@@ -214,8 +214,12 @@ impl Gamepad {
     }
 }
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Platform specific representation of axis or button.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct EvCode(platform::EvCode);
 
