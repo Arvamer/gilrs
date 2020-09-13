@@ -33,7 +33,7 @@ use std::{
 
 pub use gilrs_core::PowerInfo;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde-serialize")]
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_DEADZONE: f32 = 0.1;
@@ -1030,7 +1030,7 @@ pub enum MappingSource {
 /// It's not possible to create instance of this type directly, but you can obtain one from Gamepad
 /// handle or any event. ID is valid for entire lifetime of `Gilrs` context.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 pub struct GamepadId(pub(crate) usize);
 
 impl Into<usize> for GamepadId {
