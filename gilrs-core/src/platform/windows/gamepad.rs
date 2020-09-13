@@ -454,6 +454,10 @@ fn is_mask_eq(l: u16, r: u16, mask: u16) -> bool {
     (l & mask != 0) == (r & mask != 0)
 }
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EvCode(u8);
 
