@@ -30,4 +30,7 @@ stdweb = "0.4.13"
 env_logger = "0.7.1"
 
 [package.metadata.docs.rs]
-features = ["serde"]
+features = ["serde-serialize"]
+
+[features]
+serde-serialize = ["serde", "gilrs-core/serde-serialize"]

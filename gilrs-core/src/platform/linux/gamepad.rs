@@ -752,7 +752,11 @@ unsafe fn cstr_new(bytes: &[u8]) -> &CStr {
     CStr::from_bytes_with_nul_unchecked(bytes)
 }
 
+#[cfg(feature = "serde-serialize")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature="serde-serialize", derive(Serialize, Deserialize))]
 pub struct EvCode {
     kind: u16,
     code: u16,

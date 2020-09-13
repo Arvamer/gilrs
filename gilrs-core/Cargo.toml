@@ -14,6 +14,8 @@ edition = "2018"
 [dependencies]
 uuid = "0.8"
 log = "0.4.1"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
 
 [dev-dependencies]
 env_logger = "0.7.1"
@@ -38,3 +40,10 @@ stdweb = "0.4.13"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = "0.2.62"
+
+
+[package.metadata.docs.rs]
+features = ["serde"]
+
+[features]
+serde-serialize = ["serde"]
