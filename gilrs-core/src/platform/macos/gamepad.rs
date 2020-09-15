@@ -756,5 +756,20 @@ extern "C" fn input_value_cb(
             );
             let _ = tx.send((event, None));
         }
+    } else if IOHIDElement::is_hat(type_, page, usage) {
+        // The dpad has 9 possible values (0 means nothing is pressed)
+        //   8  1  2
+        //    \ | /
+        //   7- 0 -3
+        //    / | \
+        //   6  5  4
+        //let events = vec![];
+        println!(
+            "--> type: {}, page: {}, usage: {}, value: {}",
+            type_,
+            page,
+            usage,
+            value.get_value()
+        );
     }
 }

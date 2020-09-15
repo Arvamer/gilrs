@@ -381,6 +381,21 @@ impl IOHIDElement {
         }
     }
 
+    pub fn is_hat(type_: u32, page: u32, usage: u32) -> bool {
+        match type_ {
+            kIOHIDElementTypeInput_Misc
+            | kIOHIDElementTypeInput_Button
+            | kIOHIDElementTypeInput_Axis => match page {
+                kHIDPage_GenericDesktop => match usage {
+                    kHIDUsage_GD_Hatswitch => true,
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
     pub fn get_cookie(&self) -> u32 {
         unsafe { IOHIDElementGetCookie(self.0) }
     }
