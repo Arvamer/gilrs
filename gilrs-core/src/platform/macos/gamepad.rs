@@ -771,5 +771,13 @@ extern "C" fn input_value_cb(
             usage,
             value.get_value()
         );
+        let event = Event::new(
+            id,
+            EventType::AxisValueChanged(
+                value.get_value() as i32, // Since this is a "hat" value, it's 0-9, which isn't at all what other axes give us
+                crate::EvCode(EvCode { page, usage }),
+            ),
+        );
+        let _ = tx.send((event, None));
     }
 }

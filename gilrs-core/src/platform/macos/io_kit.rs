@@ -607,9 +607,9 @@ pub const USAGE_AXIS_RSTICKY: u32 = kHIDUsage_GD_Ry;
 #[allow(dead_code)]
 pub const USAGE_AXIS_RIGHTZ: u32 = 0;
 #[allow(dead_code)]
-pub const USAGE_AXIS_DPADX: u32 = 0;
+pub const USAGE_AXIS_DPADX: u32 = kHIDUsage_GD_Hatswitch;
 #[allow(dead_code)]
-pub const USAGE_AXIS_DPADY: u32 = 0;
+pub const USAGE_AXIS_DPADY: u32 = kHIDUsage_GD_Hatswitch;
 #[allow(dead_code)]
 pub const USAGE_AXIS_RT: u32 = 0;
 #[allow(dead_code)]
