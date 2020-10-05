@@ -355,6 +355,25 @@ impl Gamepad {
                     },
                 );
                 self.axes.push(EvCode::new(page, usage));
+            } else if IOHIDElement::is_hat(type_, page, usage) && !cookies.contains(&cookie) {
+                cookies.push(cookie);
+                self.axes_info.insert(
+                    usage as usize,
+                    AxisInfo {
+                        min: -1,
+                        max: 1,
+                        deadzone: None,
+                    },
+                );
+                // All hat switches are translated into *two* axes
+                self.axes_info.insert(
+                    (usage + 1) as usize, // "+ 1" is assumed for usage of 2nd hat switch axis
+                    AxisInfo {
+                        min: -1,
+                        max: 1,
+                        deadzone: None,
+                    },
+                );
             }
         }
     }
@@ -757,27 +776,54 @@ extern "C" fn input_value_cb(
             let _ = tx.send((event, None));
         }
     } else if IOHIDElement::is_hat(type_, page, usage) {
-        // The dpad has 9 possible values (0 means nothing is pressed)
-        //   8  1  2
-        //    \ | /
-        //   7- 0 -3
-        //    / | \
-        //   6  5  4
-        //let events = vec![];
-        println!(
-            "--> type: {}, page: {}, usage: {}, value: {}",
-            type_,
-            page,
-            usage,
-            value.get_value()
-        );
-        let event = Event::new(
+        // The dpad has 9 possible values (0 means nothing is pressed / returned to center)
+        //          up
+        //       8  1  2
+        //        \ | /
+        // left 7 - 0 - 3 right
+        //        / | \
+        //       6  5  4
+        //         down
+        let dpad_value = value.get_value();
+        let x_axis_value = match dpad_value {
+            6 | 7 | 8 => -1, // left
+            2 | 3 | 4 => 1,  // right
+            _ => 0,
+        };
+        // Since we're emulating an inverted macOS gamepad axis, down is positive and up is negative
+        let y_axis_value = match dpad_value {
+            4 | 5 | 6 => 1,  // down
+            1 | 2 | 8 => -1, // up
+            _ => 0,
+        };
+
+        // The dpad is a "hat" on macOS, but on other platforms they are either buttons or a pair of
+        // axes that get converted to button events by the `axis_dpad_to_button` filter.  We will
+        // emulate axes here and let that filter do the button conversion, because it is safer and
+        // easier than making separate logic for button conversion that may diverge in subtle ways
+        // from the axis conversion logic.
+        let x_axis_event = Event::new(
             id,
             EventType::AxisValueChanged(
-                value.get_value() as i32, // Since this is a "hat" value, it's 0-9, which isn't at all what other axes give us
-                crate::EvCode(EvCode { page, usage }),
+                x_axis_value,
+                crate::EvCode(EvCode {
+                    page,
+                    usage: USAGE_AXIS_DPADX,
+                }),
             ),
         );
-        let _ = tx.send((event, None));
+        let y_axis_event = Event::new(
+            id,
+            EventType::AxisValueChanged(
+                y_axis_value,
+                crate::EvCode(EvCode {
+                    page,
+                    usage: USAGE_AXIS_DPADY,
+                }),
+            ),
+        );
+
+        let _ = tx.send((x_axis_event, None));
+        let _ = tx.send((y_axis_event, None));
     }
 }

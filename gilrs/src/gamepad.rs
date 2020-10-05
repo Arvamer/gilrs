@@ -148,14 +148,22 @@ impl Gilrs {
 
     /// Returns next pending event.
     pub fn next_event(&mut self) -> Option<Event> {
+        // use crate::ev::filter::{deadzone, Filter, Jitter};
+        // #[cfg(not(target_os = "macos"))]
+        // {
+        //     use crate::ev::filter::axis_dpad_to_button;
+        // }
         use crate::ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
-
         let ev = if self.default_filters {
             let jitter_filter = Jitter::new();
             loop {
-                let ev = self
-                    .next_event_priv()
-                    .filter_ev(&axis_dpad_to_button, self)
+                let mut ev = self.next_event_priv();
+                // #[cfg(not(target_os = "macos"))]
+                // {
+                //     ev = ev.filter_ev(&axis_dpad_to_button, self);
+                // }
+                ev = ev.filter_ev(&axis_dpad_to_button, self);
+                ev = ev
                     .filter_ev(&jitter_filter, self)
                     .filter_ev(&deadzone, self);
 
