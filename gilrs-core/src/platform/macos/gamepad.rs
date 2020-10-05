@@ -776,32 +776,47 @@ extern "C" fn input_value_cb(
             let _ = tx.send((event, None));
         }
     } else if IOHIDElement::is_hat(type_, page, usage) {
-        // The dpad has 9 possible values (0 means nothing is pressed / returned to center)
+        // Hat switch values are reported with a range of usually 8 numbers (sometimes 4). The logic
+        // below uses the reported min/max values of that range to map that onto a range of 0-7 for
+        // the directions (and any other value indicates the center position). Lucky for us, they
+        // always start with "up" as the lowest number and proceed clockwise. See similar handling
+        // here https://github.com/spurious/SDL-mirror/blob/094b2f68dd7fc9af167f905e10625e103a131459/src/joystick/darwin/SDL_sysjoystick.c#L976-L1028
+        //
         //          up
-        //       8  1  2
+        //       7  0  1
         //        \ | /
-        // left 7 - 0 - 3 right
+        // left 6 - ? - 2 right       (After mapping)
         //        / | \
-        //       6  5  4
+        //       5  4  3
         //         down
-        let dpad_value = value.get_value();
+        let range = element.get_logical_max() - element.get_logical_min() + 1;
+        let shifted_value = value.get_value() - element.get_logical_min();
+        let dpad_value = match range {
+            4 => shifted_value * 2, // 4-position hat switch - scale it up to 8
+            8 => shifted_value,     // 8-position hat switch - no adjustment necessary
+            _ => -1, // Neither 4 nor 8 positions, we don't know what to do - default to centered
+        };
+        // At this point, the value should be normalized to the 0-7 directional values (or center
+        // for any other value). The dpad is a hat switch on macOS, but on other platforms dpads are
+        // either buttons or a pair of axes that get converted to button events by the
+        // `axis_dpad_to_button` filter.  We will emulate axes here and let that filter do the
+        // button conversion, because it is safer and easier than making separate logic for button
+        // conversion that may diverge in subtle ways from the axis conversion logic.  The most
+        // practical outcome of this conversion is that there are extra "released" axis events for
+        // the unused axis. For example, pressing just "up" will also give you a "released" event
+        // for either the left or right button, even if it wasn't pressed before pressing "up".
         let x_axis_value = match dpad_value {
-            6 | 7 | 8 => -1, // left
-            2 | 3 | 4 => 1,  // right
+            5 | 6 | 7 => -1, // left
+            1 | 2 | 3 => 1,  // right
             _ => 0,
         };
         // Since we're emulating an inverted macOS gamepad axis, down is positive and up is negative
         let y_axis_value = match dpad_value {
-            4 | 5 | 6 => 1,  // down
-            1 | 2 | 8 => -1, // up
+            3 | 4 | 5 => 1,  // down
+            0 | 1 | 7 => -1, // up
             _ => 0,
         };
 
-        // The dpad is a "hat" on macOS, but on other platforms they are either buttons or a pair of
-        // axes that get converted to button events by the `axis_dpad_to_button` filter.  We will
-        // emulate axes here and let that filter do the button conversion, because it is safer and
-        // easier than making separate logic for button conversion that may diverge in subtle ways
-        // from the axis conversion logic.
         let x_axis_event = Event::new(
             id,
             EventType::AxisValueChanged(
