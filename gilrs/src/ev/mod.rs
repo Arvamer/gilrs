@@ -238,18 +238,22 @@ impl Axis {
     ///
     /// | input       | output            |
     /// |-------------|-------------------|
-    /// |`LeftStickX` |`Some(LeftStickY`) |
-    /// |`LeftStickY` |`Some(LeftStickX`) |
-    /// |`RightStickX`|`Some(RightStickY`)|
-    /// |`RightStickY`|`Some(RightStickX`)|
+    /// |`LeftStickX` |`Some(LeftStickY)` |
+    /// |`LeftStickY` |`Some(LeftStickX)` |
+    /// |`RightStickX`|`Some(RightStickY)`|
+    /// |`RightStickY`|`Some(RightStickX)`|
+    /// |`DpadX`      |`Some(DpadY)`      |
+    /// |`DpadY`      |`Some(DpadX)`      |
     /// | …           |`None`             |
     pub fn second_axis(self) -> Option<Self> {
         use crate::Axis::*;
         match self {
             LeftStickX => Some(LeftStickY),
             LeftStickY => Some(LeftStickX),
-            RightStickY => Some(RightStickX),
             RightStickX => Some(RightStickY),
+            RightStickY => Some(RightStickX),
+            DPadX => Some(DPadY),
+            DPadY => Some(DPadX),
             _ => None,
         }
     }

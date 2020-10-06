@@ -381,6 +381,22 @@ impl IOHIDElement {
         }
     }
 
+    pub fn is_hat(type_: u32, page: u32, usage: u32) -> bool {
+        match type_ {
+            kIOHIDElementTypeInput_Misc
+            | kIOHIDElementTypeInput_Button
+            | kIOHIDElementTypeInput_Axis => match page {
+                kHIDPage_GenericDesktop => match usage {
+                    USAGE_AXIS_DPADX => true,
+                    USAGE_AXIS_DPADY => true,
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
     pub fn get_cookie(&self) -> u32 {
         unsafe { IOHIDElementGetCookie(self.0) }
     }
@@ -591,10 +607,8 @@ pub const USAGE_AXIS_RSTICKX: u32 = kHIDUsage_GD_Rx;
 pub const USAGE_AXIS_RSTICKY: u32 = kHIDUsage_GD_Ry;
 #[allow(dead_code)]
 pub const USAGE_AXIS_RIGHTZ: u32 = 0;
-#[allow(dead_code)]
-pub const USAGE_AXIS_DPADX: u32 = 0;
-#[allow(dead_code)]
-pub const USAGE_AXIS_DPADY: u32 = 0;
+pub const USAGE_AXIS_DPADX: u32 = kHIDUsage_GD_Hatswitch;
+pub const USAGE_AXIS_DPADY: u32 = kHIDUsage_GD_Hatswitch + 1; // This "+ 1" is assumed and hard-coded elsewhere
 #[allow(dead_code)]
 pub const USAGE_AXIS_RT: u32 = 0;
 #[allow(dead_code)]

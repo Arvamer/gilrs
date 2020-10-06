@@ -8,6 +8,7 @@ v0.8.0 - unreleased
 
 - `Jitter`, `Repeat`, `GilrsBuilder`, and `Mapping` now implement `Default`.
 - Errors now implement `source()`.
+- Dpad is now supported on macOS
 
 ### Changed
 
