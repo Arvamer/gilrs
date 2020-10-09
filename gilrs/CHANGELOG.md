@@ -8,12 +8,16 @@ v0.8.0 - unreleased
 
 - `Jitter`, `Repeat`, `GilrsBuilder`, and `Mapping` now implement `Default`.
 - Errors now implement `source()`.
-- Dpad is now supported on macOS
+- `Code` now implements `Deserialize` and `Serialize` (@theunkn0wn1).
+- Dpad is now supported on macOS (@cleancut).
 
 ### Changed
 
 - Minimal supported version is now 1.40
 - Non exhaustive enums now use `#[non_exhaustive]` instead of hidden variant.
+- Renamed cargo feature `serde` to `serde-serialize`.
+- Improved conversion of axis value to float. Values like 127 (when axis range
+  is 0-255) will now be correctly converted to 0.0.
 
 ### Removed
 
@@ -36,7 +40,7 @@ v0.7.3 - 2019-11-30
 ### Added
 
 - Added support for serialization and deserialization for `Button`, `Axis`
-  and `AxisOrButton` with optional `serde` feature (@aleksijuvani).  
+  and `AxisOrButton` with optional `serde` feature (@aleksijuvani).
 
 ### Fixed
 
@@ -128,7 +132,7 @@ v0.6.0 - 2018-02-11
 ### Added
 
 - Support for parsing SLD 2.0.6 mappings.
-- `ButtonChanged` event. It contains value in range [0.0, 1.0]. 
+- `ButtonChanged` event. It contains value in range [0.0, 1.0].
 - `GilrsBuilder::set_axis_to_btn()`. It allow to customize on which values
   `ButtonePressed` and `ButtonReleased` are emitted.
 - `GilrsBuilder::set_update_state` which control whether gamepad state should

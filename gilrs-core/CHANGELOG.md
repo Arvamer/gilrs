@@ -1,12 +1,18 @@
 Change Log
 ==========
 
-v0.2.7 - unreleased
+v0.3.0 - unreleased
 -------------------
 
 ### Added
 
-- macos: dpad is supported as a set of dpad axes (gilrs filters dpad axes to dpad buttons)
+- macos: dpad is supported as a set of dpad axes (gilrs filters dpad axes to
+  dpad buttons) (@cleancut).
+
+### Changed
+
+- Minimal supported version is now 1.40
+
 
 v0.2.6 - 2020-05-11
 -------------------
