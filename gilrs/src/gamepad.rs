@@ -149,7 +149,9 @@ impl Gilrs {
         GilrsBuilder::new().build()
     }
 
-    /// Returns next pending event.
+    /// Returns next pending event. If there is no pending event, `None` is
+    /// returned. This function will not block current thread and should be safe
+    /// to call in async context.
     pub fn next_event(&mut self) -> Option<Event> {
         use crate::ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
 

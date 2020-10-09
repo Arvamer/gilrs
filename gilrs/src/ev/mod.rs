@@ -21,6 +21,14 @@ use crate::{constants::*, gamepad::GamepadId, utils};
 use serde::{Deserialize, Serialize};
 
 /// Platform specific event code.
+///
+/// This type represents single gamepads's element like specific axis or button.
+/// It can't be directly created, but you can get it from events or using
+/// `Gamepad`'s methods [`button_code`](crate::Gamepad::button_code) and
+/// [`axis_code`](crate::Gamepad::axis_code). If `serde-serialize` feature is
+/// enabled, `Code` can be serialized and deserialized, but keep in mind that
+/// layout **is** platform-specific. So it's not possible to serialize `Code` on
+/// Linux and deserialize it on Windows. This also apply to `Display` implementation.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 pub struct Code(pub(crate) gilrs_core::EvCode);

@@ -79,6 +79,12 @@
 //! support loading mappings from environment variable `SDL_GAMECONTROLLERCONFIG` (which Steam
 //! use).
 //!
+//! Cargo features
+//! --------------
+//!
+//! - `serde-serialize` - enable deriving of serde's `Serialize` and `Deserialize` for
+//!   various types.
+//!
 //! Platform specific notes
 //! ======================
 //!
