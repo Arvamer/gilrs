@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 mod platform;
-mod utils;
+pub mod utils;
 
 /// True, if Y axis of sticks commonly points downwards.
 pub const IS_Y_AXIS_REVERSED: bool = platform::IS_Y_AXIS_REVERSED;
@@ -42,16 +42,7 @@ pub struct Event {
 impl Event {
     /// Creates new event with current time.
     pub fn new(id: usize, event: EventType) -> Self {
-        // SystemTime::now panic on WASM, so a workaround is required
-        #[cfg(not(target_arch = "wasm32"))]
-        let time = SystemTime::now();
-        #[cfg(target_arch = "wasm32")]
-        let time = {
-            let epoch = SystemTime::UNIX_EPOCH;
-            let time = stdweb::web::Date::new().get_time();
-            let offset = Duration::from_millis(time as u64);
-            epoch + offset
-        };
+        let time = utils::time_now();
         Event { id, event, time }
     }
 }
@@ -219,7 +210,7 @@ use serde::{Deserialize, Serialize};
 
 /// Platform specific representation of axis or button.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature="serde-serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct EvCode(platform::EvCode);
 

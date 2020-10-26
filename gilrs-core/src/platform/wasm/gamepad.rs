@@ -10,7 +10,10 @@ use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 use uuid::Uuid;
 
 use std::collections::VecDeque;
+#[cfg(not(feature = "wasm-bindgen"))]
 use stdweb::web::{Gamepad as WebGamepad, GamepadMappingType};
+#[cfg(feature = "wasm-bindgen")]
+use web_sys::{Gamepad as WebGamepad, GamepadButton, GamepadMappingType};
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::i32::MAX as I32_MAX;
@@ -38,10 +41,25 @@ impl Gilrs {
             return self.event_cache.pop_front();
         }
 
-        let new_gamepads: Vec<Gamepad> = WebGamepad::get_all()
-            .into_iter()
-            .filter_map(|gamepad| gamepad.map(|gamepad| Gamepad::new(gamepad)))
-            .collect();
+        #[cfg(not(feature = "wasm-bindgen"))]
+        let gamepads = WebGamepad::get_all().into_iter();
+
+        #[cfg(feature = "wasm-bindgen")]
+        let gamepads = web_sys::window()
+            .expect("no window")
+            .navigator()
+            .get_gamepads()
+            .expect("error getting gamepads");
+        #[cfg(feature = "wasm-bindgen")]
+        let gamepads = gamepads.iter().map(|val| {
+            if val.is_null() {
+                None
+            } else {
+                Some(WebGamepad::from(val))
+            }
+        });
+
+        let new_gamepads: Vec<_> = gamepads.flatten().map(Gamepad::new).collect();
         let mut old_index = 0;
         let mut new_index = 0;
 
@@ -159,33 +177,49 @@ impl Gamepad {
     fn new(gamepad: WebGamepad) -> Gamepad {
         let name = gamepad.id();
 
+        let buttons = gamepad.buttons();
+        let button_iter = {
+            #[cfg(feature = "wasm-bindgen")]
+            {
+                buttons.iter().map(GamepadButton::from)
+            }
+            #[cfg(not(feature = "wasm-bindgen"))]
+            {
+                buttons.into_iter()
+            }
+        };
+
+        let axes = gamepad.axes();
+        let axis_iter = {
+            #[cfg(feature = "wasm-bindgen")]
+            {
+                axes.iter()
+                    .map(|val| val.as_f64().expect("axes() should be an array of f64"))
+            }
+            #[cfg(not(feature = "wasm-bindgen"))]
+            {
+                axes.into_iter()
+            }
+        };
+
         let mapping = match gamepad.mapping() {
             GamepadMappingType::Standard => {
                 let mut buttons = [false; 17];
                 let mut axes = [0.0; 4];
 
-                for (index, button) in gamepad
-                    .buttons()
-                    .into_iter()
-                    .enumerate()
-                    .take(buttons.len())
-                {
+                for (index, button) in button_iter.enumerate().take(buttons.len()) {
                     buttons[index] = button.pressed();
                 }
 
-                for (index, axis) in gamepad.axes().into_iter().enumerate().take(axes.len()) {
+                for (index, axis) in axis_iter.enumerate().take(axes.len()) {
                     axes[index] = axis;
                 }
 
                 Mapping::Standard { buttons, axes }
             }
-            GamepadMappingType::NoMapping => {
-                let buttons = gamepad
-                    .buttons()
-                    .into_iter()
-                    .map(|button| button.pressed())
-                    .collect();
-                let axes = gamepad.axes();
+            _ => {
+                let buttons = button_iter.map(|button| button.pressed()).collect();
+                let axes = axis_iter.collect();
                 Mapping::NoMapping { buttons, axes }
             }
         };
@@ -259,7 +293,7 @@ impl Gamepad {
 #[cfg(feature = "serde-serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature="serde-serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EvCode(u8);
 
