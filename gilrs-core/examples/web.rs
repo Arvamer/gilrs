@@ -1,6 +1,10 @@
 #[cfg(target_arch = "wasm32")]
 use gilrs_core::Gilrs;
 
+// just to get around the wasm-bindgen crate conflicting with the wasm-bindgen feature
+#[cfg(all(target_arch = "wasm32", not(cargo_web)))]
+use wasm_bindgen_rs as wasm_bindgen;
+
 fn main() {
     #[cfg(target_arch = "wasm32")]
     gamepad_loop(Gilrs::new().unwrap());
