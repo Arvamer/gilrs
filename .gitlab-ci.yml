@@ -26,6 +26,7 @@ test:i686-unknown-linux-gnu:
     - cargo test --verbose --target=i686-unknown-linux-gnu --all --all-features
 
 build:wasm32-unknown-unknown:
+  image: "rust:1.44"
   stage: test
   before_script:
     - rustc -Vv && cargo -Vv
