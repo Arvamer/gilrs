@@ -1,7 +1,14 @@
 Change Log
 ==========
 
-v0.3.0 - unreleased
+v0.3.1 - 2021-03-30
+-------------------
+
+### Added
+
+- Add support for wasm-bindgen (@coolreader18)
+
+v0.3.0 - 2020-10-09
 -------------------
 
 ### Added

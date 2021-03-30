@@ -1,7 +1,14 @@
 Change Log
 ==========
 
-v0.8.0 - unreleased
+v0.8.1 - 2020-10-09
+-------------------
+
+### Changed
+
+- Updated bundled mappings
+
+v0.8.0 - 2020-10-09
 -------------------
 
 ### Added
