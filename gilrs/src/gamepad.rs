@@ -1051,10 +1051,14 @@ fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
     let mut range = info.max as f32 - info.min as f32;
     let mut val = val as f32 - info.min as f32;
 
-    if (info.max - info.min) % 2 == 1 {
-        // Add one to range and val, so value at ceter (like 127/255) will be mapped 0.0
-        range += 1.0;
-        val += 1.0;
+    if let Some(i_range) = info.max.checked_sub(info.min) {
+        // Only consider adjusting range & val if calculating the range doesn't cause overflow.  If
+        // the range is so large overflow occurs, adjusting values by 1.0 would be insignificant.
+        if i_range % 2 == 1 {
+            // Add one to range and val, so value at center (like 127/255) will be mapped 0.0
+            range += 1.0;
+            val += 1.0;
+        }
     }
 
     val = val / range * 2.0 - 1.0;
@@ -1107,5 +1111,34 @@ impl error::Error for Error {
             Error::Other(e) => Some(e.as_ref()),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{axis_value, Axis, AxisInfo};
+
+    #[test]
+    fn axis_value_documented_case() {
+        let info = AxisInfo {
+            min: 0,
+            max: 255,
+            deadzone: None,
+        };
+        let axis = Axis::LeftStickY;
+        assert_eq!(0., axis_value(&info, 127, axis));
+    }
+    #[test]
+    fn axis_value_overflow() {
+        let info = AxisInfo {
+            min: std::i32::MIN,
+            max: std::i32::MAX,
+            deadzone: None,
+        };
+        let axis = Axis::LeftStickY;
+
+        assert_eq!(0., axis_value(&info, -1, axis));
+        assert_eq!(0., axis_value(&info, 0, axis));
+        assert_eq!(0., axis_value(&info, 1, axis));
     }
 }
