@@ -82,8 +82,8 @@ Platform specific notes
 Linux
 -----
 
-On Linux, GilRs read (and write, in case of force feedback) directly from appropriate
-`/dev/input/event*` file. This mean that user have to have read and write access to this file.
+On Linux, GilRs reads (and writes, in case of force feedback) directly from appropriate
+`/dev/input/event*` file. This means that user has to have read and write access to this file.
 On most distros it shouldn't be a problem, but if it is, you will have to create udev rule.
 
 To build GilRs, you will need pkg-config and libudev .pc file. On some
