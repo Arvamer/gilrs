@@ -405,7 +405,7 @@ struct DeviceInfo {
 #[cfg(feature = "serde-serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature="serde-serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct EvCode {
     page: u32,

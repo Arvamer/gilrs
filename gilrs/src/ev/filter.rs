@@ -197,7 +197,7 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
 
 /// Maps axis dpad events to button dpad events.
 ///
-/// This filter will do nothing if gamepad have dpad buttons (to prevent double events for same
+/// This filter will do nothing if gamepad has dpad buttons (to prevent double events for same
 /// element) and if standard `NativeEvCode` for dpads is used by some other buttons. It will always
 /// try to map if SDL mappings contains mappings for all four hats.
 pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
@@ -225,12 +225,22 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             id,
             time,
         }) if can_map(&gilrs.gamepad(id)) => Some(if val == 1.0 {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadRight, 1.0, Code(necs::BTN_DPAD_RIGHT)),
+            });
             Event {
                 id,
                 time,
                 event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
             }
         } else if val == -1.0 {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadLeft, 1.0, Code(necs::BTN_DPAD_LEFT)),
+            });
             Event {
                 id,
                 time,
@@ -241,12 +251,22 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             .state()
             .is_pressed(Code(necs::BTN_DPAD_RIGHT))
         {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadRight, 0.0, Code(necs::BTN_DPAD_RIGHT)),
+            });
             Event {
                 id,
                 time,
                 event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
             }
         } else {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadLeft, 0.0, Code(necs::BTN_DPAD_LEFT)),
+            });
             Event {
                 id,
                 time,
@@ -258,12 +278,22 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             id,
             time,
         }) if can_map(&gilrs.gamepad(id)) => Some(if val == 1.0 {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadUp, 1.0, Code(necs::BTN_DPAD_UP)),
+            });
             Event {
                 id,
                 time,
                 event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
             }
         } else if val == -1.0 {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadDown, 1.0, Code(necs::BTN_DPAD_DOWN)),
+            });
             Event {
                 id,
                 time,
@@ -274,12 +304,22 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
             .state()
             .is_pressed(Code(necs::BTN_DPAD_UP))
         {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadUp, 0.0, Code(necs::BTN_DPAD_UP)),
+            });
             Event {
                 id,
                 time,
                 event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
             }
         } else {
+            gilrs.insert_event(Event {
+                id,
+                time,
+                event: EventType::ButtonChanged(Button::DPadDown, 0.0, Code(necs::BTN_DPAD_DOWN)),
+            });
             Event {
                 id,
                 time,
