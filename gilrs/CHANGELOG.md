@@ -1,7 +1,21 @@
 Change Log
 ==========
 
-v0.8.1 - 2020-10-09
+v0.8.2 - 2021-12-30
+-------------------
+
+### Changed
+
+- Minimal supported rust version is now 1.47
+- `axis_dpad_to_btn` now also emits `ButtonChanged` events
+
+### Fixed
+
+- Fixed overflow when calculating axis value and min/max range was
+  i32::MIN/MAX (@wathiede)
+
+
+v0.8.1 - 2021-03-30
 -------------------
 
 ### Changed
