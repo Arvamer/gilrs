@@ -33,12 +33,18 @@ vec_map = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.4", features = ["xinput"] }
-rusty-xinput = "1.1.0"
+rusty-xinput = "1.2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 stdweb = "0.4.13"
 js-sys = { version = "0.3", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Gamepad", "GamepadButton", "GamepadMappingType", "Window", "Navigator"] }
+web-sys = { version = "0.3", optional = true, features = [
+    "Gamepad",
+    "GamepadButton",
+    "GamepadMappingType",
+    "Window",
+    "Navigator",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-rs = { package = "wasm-bindgen", version = "0.2" }

@@ -10,12 +10,16 @@ use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{
+    mpsc::{self, Receiver, Sender},
+    Arc,
+};
 use std::time::Duration;
 use std::{mem, thread, u16, u32};
 
-use rusty_xinput::XInputLoadingFailure;
-use rusty_xinput::{self, BatteryLevel, BatteryType, XInputState, XInputUsageError};
+use rusty_xinput::{
+    BatteryLevel, BatteryType, XInputHandle, XInputLoadingFailure, XInputState, XInputUsageError,
+};
 use uuid::Uuid;
 use winapi::um::xinput::{
     XINPUT_GAMEPAD as XGamepad, XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_BACK,
@@ -39,24 +43,31 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
-        match rusty_xinput::dynamic_load_xinput() {
-            Ok(()) => (),
-            Err(XInputLoadingFailure::AlreadyLoading)
-            | Err(XInputLoadingFailure::AlreadyActive) => (),
-            Err(e) => return Err(PlatformError::Other(Box::new(Error::FailedToLoadDll(e)))),
-        }
+        let xinput_handle = XInputHandle::load_default()
+            .map_err(|e| PlatformError::Other(Box::new(Error::FailedToLoadDll(e))))?;
+        let xinput_handle = Arc::new(xinput_handle);
 
-        let mut gamepads: [Gamepad; MAX_XINPUT_CONTROLLERS] = Default::default();
+        let gamepads = {
+            let mut gamepads: [mem::MaybeUninit<Gamepad>; MAX_XINPUT_CONTROLLERS] =
+                unsafe { mem::MaybeUninit::uninit().assume_init() };
+
+            for id in 0..MAX_XINPUT_CONTROLLERS {
+                gamepads[id] =
+                    mem::MaybeUninit::new(Gamepad::new(id as u32, xinput_handle.clone()));
+            }
+
+            unsafe { mem::transmute::<_, [Gamepad; MAX_XINPUT_CONTROLLERS]>(gamepads) }
+        };
+
         let mut connected: [bool; MAX_XINPUT_CONTROLLERS] = Default::default();
 
         // Iterate through each controller ID and set connected state
         for id in 0..MAX_XINPUT_CONTROLLERS {
-            gamepads[id] = Gamepad::new(id as u32);
             connected[id] = gamepads[id].is_connected;
         }
 
         let (tx, rx) = mpsc::channel();
-        Self::spawn_thread(tx, connected);
+        Self::spawn_thread(tx, connected, xinput_handle.clone());
 
         // Coerce gamepads vector to slice
         Ok(Gilrs { gamepads, rx })
@@ -84,7 +95,11 @@ impl Gilrs {
         self.gamepads.len()
     }
 
-    fn spawn_thread(tx: Sender<Event>, connected: [bool; MAX_XINPUT_CONTROLLERS]) {
+    fn spawn_thread(
+        tx: Sender<Event>,
+        connected: [bool; MAX_XINPUT_CONTROLLERS],
+        xinput_handle: Arc<XInputHandle>,
+    ) {
         thread::spawn(move || unsafe {
             // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
             let mut prev_states: [XState; MAX_XINPUT_CONTROLLERS] =
@@ -97,7 +112,7 @@ impl Gilrs {
                     if *connected.get_unchecked(id)
                         || counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
                     {
-                        match rusty_xinput::xinput_get_state(id as u32) {
+                        match xinput_handle.get_state(id as u32) {
                             Ok(XInputState { raw: state }) => {
                                 if !connected[id] {
                                     connected[id] = true;
@@ -356,17 +371,18 @@ impl Gilrs {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Gamepad {
     uuid: Uuid,
     id: u32,
     is_connected: bool,
+    xinput_handle: Arc<XInputHandle>,
 }
 
 impl Gamepad {
-    fn new(id: u32) -> Gamepad {
+    fn new(id: u32, xinput_handle: Arc<XInputHandle>) -> Gamepad {
         let is_connected = {
-            if rusty_xinput::xinput_get_state(id).is_ok() {
+            if xinput_handle.get_state(id).is_ok() {
                 true
             } else {
                 false
@@ -377,6 +393,7 @@ impl Gamepad {
             uuid: Uuid::nil(),
             id,
             is_connected,
+            xinput_handle,
         };
 
         gamepad
@@ -395,7 +412,7 @@ impl Gamepad {
     }
 
     pub fn power_info(&self) -> PowerInfo {
-        match rusty_xinput::xinput_get_gamepad_battery_information(self.id) {
+        match self.xinput_handle.get_gamepad_battery_information(self.id) {
             Ok(binfo) => match binfo.battery_type {
                 BatteryType::WIRED => PowerInfo::Wired,
                 BatteryType::ALKALINE | BatteryType::NIMH => {
@@ -431,7 +448,7 @@ impl Gamepad {
     }
 
     pub fn ff_device(&self) -> Option<FfDevice> {
-        Some(FfDevice::new(self.id))
+        Some(FfDevice::new(self.id, self.xinput_handle.clone()))
     }
 
     pub fn buttons(&self) -> &[EvCode] {
