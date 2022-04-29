@@ -9,7 +9,7 @@ repository = "https://gitlab.com/gilrs-project/gilrs"
 readme = "README.md"
 keywords = ["gamepad", "joystick", "input"]
 categories = ["game-engines"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 uuid = "0.8"

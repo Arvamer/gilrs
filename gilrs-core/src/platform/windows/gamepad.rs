@@ -47,17 +47,14 @@ impl Gilrs {
             .map_err(|e| PlatformError::Other(Box::new(Error::FailedToLoadDll(e))))?;
         let xinput_handle = Arc::new(xinput_handle);
 
-        let gamepads = {
-            let mut gamepads: [mem::MaybeUninit<Gamepad>; MAX_XINPUT_CONTROLLERS] =
-                unsafe { mem::MaybeUninit::uninit().assume_init() };
+        let mut gamepad_ids: [usize; MAX_XINPUT_CONTROLLERS] = Default::default();
 
-            for id in 0..MAX_XINPUT_CONTROLLERS {
-                gamepads[id] =
-                    mem::MaybeUninit::new(Gamepad::new(id as u32, xinput_handle.clone()));
-            }
+        for id in 0..MAX_XINPUT_CONTROLLERS {
+            gamepad_ids[id] = id;
+        }
 
-            unsafe { mem::transmute::<_, [Gamepad; MAX_XINPUT_CONTROLLERS]>(gamepads) }
-        };
+        // Map controller IDs to Gamepads
+        let gamepads = gamepad_ids.map(|id| Gamepad::new(id as u32, xinput_handle.clone()));
 
         let mut connected: [bool; MAX_XINPUT_CONTROLLERS] = Default::default();
 
