@@ -745,7 +745,6 @@ fn create_uuid(iid: ioctl::input_id) -> Uuid {
             0,
         ],
     )
-    .unwrap()
 }
 
 unsafe fn cstr_new(bytes: &[u8]) -> &CStr {

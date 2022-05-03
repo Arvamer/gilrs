@@ -263,7 +263,7 @@ impl Gamepad {
         if vendor_id == 0 && product_id == 0 && version == 0 {
             None
         } else {
-            match Uuid::from_fields(
+            Some(Uuid::from_fields(
                 bustype,
                 vendor_id,
                 0,
@@ -277,13 +277,7 @@ impl Gamepad {
                     0,
                     0,
                 ],
-            ) {
-                Ok(uuid) => Some(uuid),
-                Err(error) => {
-                    warn!("Failed to create uuid of device: {:?}", error.to_string());
-                    None
-                }
-            }
+            ))
         }
     }
 

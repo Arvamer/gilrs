@@ -26,7 +26,7 @@ fn main() {
             name = gamepad.name(),
             map_name = gamepad.map_name(),
             os_name = gamepad.os_name(),
-            uuid = Uuid::from_bytes(gamepad.uuid()).to_hyphenated(),
+            uuid = Uuid::from_bytes(gamepad.uuid()).as_hyphenated(),
             is_connected = gamepad.is_connected(),
             power_info = gamepad.power_info(),
             mapping_source = gamepad.mapping_source(),
