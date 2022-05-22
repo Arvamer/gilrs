@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+v0.9.0 - 2022-05-22
+-------------------
+
+### Changed
+
+- wasm: web-sys/wasm-bindgen is now used by default, dependency on stdweb  and `wasm-bindgen` feature are removed.
+- Minimal supported rust version is now 1.56.
+- Changed `impl Into\<usize\> for GamepadId` to `impl From\<GamepadId\> for usize`
+ 
+### Fixed
+
+- wasm: `next_event()` no longer panic if `getGamepads()` is not available.
+
 v0.8.2 - 2021-12-30
 -------------------
 

@@ -1,6 +1,6 @@
 [package]
 name = "gilrs"
-version = "0.8.2"
+version = "0.9.0"
 authors = ["Arvamer <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 exclude = ["controller.svg"]
@@ -21,7 +21,7 @@ uuid = "1.0.0"
 log = "0.4.1"
 fnv = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
-gilrs-core = { path = "../gilrs-core", version = "0.3" }
+gilrs-core = { path = "../gilrs-core", version = "0.4" }
 
 [dev-dependencies]
 env_logger = "0.9.0"
