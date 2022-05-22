@@ -9,7 +9,8 @@ use std::collections::VecDeque;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use uuid::Uuid;
-use web_sys::{Gamepad as WebGamepad, GamepadButton, GamepadMappingType};
+use wasm_bindgen::JsCast;
+use web_sys::{DomException, Gamepad as WebGamepad, GamepadButton, GamepadMappingType};
 
 use super::FfDevice;
 use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
@@ -18,14 +19,22 @@ use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
     event_cache: VecDeque<Event>,
+    next_event_error_logged: bool,
 }
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
+        let window =
+            web_sys::window().ok_or_else(|| PlatformError::Other(Box::new(Error::NoWindow)))?;
+        if !window.is_secure_context() {
+            warn!("Context is not secure, gamepad API may not be available.")
+        }
+
         Ok({
             Gilrs {
                 gamepads: Vec::new(),
                 event_cache: VecDeque::new(),
+                next_event_error_logged: false,
             }
         })
     }
@@ -37,11 +46,32 @@ impl Gilrs {
             return self.event_cache.pop_front();
         }
 
-        let gamepads = web_sys::window()
+        let gamepads = match web_sys::window()
             .expect("no window")
             .navigator()
             .get_gamepads()
-            .expect("error getting gamepads");
+        {
+            Ok(x) => {
+                self.next_event_error_logged = false;
+                x
+            }
+            Err(js) => {
+                if !self.next_event_error_logged {
+                    self.next_event_error_logged = true;
+
+                    let exception: DomException = match js.dyn_into() {
+                        Ok(x) => x,
+                        Err(e) => {
+                            error!("getGamepads() failed with unknown error: {:?}", e);
+                            return None;
+                        }
+                    };
+                    error!("getGamepads(): {}", exception.message());
+                }
+
+                return None;
+            }
+        };
 
         let gamepads = gamepads.iter().map(|val| {
             if val.is_null() {
@@ -290,6 +320,21 @@ impl Display for EvCode {
         self.0.fmt(f)
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+enum Error {
+    NoWindow,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match *self {
+            Error::NoWindow => f.write_str("window is not available"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 pub mod native_ev_codes {
     use super::EvCode;
