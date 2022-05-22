@@ -74,7 +74,7 @@ pub struct input_id {
     pub version: u16,
 }
 
-#[derive(Copy, Clone, Default, PartialEq, Debug)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, Debug)]
 #[repr(C)]
 pub struct input_absinfo {
     pub value: i32,

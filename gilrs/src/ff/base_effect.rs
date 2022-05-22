@@ -13,7 +13,7 @@ use super::time::Ticks;
 ///
 /// Currently base effect support only xinput model of force feedback, which means that  gamepad
 /// have weak and strong motor.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[non_exhaustive]
 pub enum BaseEffectType {
     Weak { magnitude: u16 },
@@ -110,7 +110,7 @@ impl Envelope {
 /// _______|          |____________|          |____________|
 ///  after   play_for   with_delay   play_for   with_delay   play_for
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Replay {
     /// Start playback `after` ticks after `Effect::play()` is called.
     pub after: Ticks,

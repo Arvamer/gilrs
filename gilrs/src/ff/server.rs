@@ -78,10 +78,10 @@ impl Message {
     fn use_trace_level(&self) -> bool {
         use self::Message::*;
 
-        match self {
-            &SetListenerPosition { .. } | &HandleCloned { .. } | &HandleDropped { .. } => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            &SetListenerPosition { .. } | &HandleCloned { .. } | &HandleDropped { .. }
+        )
     }
 }
 
@@ -89,7 +89,6 @@ impl Message {
 struct Device {
     inner: FfDevice,
     position: [f32; 3],
-    gain: f32,
 }
 
 struct Effect {
@@ -135,7 +134,6 @@ impl From<FfDevice> for Device {
         Device {
             inner,
             position: [0.0, 0.0, 0.0],
-            gain: 1.0,
         }
     }
 }

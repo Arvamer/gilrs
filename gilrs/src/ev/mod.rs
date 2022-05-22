@@ -141,42 +141,30 @@ pub enum Button {
 impl Button {
     pub fn is_action(self) -> bool {
         use crate::Button::*;
-        match self {
-            South | East | North | West | C | Z => true,
-            _ => false,
-        }
+        matches!(self, South | East | North | West | C | Z)
     }
 
     pub fn is_trigger(self) -> bool {
         use crate::Button::*;
-        match self {
-            LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2 => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            LeftTrigger | LeftTrigger2 | RightTrigger | RightTrigger2
+        )
     }
 
     pub fn is_menu(self) -> bool {
         use crate::Button::*;
-        match self {
-            Select | Start | Mode => true,
-            _ => false,
-        }
+        matches!(self, Select | Start | Mode)
     }
 
     pub fn is_stick(self) -> bool {
         use crate::Button::*;
-        match self {
-            LeftThumb | RightThumb => true,
-            _ => false,
-        }
+        matches!(self, LeftThumb | RightThumb)
     }
 
     pub fn is_dpad(self) -> bool {
         use crate::Button::*;
-        match self {
-            DPadUp | DPadDown | DPadLeft | DPadRight => true,
-            _ => false,
-        }
+        matches!(self, DPadUp | DPadDown | DPadLeft | DPadRight)
     }
 
     pub fn to_nec(self) -> Option<Code> {
@@ -236,10 +224,7 @@ impl Axis {
     /// Returns true if axis is `LeftStickX`, `LeftStickY`, `RightStickX` or `RightStickY`.
     pub fn is_stick(self) -> bool {
         use crate::Axis::*;
-        match self {
-            LeftStickX | LeftStickY | RightStickX | RightStickY => true,
-            _ => false,
-        }
+        matches!(self, LeftStickX | LeftStickY | RightStickX | RightStickY)
     }
 
     /// Returns the other axis from same element of gamepad, if any.

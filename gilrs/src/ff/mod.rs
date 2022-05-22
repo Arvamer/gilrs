@@ -339,8 +339,14 @@ impl EffectBuilder {
     }
 }
 
+impl Default for EffectBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Basic error type in force feedback module.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Error {
     /// Force feedback is not supported by device with this ID

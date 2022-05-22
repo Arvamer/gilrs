@@ -209,7 +209,7 @@ impl Default for DistanceModel {
 
 /// Error that can be returned when passing [`DistanceModel`](struct.DistanceModel.html) with
 /// invalid value.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DistanceModelError {
     /// Reference distance is < 0.
@@ -237,7 +237,7 @@ impl fmt::Display for DistanceModelError {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub(super) enum EffectState {
     Playing { since: Ticks },
     Stopped,

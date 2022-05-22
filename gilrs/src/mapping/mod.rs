@@ -15,7 +15,7 @@ use gilrs_core::EvCode;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write as _};
 
 use fnv::FnvHashMap;
 use uuid::Uuid;
@@ -354,7 +354,7 @@ impl Mapping {
             .iter()
             .position(|&x| x == ev_code)
             .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
-        sdl_mappings.push_str(&format!("{}:b{},", ident, n_btn));
+        let _ = write!(sdl_mappings, "{}:b{},", ident, n_btn);
         mappings.insert(ev_code, AxisOrBtn::Btn(mapped_btn));
         Ok(())
     }
@@ -371,7 +371,7 @@ impl Mapping {
             .iter()
             .position(|&x| x == ev_code)
             .ok_or(MappingError::InvalidCode(ev::Code(ev_code)))?;
-        sdl_mappings.push_str(&format!("{}:a{},", ident, n_axis));
+        let _ = write!(sdl_mappings, "{}:a{},", ident, n_axis);
         mappings.insert(ev_code, AxisOrBtn::Axis(mapped_axis));
         Ok(())
     }
@@ -399,7 +399,7 @@ impl Mapping {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ParseSdlMappingError {
     InvalidButton,
     InvalidAxis,
@@ -465,7 +465,7 @@ impl MappingDb {
             let pat = "platform:";
             if let Some(offset) = mapping.find(pat).map(|o| o + pat.len()) {
                 let s = &mapping[offset..];
-                let end = s.find(',').unwrap_or_else(|| s.len());
+                let end = s.find(',').unwrap_or(s.len());
 
                 if &s[..end] != SDL_PLATFORM_NAME {
                     continue;
@@ -544,7 +544,7 @@ impl MappingData {
 }
 
 /// The error type for functions related to gamepad mapping.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MappingError {
     /// Gamepad does not have element referenced by `EvCode`.
     InvalidCode(ev::Code),

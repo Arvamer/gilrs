@@ -439,7 +439,7 @@ impl Filter for Event {
     fn filter_ev<F: FilterFn>(&self, filter: &F, gilrs: &mut Gilrs) -> Option<Event> {
         let e = filter.filter(Some(*self), gilrs);
         debug_assert!(
-            !e.is_none(),
+            e.is_some(),
             "Filter changed Some(event) into None. See ev::filter documentation for more info."
         );
 

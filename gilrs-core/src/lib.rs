@@ -29,7 +29,7 @@ impl FfDevice {
 }
 
 /// Holds information about gamepad event.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Event {
     /// Id of gamepad.
     pub id: usize,
@@ -47,7 +47,7 @@ impl Event {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Gamepad event.
 pub enum EventType {
     ButtonPressed(EvCode),
@@ -81,7 +81,7 @@ pub struct AxisInfo {
 ///     _ => (),
 /// };
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PowerInfo {
     /// Failed to determine power status.
     Unknown,

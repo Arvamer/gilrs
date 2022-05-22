@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
         let next_comma = self.next_comma_or_end();
         let uuid = Uuid::parse_str(&self.data[self.pos..next_comma])
             .map(Token::Uuid)
-            .or_else(|_| Err(Error::new(ErrorKind::InvalidGuid, self.pos)));
+            .map_err(|_| Error::new(ErrorKind::InvalidGuid, self.pos));
 
         if uuid.is_err() {
             self.state = State::Invalid;
@@ -243,7 +243,7 @@ impl<'a> Parser<'a> {
                     .ok_or_else(|| Error::new(ErrorKind::InvalidValue, pos))?;
                 let hat = value[1..dot_idx]
                     .parse()
-                    .or_else(|_| Err(Error::new(ErrorKind::InvalidValue, pos + 1)))?;
+                    .map_err(|_| Error::new(ErrorKind::InvalidValue, pos + 1))?;
                 let direction = value
                     .get((dot_idx as usize + 1)..)
                     .and_then(|s| s.parse().ok())
@@ -251,7 +251,7 @@ impl<'a> Parser<'a> {
 
                 let idx = BUTTONS_SDL
                     .binary_search(&key)
-                    .or_else(|_| Err(Error::new(ErrorKind::UnknownButton, pos)))?;
+                    .map_err(|_| Error::new(ErrorKind::UnknownButton, pos))?;
 
                 return Ok(Token::HatMapping {
                     hat,
@@ -262,7 +262,7 @@ impl<'a> Parser<'a> {
             _ => return Err(Error::new(ErrorKind::InvalidValue, pos)),
         }
         .parse::<u16>()
-        .or_else(|_| Err(Error::new(ErrorKind::InvalidValue, pos)))?;
+        .map_err(|_| Error::new(ErrorKind::InvalidValue, pos))?;
 
         if is_axis {
             let key = match key.get(0..1) {
@@ -281,7 +281,7 @@ impl<'a> Parser<'a> {
 
             let idx = AXES_SDL
                 .binary_search(&key)
-                .or_else(|_| Err(Error::new(ErrorKind::UnknownAxis, pos)))?;
+                .map_err(|_| Error::new(ErrorKind::UnknownAxis, pos))?;
 
             Ok(Token::AxisMapping {
                 from,
@@ -293,7 +293,7 @@ impl<'a> Parser<'a> {
         } else {
             let idx = BUTTONS_SDL
                 .binary_search(&key)
-                .or_else(|_| Err(Error::new(ErrorKind::UnknownButton, pos)))?;
+                .map_err(|_| Error::new(ErrorKind::UnknownButton, pos))?;
 
             Ok(Token::ButtonMapping {
                 from,
@@ -349,7 +349,7 @@ enum State {
     Invalid,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error {
     position: usize,
     kind: ErrorKind,
@@ -365,7 +365,7 @@ impl Error {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
     InvalidGuid,
     InvalidKeyValPair,

@@ -285,7 +285,7 @@ impl Gamepad {
 
         let axesi = AxesInfo::new(fd);
         let ff_supported = Self::test_ff(fd);
-        let (cap, status) = Self::battery_fd(&dev);
+        let (cap, status) = Self::battery_fd(dev);
 
         let mut gamepad = Gamepad {
             fd,
@@ -407,24 +407,24 @@ impl Gamepad {
         let mut buttons = Vec::with_capacity(16);
 
         for bit in BTN_MISC..BTN_MOUSE {
-            if utils::test_bit(bit, &key_bits) {
+            if utils::test_bit(bit, key_bits) {
                 buttons.push(EvCode::new(EV_KEY, bit));
             }
         }
         for bit in BTN_JOYSTICK..(key_bits.len() as u16 * 8) {
-            if utils::test_bit(bit, &key_bits) {
+            if utils::test_bit(bit, key_bits) {
                 buttons.push(EvCode::new(EV_KEY, bit));
             }
         }
 
         if !only_gamepad_btns {
             for bit in 0..BTN_MISC {
-                if utils::test_bit(bit, &key_bits) {
+                if utils::test_bit(bit, key_bits) {
                     buttons.push(EvCode::new(EV_KEY, bit));
                 }
             }
             for bit in BTN_MOUSE..BTN_JOYSTICK {
-                if utils::test_bit(bit, &key_bits) {
+                if utils::test_bit(bit, key_bits) {
                     buttons.push(EvCode::new(EV_KEY, bit));
                 }
             }
@@ -437,7 +437,7 @@ impl Gamepad {
         let mut axes = Vec::with_capacity(8);
 
         for bit in 0..(abs_bits.len() * 8) {
-            if utils::test_bit(bit as u16, &abs_bits) {
+            if utils::test_bit(bit as u16, abs_bits) {
                 axes.push(EvCode::new(EV_ABS, bit as u16));
             }
         }

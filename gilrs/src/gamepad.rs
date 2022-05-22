@@ -24,6 +24,7 @@ use gilrs_core::{
 
 use uuid::Uuid;
 
+use std::cmp::Ordering;
 use std::{
     collections::VecDeque,
     error,
@@ -286,27 +287,31 @@ impl Gilrs {
                             }
                         }
                         RawEventType::Connected => {
-                            if id.0 == self.gamepads_data.len() {
-                                self.gamepads_data.push(GamepadData::new(
-                                    id,
-                                    self.tx.clone(),
-                                    self.inner.gamepad(id.0).unwrap(),
-                                    &self.mappings,
-                                ));
-                            } else if id.0 < self.gamepads_data.len() {
-                                self.gamepads_data[id.0] = GamepadData::new(
-                                    id,
-                                    self.tx.clone(),
-                                    self.inner.gamepad(id.0).unwrap(),
-                                    &self.mappings,
-                                );
-                            } else {
-                                error!(
-                                    "Platform implementation error: got Connected event with id \
-                                     {}, when expected id {}",
-                                    id.0,
-                                    self.gamepads_data.len()
-                                );
+                            match id.0.cmp(&self.gamepads_data.len()) {
+                                Ordering::Equal => {
+                                    self.gamepads_data.push(GamepadData::new(
+                                        id,
+                                        self.tx.clone(),
+                                        self.inner.gamepad(id.0).unwrap(),
+                                        &self.mappings,
+                                    ));
+                                }
+                                Ordering::Less => {
+                                    self.gamepads_data[id.0] = GamepadData::new(
+                                        id,
+                                        self.tx.clone(),
+                                        self.inner.gamepad(id.0).unwrap(),
+                                        &self.mappings,
+                                    );
+                                }
+                                Ordering::Greater => {
+                                    error!(
+                                        "Platform implementation error: got Connected event with \
+                                         id {}, when expected id {}",
+                                        id.0,
+                                        self.gamepads_data.len()
+                                    );
+                                }
                             }
 
                             EventType::Connected
@@ -947,7 +952,7 @@ impl GamepadData {
         if self.mapping.is_default() {
             None
         } else {
-            Some(&self.mapping.name())
+            Some(self.mapping.name())
         }
     }
 
@@ -1016,7 +1021,7 @@ impl GamepadData {
 }
 
 /// Source of gamepad mappings.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MappingSource {
     /// Gamepad uses SDL mappings.
     SdlMappings,
