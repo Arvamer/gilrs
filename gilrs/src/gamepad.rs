@@ -1035,9 +1035,9 @@ pub enum MappingSource {
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 pub struct GamepadId(pub(crate) usize);
 
-impl Into<usize> for GamepadId {
-    fn into(self) -> usize {
-        self.0
+impl From<GamepadId> for usize {
+    fn from(x: GamepadId) -> usize {
+        x.0
     }
 }
 
