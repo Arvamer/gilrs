@@ -5,18 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use super::FfDevice;
-use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
-use uuid::Uuid;
-
 use std::collections::VecDeque;
-#[cfg(not(feature = "wasm-bindgen"))]
-use stdweb::web::{Gamepad as WebGamepad, GamepadMappingType};
-#[cfg(feature = "wasm-bindgen")]
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
+use uuid::Uuid;
 use web_sys::{Gamepad as WebGamepad, GamepadButton, GamepadMappingType};
 
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::i32::MAX as I32_MAX;
+use super::FfDevice;
+use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -41,16 +37,12 @@ impl Gilrs {
             return self.event_cache.pop_front();
         }
 
-        #[cfg(not(feature = "wasm-bindgen"))]
-        let gamepads = WebGamepad::get_all().into_iter();
-
-        #[cfg(feature = "wasm-bindgen")]
         let gamepads = web_sys::window()
             .expect("no window")
             .navigator()
             .get_gamepads()
             .expect("error getting gamepads");
-        #[cfg(feature = "wasm-bindgen")]
+
         let gamepads = gamepads.iter().map(|val| {
             if val.is_null() {
                 None
@@ -87,7 +79,7 @@ impl Gilrs {
                     for (axis_index, (old_axis, new_axis)) in axes {
                         if old_axis != new_axis {
                             let ev_code = crate::EvCode(new.axis_code(axis_index));
-                            let value = (new_axis * I32_MAX as f64) as i32;
+                            let value = (new_axis * i32::MAX as f64) as i32;
                             self.event_cache.push_back(Event::new(
                                 index,
                                 EventType::AxisValueChanged(value, ev_code),
@@ -148,7 +140,7 @@ enum Mapping {
 }
 
 impl Mapping {
-    fn buttons<'a>(&'a self) -> impl Iterator<Item = bool> + 'a {
+    fn buttons(&self) -> impl Iterator<Item = bool> + '_ {
         match self {
             Mapping::Standard { buttons, .. } => buttons.iter(),
             Mapping::NoMapping { buttons, .. } => buttons.iter(),
@@ -156,7 +148,7 @@ impl Mapping {
         .cloned()
     }
 
-    fn axes<'a>(&'a self) -> impl Iterator<Item = f64> + 'a {
+    fn axes(&self) -> impl Iterator<Item = f64> + '_ {
         match self {
             Mapping::Standard { axes, .. } => axes.iter(),
             Mapping::NoMapping { axes, .. } => axes.iter(),
@@ -179,26 +171,16 @@ impl Gamepad {
 
         let buttons = gamepad.buttons();
         let button_iter = {
-            #[cfg(feature = "wasm-bindgen")]
             {
                 buttons.iter().map(GamepadButton::from)
-            }
-            #[cfg(not(feature = "wasm-bindgen"))]
-            {
-                buttons.into_iter()
             }
         };
 
         let axes = gamepad.axes();
         let axis_iter = {
-            #[cfg(feature = "wasm-bindgen")]
             {
                 axes.iter()
                     .map(|val| val.as_f64().expect("axes() should be an array of f64"))
-            }
-            #[cfg(not(feature = "wasm-bindgen"))]
-            {
-                axes.into_iter()
             }
         };
 
@@ -271,21 +253,21 @@ impl Gamepad {
     fn button_code(&self, index: usize) -> EvCode {
         self.buttons()
             .get(index)
-            .map(|ev| ev.clone())
+            .copied()
             .unwrap_or(EvCode(index as u8 + 31))
     }
 
     fn axis_code(&self, index: usize) -> EvCode {
         self.axes()
             .get(index)
-            .map(|ev| ev.clone())
-            .unwrap_or(EvCode((index + self.mapping.buttons().count()) as u8 + 31))
+            .copied()
+            .unwrap_or_else(|| EvCode((index + self.mapping.buttons().count()) as u8 + 31))
     }
 
     pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
         Some(&AxisInfo {
-            min: i32::min_value() as i32,
-            max: i32::max_value() as i32,
+            min: i32::MIN as i32,
+            max: i32::MAX as i32,
             deadzone: None,
         })
     }

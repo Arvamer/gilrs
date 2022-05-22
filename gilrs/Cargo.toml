@@ -31,4 +31,3 @@ features = ["serde-serialize"]
 
 [features]
 serde-serialize = ["serde", "gilrs-core/serde-serialize"]
-wasm-bindgen = ["gilrs-core/wasm-bindgen"]

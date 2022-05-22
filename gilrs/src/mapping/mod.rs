@@ -27,15 +27,15 @@ use self::parser::{Error as ParserError, ErrorKind as ParserErrorKind, Parser, T
 #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd"))]
 const SDL_PLATFORM_NAME: &str = "Linux";
 #[cfg(target_os = "macos")]
-const SDL_PLATFORM_NAME: &'static str = "Mac OS X";
+const SDL_PLATFORM_NAME: &str = "Mac OS X";
 #[cfg(target_os = "windows")]
-const SDL_PLATFORM_NAME: &'static str = "Windows";
+const SDL_PLATFORM_NAME: &str = "Windows";
 #[cfg(all(
     not(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd")),
     not(target_os = "macos"),
     not(target_os = "windows")
 ))]
-const SDL_PLATFORM_NAME: &'static str = "Unknown";
+const SDL_PLATFORM_NAME: &str = "Unknown";
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]

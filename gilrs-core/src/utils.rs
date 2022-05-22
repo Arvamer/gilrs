@@ -13,11 +13,8 @@ pub fn time_now() -> SystemTime {
 
 #[cfg(target_arch = "wasm32")]
 pub fn time_now() -> SystemTime {
-    #[cfg(feature = "wasm-bindgen")]
     use js_sys::Date;
     use std::time::Duration;
-    #[cfg(not(feature = "wasm-bindgen"))]
-    use stdweb::web::Date;
 
     let offset = Duration::from_millis(Date::now() as u64);
     SystemTime::UNIX_EPOCH + offset
