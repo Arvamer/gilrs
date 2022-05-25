@@ -414,11 +414,11 @@ impl IOHIDElement {
     }
 
     pub fn get_logical_min(&self) -> i64 {
-        unsafe { IOHIDElementGetLogicalMin(self.0) }
+        unsafe { IOHIDElementGetLogicalMin(self.0).try_into().unwrap() }
     }
 
     pub fn get_logical_max(&self) -> i64 {
-        unsafe { IOHIDElementGetLogicalMax(self.0) }
+        unsafe { IOHIDElementGetLogicalMax(self.0).try_into().unwrap() }
     }
 
     pub fn get_calibration_dead_zone_min(&self) -> Option<i64> {
@@ -489,7 +489,7 @@ impl IOHIDValue {
     }
 
     pub fn get_value(&self) -> i64 {
-        unsafe { IOHIDValueGetIntegerValue(self.0) }
+        unsafe { IOHIDValueGetIntegerValue(self.0).try_into().unwrap() }
     }
 
     pub fn get_element(&self) -> Option<IOHIDElement> {

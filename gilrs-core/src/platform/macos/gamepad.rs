@@ -133,6 +133,7 @@ impl Gilrs {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Gamepad {
     name: String,
     uuid: Uuid,
