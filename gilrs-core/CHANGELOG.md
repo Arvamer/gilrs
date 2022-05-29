@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+v0.4.1 - 2022-05-29
+-------------------
+
+### Changed
+
+- Updated io-kit-sys to 0.2 and core-foundation to 0.9 (@jtakakura).
+- Reduced numer of enabled features for nix crate (@rtzoeller).
+
 v0.4.0 - 2022-05-22
 -------------------
 
