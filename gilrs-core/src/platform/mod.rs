@@ -29,8 +29,8 @@ mod platform;
 #[path = "macos/mod.rs"]
 mod platform;
 
-#[cfg(target_os = "windows")]
-#[path = "windows/mod.rs"]
+#[cfg(target_os = "windows", feature = "xinput")]
+#[path = "windows_xinput/mod.rs"]
 mod platform;
 
 #[cfg(target_arch = "wasm32")]
