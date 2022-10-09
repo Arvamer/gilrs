@@ -137,22 +137,22 @@ impl eframe::App for MyEguiApp {
                     });
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            ui.set_width(220.0);
+                            ui.set_width(250.0);
                             ui.heading("Buttons");
 
                             for (code, button_data) in gamepad_state.buttons() {
                                 let name = match gamepad.axis_or_btn_name(code) {
-                                    None => code.to_string(),
-                                    Some(AxisOrBtn::Axis(a)) => format!("{a:?}"),
                                     Some(AxisOrBtn::Btn(b)) => format!("{b:?}"),
+                                    _ => code.to_string(),
                                 };
 
                                 ui.add(
                                     egui::widgets::ProgressBar::new(button_data.value()).text(
                                         RichText::new(format!(
-                                            "{:<5} {:.4} {name}",
+                                            "{name:<13} {:<5} {:.4} {:>5}",
                                             button_data.is_pressed(),
-                                            button_data.value()
+                                            button_data.value(),
+                                            code.into_u32()
                                         ))
                                         .monospace(),
                                     ),
