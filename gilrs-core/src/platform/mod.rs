@@ -29,8 +29,21 @@ mod platform;
 #[path = "macos/mod.rs"]
 mod platform;
 
-#[cfg(target_os = "windows", feature = "xinput")]
+#[cfg(all(not(feature = "xinput"), not(feature = "wgi")))]
+compile_error!(
+    "Windows needs one of the features `gilrs/xinput` or `gilrs/wgi` enabled. \
+    \nEither don't use 'default-features = false' or add one of the features back."
+);
+
+#[cfg(all(feature = "wgi", feature = "xinput"))]
+compile_error!("features `gilrs/xinput` and `gilrs/wgi` are mutually exclusive");
+
+#[cfg(all(target_os = "windows", feature = "xinput"))]
 #[path = "windows_xinput/mod.rs"]
+mod platform;
+
+#[cfg(all(target_os = "windows", feature = "wgi"))]
+#[path = "windows_wgi/mod.rs"]
 mod platform;
 
 #[cfg(target_arch = "wasm32")]
