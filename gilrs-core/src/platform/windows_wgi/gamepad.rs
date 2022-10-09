@@ -8,13 +8,21 @@
 use super::FfDevice;
 use crate::{utils, AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
+#[cfg(feature = "serde-serialize")]
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, SystemTime};
 use std::{thread, u32};
+use windows::Foundation::EventHandler;
+use windows::Gaming::Input::RawGameController;
 use windows::Gaming::Input::{GameControllerSwitchPosition, Gamepad as WgiGamepad};
 
+const SDL_HARDWARE_BUS_USB: u32 = 0x03;
+const SDL_HARDWARE_BUS_BLUETOOTH: u32 = 0x05;
+
 use uuid::Uuid;
+use windows::core::HSTRING;
 
 /// This is similar to `gilrs_core::Event` but has a raw_game_controller that still needs to be
 /// converted to a gilrs gamepad id.
@@ -179,14 +187,14 @@ impl Gilrs {
                     }
                     let (old_reading, new_reading) = &mut readings[index];
                     std::mem::swap(old_reading, new_reading);
-                    new_reading.update(&controller).unwrap();
+                    new_reading.update(controller).unwrap();
                     {
                         // skip if this is the same reading as the last one.
                         if old_reading.time == new_reading.time {
                             continue;
                         }
 
-                        for event_type in old_reading.events_from_differences(&new_reading) {
+                        for event_type in old_reading.events_from_differences(new_reading) {
                             tx.send(WgiEvent::new(controller.clone(), event_type))
                                 .unwrap();
                         }
@@ -199,22 +207,24 @@ impl Gilrs {
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
         self.rx.try_recv().ok().map(|wgi_event: WgiEvent| {
-            let position = self
+            // Find the index of the gamepad in our vec or insert it
+            let id = self
                 .gamepads
                 .iter()
-                .position(|gamepad| gamepad.raw_game_controller == wgi_event.raw_game_controller);
-
-            let id: usize = match position {
-                Some(position) => position,
-                None => {
-                    // This is a new gamepad
+                .position(
+                    |gamepad| match wgi_event.raw_game_controller.NonRoamableId() {
+                        Ok(id) => id == gamepad.non_roamable_id,
+                        _ => false,
+                    },
+                )
+                .unwrap_or_else(|| {
                     self.gamepads.push(Gamepad::new(
                         self.gamepads.len() as u32,
                         wgi_event.raw_game_controller,
                     ));
                     self.gamepads.len() - 1
-                }
-            };
+                });
+
             match wgi_event.event {
                 EventType::Connected => self.gamepads[id].is_connected = true,
                 EventType::Disconnected => self.gamepads[id].is_connected = false,
@@ -243,7 +253,17 @@ pub struct Gamepad {
     uuid: Uuid,
     id: u32,
     is_connected: bool,
+    /// This is the generic controller handle without any mappings
+    /// https://learn.microsoft.com/en-us/uwp/api/windows.gaming.input.rawgamecontroller
     raw_game_controller: RawGameController,
+    /// An ID for this device that will survive disconnects and restarts.
+    /// [NonRoamableIds](https://learn.microsoft.com/en-us/uwp/api/windows.gaming.input.rawgamecontroller.nonroamableid)
+    ///
+    /// Changes if plugged into a different port and is not the same between different applications
+    /// or PCs.
+    non_roamable_id: HSTRING,
+    /// If the controller has a [Gamepad](https://learn.microsoft.com/en-us/uwp/api/windows.gaming.input.gamepad?view=winrt-22621)
+    /// mapping, this is used to access the mapped values.
     wgi_gamepad: Option<WgiGamepad>,
 }
 
@@ -251,22 +271,51 @@ impl Gamepad {
     fn new(id: u32, raw_game_controller: RawGameController) -> Gamepad {
         let is_connected = true;
 
+        let non_roamable_id = raw_game_controller.NonRoamableId().unwrap();
+
         // See if we can cast this to a windows definition of a gamepad
         let wgi_gamepad = WgiGamepad::FromGameController(&raw_game_controller).ok();
         let name = match raw_game_controller.DisplayName() {
             Ok(hstring) => hstring.to_string_lossy(),
             Err(_) => "unknown".to_string(),
         };
-        let gamepad = Gamepad {
+
+        // If it's wireless, use the Bluetooth bustype to match SDL
+        // https://github.com/libsdl-org/SDL/blob/294ccba0a23b37fffef62189423444f93732e565/src/joystick/windows/SDL_windows_gaming_input.c#L335-L338
+        let bustype = match raw_game_controller.IsWireless() {
+            Ok(true) => SDL_HARDWARE_BUS_BLUETOOTH,
+            _ => SDL_HARDWARE_BUS_USB,
+        }
+        .to_be();
+
+        let vendor_id = raw_game_controller.HardwareVendorId().unwrap_or(0).to_be();
+        let product_id = raw_game_controller.HardwareProductId().unwrap_or(0).to_be();
+        let version = 0;
+        let uuid = Uuid::from_fields(
+            bustype,
+            vendor_id,
+            0,
+            &[
+                (product_id >> 8) as u8,
+                product_id as u8,
+                0,
+                0,
+                (version >> 8) as u8,
+                version as u8,
+                0,
+                0,
+            ],
+        );
+
+        Gamepad {
             name,
-            uuid: Uuid::nil(),
+            uuid,
             id,
             is_connected,
             raw_game_controller,
+            non_roamable_id,
             wgi_gamepad,
-        };
-
-        gamepad
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -301,7 +350,7 @@ impl Gamepad {
         &native_ev_codes::AXES
     }
 
-    pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
+    pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
         Some(&AxisInfo {
             min: i32::MIN as i32,
             max: i32::MAX as i32,
@@ -309,12 +358,6 @@ impl Gamepad {
         })
     }
 }
-
-#[cfg(feature = "serde-serialize")]
-use serde::{Deserialize, Serialize};
-use windows::core::{IInspectable, InParam};
-use windows::Foundation::EventHandler;
-use windows::Gaming::Input::RawGameController;
 
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

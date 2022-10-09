@@ -7,6 +7,7 @@ use eframe::egui::Vec2;
 use gilrs::ev::AxisOrBtn;
 use gilrs::{Axis, GamepadId, Gilrs, GilrsBuilder};
 use std::time::UNIX_EPOCH;
+use uuid::Uuid;
 
 struct MyEguiApp {
     gilrs: Gilrs,
@@ -78,94 +79,7 @@ impl eframe::App for MyEguiApp {
             }
             ui.allocate_space(ui.available_size());
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if let Some(gamepad_id) = self.current_gamepad {
-                let gamepad = self.gilrs.gamepad(gamepad_id);
-                let gamepad_state = gamepad.state();
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        ui.set_width(220.0);
-                        ui.label("Buttons");
 
-                        for (code, button_data) in gamepad_state.buttons() {
-                            let name = match gamepad.axis_or_btn_name(code) {
-                                None => code.to_string(),
-                                Some(AxisOrBtn::Axis(a)) => format!("{a:?}"),
-                                Some(AxisOrBtn::Btn(b)) => format!("{b:?}"),
-                            };
-
-                            ui.add(
-                                egui::widgets::ProgressBar::new(button_data.value()).text(
-                                    RichText::new(format!(
-                                        "{:<5} {:.4} {name}",
-                                        button_data.is_pressed(),
-                                        button_data.value()
-                                    ))
-                                    .monospace(),
-                                ),
-                            );
-                        }
-                    });
-                    ui.vertical(|ui| {
-                        ui.label("Axes");
-                        ui.horizontal(|ui| {
-                            for (name, x, y) in [
-                                ("Left Stick", Axis::LeftStickX, Axis::LeftStickY),
-                                ("Right Stick", Axis::RightStickX, Axis::RightStickY),
-                            ] {
-                                ui.vertical(|ui| {
-                                    ui.label(name);
-                                    let y_axis =
-                                        gamepad.axis_data(y).map(|a| a.value()).unwrap_or_default()
-                                            as f64;
-                                    let x_axis =
-                                        gamepad.axis_data(x).map(|a| a.value()).unwrap_or_default()
-                                            as f64;
-                                    egui::widgets::plot::Plot::new(format!("{name}_plot"))
-                                        .width(150.0)
-                                        .height(150.0)
-                                        .min_size(Vec2::splat(3.25))
-                                        .include_x(1.25)
-                                        .include_y(1.25)
-                                        .include_x(-1.25)
-                                        .include_y(-1.25)
-                                        .allow_drag(false)
-                                        .allow_zoom(false)
-                                        .allow_boxed_zoom(false)
-                                        .allow_scroll(false)
-                                        .show(ui, |plot_ui| {
-                                            plot_ui.points(
-                                                Points::new(PlotPoints::new(vec![[
-                                                    x_axis, y_axis,
-                                                ]]))
-                                                .shape(MarkerShape::Circle)
-                                                .radius(4.0),
-                                            );
-                                        });
-                                });
-                            }
-                        });
-                        for (code, axis_data) in gamepad_state.axes() {
-                            let name = match gamepad.axis_or_btn_name(code) {
-                                None => code.to_string(),
-                                Some(AxisOrBtn::Btn(b)) => format!("{b:?}"),
-                                Some(AxisOrBtn::Axis(a)) => format!("{a:?}"),
-                            };
-                            ui.add(
-                                egui::widgets::ProgressBar::new((axis_data.value() * 0.5) + 0.5)
-                                    .text(
-                                        RichText::new(format!("{:+.4} {name}", axis_data.value()))
-                                            .monospace(),
-                                    ),
-                            );
-                        }
-                    });
-                });
-            } else {
-                ui.label("Press a button on a controller or select it from the left.");
-            }
-            ui.allocate_space(ui.available_size());
-        });
         egui::TopBottomPanel::bottom("log")
             .resizable(true)
             .default_height(200.0)
@@ -180,6 +94,140 @@ impl eframe::App for MyEguiApp {
                         ui.allocate_space(ui.available_size());
                     });
             });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::both().show(ui, |ui| {
+                if let Some(gamepad_id) = self.current_gamepad {
+                    let gamepad = self.gilrs.gamepad(gamepad_id);
+                    let gamepad_state = gamepad.state();
+                    ui.vertical(|ui| {
+                        ui.heading("Info");
+                        egui::Grid::new("info_grid")
+                            .striped(true)
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("Name");
+                                ui.label(gamepad.name());
+                                ui.end_row();
+
+                                ui.label("Gilrs ID");
+                                ui.label(gamepad.id().to_string());
+                                ui.end_row();
+
+                                if let Some(map_name) = gamepad.map_name() {
+                                    ui.label("Map Name");
+                                    ui.label(map_name);
+                                    ui.end_row();
+                                }
+
+                                ui.label("Map Source");
+                                ui.label(format!("{:?}", gamepad.mapping_source()));
+                                ui.end_row();
+
+                                ui.label("Uuid");
+                                let uuid = Uuid::from_bytes(gamepad.uuid()).to_string();
+                                ui.horizontal(|ui| {
+                                    ui.label(&uuid);
+                                    if ui.button("Copy").clicked() {
+                                        ui.output().copied_text = uuid;
+                                    }
+                                });
+                                ui.end_row();
+                            });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.set_width(220.0);
+                            ui.heading("Buttons");
+
+                            for (code, button_data) in gamepad_state.buttons() {
+                                let name = match gamepad.axis_or_btn_name(code) {
+                                    None => code.to_string(),
+                                    Some(AxisOrBtn::Axis(a)) => format!("{a:?}"),
+                                    Some(AxisOrBtn::Btn(b)) => format!("{b:?}"),
+                                };
+
+                                ui.add(
+                                    egui::widgets::ProgressBar::new(button_data.value()).text(
+                                        RichText::new(format!(
+                                            "{:<5} {:.4} {name}",
+                                            button_data.is_pressed(),
+                                            button_data.value()
+                                        ))
+                                        .monospace(),
+                                    ),
+                                );
+                            }
+                        });
+                        ui.vertical(|ui| {
+                            ui.set_width(300.0);
+                            ui.heading("Axes");
+                            ui.horizontal(|ui| {
+                                for (name, x, y) in [
+                                    ("Left Stick", Axis::LeftStickX, Axis::LeftStickY),
+                                    ("Right Stick", Axis::RightStickX, Axis::RightStickY),
+                                ] {
+                                    ui.vertical(|ui| {
+                                        ui.label(name);
+                                        let y_axis = gamepad
+                                            .axis_data(y)
+                                            .map(|a| a.value())
+                                            .unwrap_or_default()
+                                            as f64;
+                                        let x_axis = gamepad
+                                            .axis_data(x)
+                                            .map(|a| a.value())
+                                            .unwrap_or_default()
+                                            as f64;
+                                        egui::widgets::plot::Plot::new(format!("{name}_plot"))
+                                            .width(150.0)
+                                            .height(150.0)
+                                            .min_size(Vec2::splat(3.25))
+                                            .include_x(1.25)
+                                            .include_y(1.25)
+                                            .include_x(-1.25)
+                                            .include_y(-1.25)
+                                            .allow_drag(false)
+                                            .allow_zoom(false)
+                                            .allow_boxed_zoom(false)
+                                            .allow_scroll(false)
+                                            .show(ui, |plot_ui| {
+                                                plot_ui.points(
+                                                    Points::new(PlotPoints::new(vec![[
+                                                        x_axis, y_axis,
+                                                    ]]))
+                                                    .shape(MarkerShape::Circle)
+                                                    .radius(4.0),
+                                                );
+                                            });
+                                    });
+                                }
+                            });
+                            for (code, axis_data) in gamepad_state.axes() {
+                                let name = match gamepad.axis_or_btn_name(code) {
+                                    None => code.to_string(),
+                                    Some(AxisOrBtn::Btn(b)) => format!("{b:?}"),
+                                    Some(AxisOrBtn::Axis(a)) => format!("{a:?}"),
+                                };
+                                ui.add(
+                                    egui::widgets::ProgressBar::new(
+                                        (axis_data.value() * 0.5) + 0.5,
+                                    )
+                                    .text(
+                                        RichText::new(format!("{:+.4} {name}", axis_data.value()))
+                                            .monospace(),
+                                    ),
+                                );
+                            }
+                        });
+                    });
+                } else {
+                    ui.label("Press a button on a controller or select it from the left.");
+                }
+                ui.allocate_space(ui.available_size());
+            });
+        });
+
         ctx.request_repaint();
     }
 }
