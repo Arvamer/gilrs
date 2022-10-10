@@ -11,7 +11,7 @@ before_script:
 test:x86_64-unknown-linux-gnu:
   stage: test
   script:
-    - cargo test --verbose --all --all-features
+    - cargo test --verbose --all --features serde-serialize
 
 test:i686-unknown-linux-gnu:
   stage: test
@@ -23,16 +23,16 @@ test:i686-unknown-linux-gnu:
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
-    - cargo test --verbose --target=i686-unknown-linux-gnu --all --all-features
+    - cargo test --verbose --target=i686-unknown-linux-gnu --all --features serde-serialize
 
 build:wasm32-unknown-unknown:
-  image: "rust:1.56"
+  image: "rust:1.64"
   stage: test
   before_script:
     - rustc -Vv && cargo -Vv
     - rustup target add wasm32-unknown-unknown
   script:
-    - cargo test --no-run --target wasm32-unknown-unknown --all --all-features
+    - cargo test --no-run --target wasm32-unknown-unknown --all --features serde-serialize
 
 check:x86_64-apple-darwin:
   stage: test
@@ -40,7 +40,7 @@ check:x86_64-apple-darwin:
     - rustc -Vv && cargo -Vv
     - rustup target add x86_64-apple-darwin
   script:
-    - cargo check --target=x86_64-apple-darwin --verbose --all --all-features
+    - cargo check --target=x86_64-apple-darwin --verbose --all --features serde-serialize
 
 
 pages:
