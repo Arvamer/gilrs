@@ -6,6 +6,7 @@ use eframe::egui;
 use eframe::egui::Vec2;
 use gilrs::ev::AxisOrBtn;
 use gilrs::{Axis, GamepadId, Gilrs, GilrsBuilder};
+use gilrs_core::PowerInfo;
 use std::time::UNIX_EPOCH;
 use uuid::Uuid;
 
@@ -131,6 +132,16 @@ impl eframe::App for MyEguiApp {
                                     if ui.button("Copy").clicked() {
                                         ui.output().copied_text = uuid;
                                     }
+                                });
+                                ui.end_row();
+
+                                ui.label("Power");
+                                ui.label(match gamepad.power_info() {
+                                    PowerInfo::Unknown => "Unknown".to_string(),
+                                    PowerInfo::Wired => "Wired".to_string(),
+                                    PowerInfo::Discharging(p) => format!("Discharging {p}"),
+                                    PowerInfo::Charging(p) => format!("Charging {p}"),
+                                    PowerInfo::Charged => "Charged".to_string(),
                                 });
                                 ui.end_row();
                             });

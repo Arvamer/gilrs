@@ -23,6 +23,8 @@ const SDL_HARDWARE_BUS_BLUETOOTH: u32 = 0x05;
 
 use uuid::Uuid;
 use windows::core::HSTRING;
+use windows::Devices::Power::BatteryReport;
+use windows::System::Power::BatteryStatus;
 
 /// This is similar to `gilrs_core::Event` but has a raw_game_controller that still needs to be
 /// converted to a gilrs gamepad id.
@@ -337,7 +339,34 @@ impl Gamepad {
     }
 
     pub fn power_info(&self) -> PowerInfo {
-        PowerInfo::Unknown
+        self.power_info_err().unwrap_or(PowerInfo::Unknown)
+    }
+
+    /// Using this function so we can easily map errors to unknown
+    fn power_info_err(&self) -> windows::core::Result<PowerInfo> {
+        if !self.raw_game_controller.IsWireless()? {
+            return Ok(PowerInfo::Wired);
+        }
+        let report: BatteryReport = self.raw_game_controller.TryGetBatteryReport()?;
+        let status: BatteryStatus = report.Status()?;
+
+        let power_info = match status {
+            BatteryStatus::Discharging | BatteryStatus::Charging => {
+                let full = report.FullChargeCapacityInMilliwattHours()?.GetInt32()? as f32;
+                let remaining = report.RemainingCapacityInMilliwattHours()?.GetInt32()? as f32;
+                let percent: u8 = ((remaining / full) * 100.0) as u8;
+                match status {
+                    _ if percent == 100 => PowerInfo::Charged,
+                    BatteryStatus::Discharging => PowerInfo::Discharging(percent),
+                    BatteryStatus::Charging => PowerInfo::Charging(percent),
+                    _ => unreachable!(),
+                }
+            }
+            BatteryStatus::NotPresent => PowerInfo::Wired,
+            BatteryStatus::Idle => PowerInfo::Charged,
+            BatteryStatus(_) => PowerInfo::Unknown,
+        };
+        Ok(power_info)
     }
 
     pub fn is_ff_supported(&self) -> bool {
