@@ -6,6 +6,8 @@ variables:
 
 before_script:
   - apt-get update -yqq && apt-get install -yqq libudev-dev
+  # eframe dependencies for testing gui example
+  - apt-get install -yqq libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev
   - rustc -Vv && cargo -Vv
 
 test:x86_64-unknown-linux-gnu:
@@ -20,6 +22,8 @@ test:i686-unknown-linux-gnu:
   before_script:
     - dpkg --add-architecture i386
     - apt-get update -yqq && apt-get install -yqq gcc-multilib libudev-dev libudev1:i386 libudev-dev:i386
+    # eframe dependencies for testing gui example
+    - apt-get install -yqq libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
