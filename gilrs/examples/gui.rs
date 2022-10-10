@@ -243,6 +243,7 @@ impl eframe::App for MyEguiApp {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
@@ -250,4 +251,15 @@ fn main() {
         native_options,
         Box::new(|cc| Box::new(MyEguiApp::new(cc))),
     );
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    let web_options = eframe::WebOptions::default();
+    eframe::start_web(
+        "canvas",
+        web_options,
+        Box::new(|cc| Box::new(MyEguiApp::new(cc))),
+    )
+    .unwrap();
 }
