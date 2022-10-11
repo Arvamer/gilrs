@@ -18,16 +18,14 @@ test:x86_64-unknown-linux-gnu:
 test:i686-unknown-linux-gnu:
   stage: test
   variables:
-    PKG_CONFIG_ALLOW_CROSS: 1
+    PKG_CONFIG_ALLOW_CROSS: "1"
   before_script:
     - dpkg --add-architecture i386
     - apt-get update -yqq && apt-get install -yqq gcc-multilib libudev-dev libudev1:i386 libudev-dev:i386
-    # eframe dependencies for testing gui example
-    - apt-get install -yqq libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev
     - rustc -Vv && cargo -Vv
     - rustup target add i686-unknown-linux-gnu
   script:
-    - cargo test --verbose --target=i686-unknown-linux-gnu --all --features serde-serialize
+    - cargo test --verbose --target=i686-unknown-linux-gnu --lib --features serde-serialize
 
 build:wasm32-unknown-unknown:
   image: "rust:1.64"
