@@ -251,6 +251,7 @@ impl Gilrs {
 
 #[derive(Debug)]
 pub struct Gamepad {
+    id: u32,
     name: String,
     uuid: Uuid,
     is_connected: bool,
@@ -271,7 +272,7 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    fn new(_id: u32, raw_game_controller: RawGameController) -> Gamepad {
+    fn new(id: u32, raw_game_controller: RawGameController) -> Gamepad {
         let is_connected = true;
 
         let non_roamable_id = raw_game_controller.NonRoamableId().unwrap();
@@ -311,6 +312,7 @@ impl Gamepad {
         );
 
         let mut gamepad = Gamepad {
+            id,
             name,
             uuid,
             is_connected,
@@ -370,11 +372,17 @@ impl Gamepad {
     }
 
     pub fn is_ff_supported(&self) -> bool {
-        true
+        self.wgi_gamepad.is_some()
+            && self
+                .raw_game_controller
+                .ForceFeedbackMotors()
+                .ok()
+                .map(|motors| motors.First())
+                .is_some()
     }
 
     pub fn ff_device(&self) -> Option<FfDevice> {
-        Some(FfDevice::new(self.raw_game_controller.clone()))
+        Some(FfDevice::new(self.id, self.wgi_gamepad.clone()))
     }
 
     pub fn buttons(&self) -> &[EvCode] {

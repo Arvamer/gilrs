@@ -5,6 +5,7 @@ use crate::egui::RichText;
 use eframe::egui;
 use eframe::egui::Vec2;
 use gilrs::ev::AxisOrBtn;
+use gilrs::ff::{BaseEffect, BaseEffectType, Effect, EffectBuilder, Repeat, Ticks};
 use gilrs::{Axis, GamepadId, Gilrs, GilrsBuilder};
 use gilrs_core::PowerInfo;
 use std::time::UNIX_EPOCH;
@@ -14,15 +15,38 @@ struct MyEguiApp {
     gilrs: Gilrs,
     current_gamepad: Option<GamepadId>,
     log_messages: [Option<String>; 300],
+    ff_strong: Effect,
+    ff_weak: Effect,
 }
 
 impl Default for MyEguiApp {
     fn default() -> Self {
         const INIT: Option<String> = None;
+        let mut gilrs = GilrsBuilder::new().set_update_state(false).build().unwrap();
+        let ff_strong = EffectBuilder::new()
+            .add_effect(BaseEffect {
+                kind: BaseEffectType::Strong { magnitude: 60_000 },
+                scheduling: Default::default(),
+                envelope: Default::default(),
+            })
+            .repeat(Repeat::For(Ticks::from_ms(100)))
+            .finish(&mut gilrs)
+            .unwrap();
+        let ff_weak = EffectBuilder::new()
+            .add_effect(BaseEffect {
+                kind: BaseEffectType::Weak { magnitude: 60_000 },
+                scheduling: Default::default(),
+                envelope: Default::default(),
+            })
+            .repeat(Repeat::For(Ticks::from_ms(100)))
+            .finish(&mut gilrs)
+            .unwrap();
         Self {
-            gilrs: GilrsBuilder::new().set_update_state(false).build().unwrap(),
+            gilrs,
             current_gamepad: None,
             log_messages: [INIT; 300],
+            ff_strong,
+            ff_weak,
         }
     }
 }
@@ -101,50 +125,65 @@ impl eframe::App for MyEguiApp {
                 if let Some(gamepad_id) = self.current_gamepad {
                     let gamepad = self.gilrs.gamepad(gamepad_id);
                     let gamepad_state = gamepad.state();
-                    ui.vertical(|ui| {
-                        ui.heading("Info");
-                        egui::Grid::new("info_grid")
-                            .striped(true)
-                            .num_columns(2)
-                            .show(ui, |ui| {
-                                ui.label("Name");
-                                ui.label(gamepad.name());
-                                ui.end_row();
-
-                                ui.label("Gilrs ID");
-                                ui.label(gamepad.id().to_string());
-                                ui.end_row();
-
-                                if let Some(map_name) = gamepad.map_name() {
-                                    ui.label("Map Name");
-                                    ui.label(map_name);
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.heading("Info");
+                            egui::Grid::new("info_grid")
+                                .striped(true)
+                                .num_columns(2)
+                                .show(ui, |ui| {
+                                    ui.label("Name");
+                                    ui.label(gamepad.name());
                                     ui.end_row();
-                                }
 
-                                ui.label("Map Source");
-                                ui.label(format!("{:?}", gamepad.mapping_source()));
-                                ui.end_row();
+                                    ui.label("Gilrs ID");
+                                    ui.label(gamepad.id().to_string());
+                                    ui.end_row();
 
-                                ui.label("Uuid");
-                                let uuid = Uuid::from_bytes(gamepad.uuid()).to_string();
-                                ui.horizontal(|ui| {
-                                    ui.label(&uuid);
-                                    if ui.button("Copy").clicked() {
-                                        ui.output().copied_text = uuid;
+                                    if let Some(map_name) = gamepad.map_name() {
+                                        ui.label("Map Name");
+                                        ui.label(map_name);
+                                        ui.end_row();
                                     }
-                                });
-                                ui.end_row();
 
-                                ui.label("Power");
-                                ui.label(match gamepad.power_info() {
-                                    PowerInfo::Unknown => "Unknown".to_string(),
-                                    PowerInfo::Wired => "Wired".to_string(),
-                                    PowerInfo::Discharging(p) => format!("Discharging {p}"),
-                                    PowerInfo::Charging(p) => format!("Charging {p}"),
-                                    PowerInfo::Charged => "Charged".to_string(),
+                                    ui.label("Map Source");
+                                    ui.label(format!("{:?}", gamepad.mapping_source()));
+                                    ui.end_row();
+
+                                    ui.label("Uuid");
+                                    let uuid = Uuid::from_bytes(gamepad.uuid()).to_string();
+                                    ui.horizontal(|ui| {
+                                        ui.label(&uuid);
+                                        if ui.button("Copy").clicked() {
+                                            ui.output().copied_text = uuid;
+                                        }
+                                    });
+                                    ui.end_row();
+
+                                    ui.label("Power");
+                                    ui.label(match gamepad.power_info() {
+                                        PowerInfo::Unknown => "Unknown".to_string(),
+                                        PowerInfo::Wired => "Wired".to_string(),
+                                        PowerInfo::Discharging(p) => format!("Discharging {p}"),
+                                        PowerInfo::Charging(p) => format!("Charging {p}"),
+                                        PowerInfo::Charged => "Charged".to_string(),
+                                    });
+                                    ui.end_row();
                                 });
-                                ui.end_row();
+                        });
+                        if gamepad.is_ff_supported() {
+                            ui.vertical(|ui| {
+                                ui.label("Force Feedback");
+                                if ui.button("Play Strong").clicked() {
+                                    self.ff_strong.add_gamepad(&gamepad).unwrap();
+                                    self.ff_strong.play().unwrap();
+                                }
+                                if ui.button("Play Weak").clicked() {
+                                    self.ff_weak.add_gamepad(&gamepad).unwrap();
+                                    self.ff_weak.play().unwrap();
+                                }
                             });
+                        }
                     });
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {

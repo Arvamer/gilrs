@@ -5,21 +5,33 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::time::Duration;
-use windows::Gaming::Input::RawGameController;
+use windows::Gaming::Input::Gamepad as WgiGamepad;
+use windows::Gaming::Input::GamepadVibration;
 
 #[derive(Debug)]
 pub struct Device {
-    raw_game_controller: RawGameController,
+    id: u32,
+    wgi_gamepad: Option<WgiGamepad>,
 }
 
 impl Device {
-    pub(crate) fn new(raw_game_controller: RawGameController) -> Self {
-        Device {
-            raw_game_controller,
-        }
+    pub(crate) fn new(id: u32, wgi_gamepad: Option<WgiGamepad>) -> Self {
+        Device { id, wgi_gamepad }
     }
 
     pub fn set_ff_state(&mut self, strong: u16, weak: u16, _min_duration: Duration) {
-        // todo!()
+        if let Some(wgi_gamepad) = &self.wgi_gamepad {
+            if let Err(err) = wgi_gamepad.SetVibration(GamepadVibration {
+                LeftMotor: (strong as f64) / (u16::MAX as f64),
+                RightMotor: (weak as f64) / (u16::MAX as f64),
+                LeftTrigger: 0.0,
+                RightTrigger: 0.0,
+            }) {
+                error!(
+                    "Failed to change FF state – unknown error. ID = {}, error = {:?}.",
+                    self.id, err
+                );
+            }
+        }
     }
 }
