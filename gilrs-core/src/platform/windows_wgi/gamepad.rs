@@ -90,28 +90,31 @@ impl GamePadReading {
         Ok(())
     }
 
-    /// Create a list of event types that describe the differences from this reading to the
-    /// provided new reading.
-    fn events_from_differences(&self, new_reading: &Self) -> Vec<EventType> {
-        let mut changed = Vec::new();
-
+    /// Send events generated from the differences between the two readings.
+    fn send_events_for_differences(
+        &self,
+        controller: &RawGameController,
+        new_reading: &Self,
+        tx: &Sender<WgiEvent>,
+    ) {
         // Axis changes
         for index in 0..new_reading.axes.len() {
             if self.axes.get(index) != new_reading.axes.get(index) {
                 let value = (((new_reading.axes[index] - 0.5) * 2.0) * u16::MAX as f64) as i32;
-                let event = EventType::AxisValueChanged(
+                let event_type = EventType::AxisValueChanged(
                     value,
                     crate::EvCode(EvCode {
                         kind: EvCodeKind::Axis,
                         index: index as u32,
                     }),
                 );
-                changed.push(event);
+                tx.send(WgiEvent::new(controller.clone(), event_type))
+                    .unwrap()
             }
         }
         for index in 0..new_reading.buttons.len() {
             if self.buttons.get(index) != new_reading.buttons.get(index) {
-                let event = match new_reading.buttons[index] {
+                let event_type = match new_reading.buttons[index] {
                     true => EventType::ButtonPressed(crate::EvCode(EvCode {
                         kind: EvCodeKind::Button,
                         index: index as u32,
@@ -121,7 +124,8 @@ impl GamePadReading {
                         index: index as u32,
                     })),
                 };
-                changed.push(event);
+                tx.send(WgiEvent::new(controller.clone(), event_type))
+                    .unwrap()
             }
         }
         // Todo: Decide if this should be treated as a button or axis
@@ -130,7 +134,6 @@ impl GamePadReading {
         //
         //     }
         // }
-        changed
     }
 }
 
@@ -195,11 +198,7 @@ impl Gilrs {
                         if old_reading.time == new_reading.time {
                             continue;
                         }
-
-                        for event_type in old_reading.events_from_differences(new_reading) {
-                            tx.send(WgiEvent::new(controller.clone(), event_type))
-                                .unwrap();
-                        }
+                        old_reading.send_events_for_differences(controller, new_reading, &tx)
                     };
                 }
                 thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
