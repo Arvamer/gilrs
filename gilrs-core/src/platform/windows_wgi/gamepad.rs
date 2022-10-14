@@ -100,7 +100,8 @@ impl GamePadReading {
         // Axis changes
         for index in 0..new_reading.axes.len() {
             if self.axes.get(index) != new_reading.axes.get(index) {
-                let value = (((new_reading.axes[index] - 0.5) * 2.0) * u16::MAX as f64) as i32;
+                // https://github.com/libsdl-org/SDL/blob/6af17369ca773155bd7f39b8801725c4a6d52e4f/src/joystick/windows/SDL_windows_gaming_input.c#L863
+                let value = ((new_reading.axes[index] * 65535.0) - 32768.0) as i32;
                 let event_type = EventType::AxisValueChanged(
                     value,
                     crate::EvCode(EvCode {
