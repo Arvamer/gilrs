@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use super::FfDevice;
+use crate::native_ev_codes as nec;
 use crate::{utils, AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 #[cfg(feature = "serde-serialize")]
@@ -14,28 +15,47 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, SystemTime};
 use std::{thread, u32};
+use uuid::Uuid;
+use windows::core::HSTRING;
+use windows::Devices::Power::BatteryReport;
 use windows::Foundation::EventHandler;
-use windows::Gaming::Input::RawGameController;
-use windows::Gaming::Input::{GameControllerSwitchPosition, Gamepad as WgiGamepad};
+use windows::Gaming::Input::{
+    GameControllerSwitchPosition, Gamepad as WgiGamepad, GamepadButtons, GamepadReading,
+    RawGameController,
+};
+use windows::System::Power::BatteryStatus;
 
 const SDL_HARDWARE_BUS_USB: u32 = 0x03;
 const SDL_HARDWARE_BUS_BLUETOOTH: u32 = 0x05;
 
-use uuid::Uuid;
-use windows::core::HSTRING;
-use windows::Devices::Power::BatteryReport;
-use windows::System::Power::BatteryStatus;
+// Chosen by dice roll ;)
+const EVENT_THREAD_SLEEP_TIME: u64 = 10;
+
+const WGI_TO_GILRS_BUTTON_MAP: [(GamepadButtons, crate::EvCode); 14] = [
+    (GamepadButtons::DPadUp, nec::BTN_DPAD_UP),
+    (GamepadButtons::DPadDown, nec::BTN_DPAD_DOWN),
+    (GamepadButtons::DPadLeft, nec::BTN_DPAD_LEFT),
+    (GamepadButtons::DPadRight, nec::BTN_DPAD_RIGHT),
+    (GamepadButtons::Menu, nec::BTN_START),
+    (GamepadButtons::View, nec::BTN_SELECT),
+    (GamepadButtons::LeftThumbstick, nec::BTN_LTHUMB),
+    (GamepadButtons::RightThumbstick, nec::BTN_RTHUMB),
+    (GamepadButtons::LeftShoulder, nec::BTN_LT),
+    (GamepadButtons::RightShoulder, nec::BTN_RT),
+    (GamepadButtons::A, nec::BTN_SOUTH),
+    (GamepadButtons::B, nec::BTN_EAST),
+    (GamepadButtons::X, nec::BTN_WEST),
+    (GamepadButtons::Y, nec::BTN_NORTH),
+];
 
 /// This is similar to `gilrs_core::Event` but has a raw_game_controller that still needs to be
 /// converted to a gilrs gamepad id.
+#[derive(Debug)]
 struct WgiEvent {
     raw_game_controller: RawGameController,
     event: EventType,
     pub time: SystemTime,
 }
-
-// Chosen by dice roll ;)
-const EVENT_THREAD_SLEEP_TIME: u64 = 10;
 
 impl WgiEvent {
     fn new(raw_game_controller: RawGameController, event: EventType) -> Self {
@@ -52,90 +72,6 @@ impl WgiEvent {
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
     rx: Receiver<WgiEvent>,
-}
-
-#[derive(Debug, Clone)]
-struct GamePadReading {
-    axes: Vec<f64>,
-    buttons: Vec<bool>,
-    switches: Vec<GameControllerSwitchPosition>,
-    time: u64,
-}
-
-impl GamePadReading {
-    fn new(raw_game_controller: &RawGameController) -> windows::core::Result<Self> {
-        let axis_count = raw_game_controller.AxisCount()? as usize;
-        let button_count = raw_game_controller.ButtonCount()? as usize;
-        let switch_count = raw_game_controller.SwitchCount()? as usize;
-        let mut new = Self {
-            axes: vec![0.0; axis_count],
-            buttons: vec![false; button_count],
-            switches: vec![GameControllerSwitchPosition::default(); switch_count],
-            time: 0,
-        };
-        new.time = raw_game_controller.GetCurrentReading(
-            &mut new.buttons,
-            &mut new.switches,
-            &mut new.axes,
-        )?;
-        Ok(new)
-    }
-
-    fn update(&mut self, raw_game_controller: &RawGameController) -> windows::core::Result<()> {
-        self.time = raw_game_controller.GetCurrentReading(
-            &mut self.buttons,
-            &mut self.switches,
-            &mut self.axes,
-        )?;
-        Ok(())
-    }
-
-    /// Send events generated from the differences between the two readings.
-    fn send_events_for_differences(
-        &self,
-        controller: &RawGameController,
-        new_reading: &Self,
-        tx: &Sender<WgiEvent>,
-    ) {
-        // Axis changes
-        for index in 0..new_reading.axes.len() {
-            if self.axes.get(index) != new_reading.axes.get(index) {
-                // https://github.com/libsdl-org/SDL/blob/6af17369ca773155bd7f39b8801725c4a6d52e4f/src/joystick/windows/SDL_windows_gaming_input.c#L863
-                let value = ((new_reading.axes[index] * 65535.0) - 32768.0) as i32;
-                let event_type = EventType::AxisValueChanged(
-                    value,
-                    crate::EvCode(EvCode {
-                        kind: EvCodeKind::Axis,
-                        index: index as u32,
-                    }),
-                );
-                tx.send(WgiEvent::new(controller.clone(), event_type))
-                    .unwrap()
-            }
-        }
-        for index in 0..new_reading.buttons.len() {
-            if self.buttons.get(index) != new_reading.buttons.get(index) {
-                let event_type = match new_reading.buttons[index] {
-                    true => EventType::ButtonPressed(crate::EvCode(EvCode {
-                        kind: EvCodeKind::Button,
-                        index: index as u32,
-                    })),
-                    false => EventType::ButtonReleased(crate::EvCode(EvCode {
-                        kind: EvCodeKind::Button,
-                        index: index as u32,
-                    })),
-                };
-                tx.send(WgiEvent::new(controller.clone(), event_type))
-                    .unwrap()
-            }
-        }
-        // Todo: Decide if this should be treated as a button or axis
-        // for index in 0..new_reading.switches.len() {
-        //     if self.switches.get(index) != new_reading.switches.get(index) {
-        //
-        //     }
-        // }
-    }
 }
 
 impl Gilrs {
@@ -180,7 +116,7 @@ impl Gilrs {
         thread::spawn(move || {
             // To avoid allocating every update, store old and new readings for every controller
             // and swap their memory
-            let mut readings: Vec<(GamePadReading, GamePadReading)> = Vec::new();
+            let mut readings: Vec<(Reading, Reading)> = Vec::new();
             loop {
                 let controllers: Vec<RawGameController> = RawGameController::RawGameControllers()
                     .into_iter()
@@ -188,19 +124,27 @@ impl Gilrs {
                     .collect();
                 for (index, controller) in controllers.iter().enumerate() {
                     if readings.get(index).is_none() {
-                        let reading = GamePadReading::new(controller).unwrap();
+                        let reading = match WgiGamepad::FromGameController(controller) {
+                            Ok(wgi_gamepad) => {
+                                Reading::Gamepad(wgi_gamepad.GetCurrentReading().unwrap())
+                            }
+                            _ => Reading::Raw(RawGamepadReading::new(controller).unwrap()),
+                        };
+
                         readings.push((reading.clone(), reading));
                     }
                     let (old_reading, new_reading) = &mut readings[index];
+
+                    // Make last update's reading the old reading and get a new one.
                     std::mem::swap(old_reading, new_reading);
                     new_reading.update(controller).unwrap();
-                    {
-                        // skip if this is the same reading as the last one.
-                        if old_reading.time == new_reading.time {
-                            continue;
-                        }
-                        old_reading.send_events_for_differences(controller, new_reading, &tx)
-                    };
+
+                    // Skip if this is the same reading as the last one.
+                    if old_reading.time() == new_reading.time() {
+                        continue;
+                    }
+
+                    Reading::send_events_for_differences(old_reading, new_reading, controller, &tx);
                 }
                 thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
             }
@@ -249,6 +193,174 @@ impl Gilrs {
     }
 }
 
+#[derive(Debug, Clone)]
+struct RawGamepadReading {
+    axes: Vec<f64>,
+    buttons: Vec<bool>,
+    switches: Vec<GameControllerSwitchPosition>,
+    time: u64,
+}
+
+impl RawGamepadReading {
+    fn new(raw_game_controller: &RawGameController) -> windows::core::Result<Self> {
+        let axis_count = raw_game_controller.AxisCount()? as usize;
+        let button_count = raw_game_controller.ButtonCount()? as usize;
+        let switch_count = raw_game_controller.SwitchCount()? as usize;
+        let mut new = Self {
+            axes: vec![0.0; axis_count],
+            buttons: vec![false; button_count],
+            switches: vec![GameControllerSwitchPosition::default(); switch_count],
+            time: 0,
+        };
+        new.time = raw_game_controller.GetCurrentReading(
+            &mut new.buttons,
+            &mut new.switches,
+            &mut new.axes,
+        )?;
+        Ok(new)
+    }
+
+    fn update(&mut self, raw_game_controller: &RawGameController) -> windows::core::Result<()> {
+        self.time = raw_game_controller.GetCurrentReading(
+            &mut self.buttons,
+            &mut self.switches,
+            &mut self.axes,
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+enum Reading {
+    Raw(RawGamepadReading),
+    Gamepad(GamepadReading),
+}
+
+impl Reading {
+    fn time(&self) -> u64 {
+        match self {
+            Reading::Raw(r) => r.time,
+            Reading::Gamepad(r) => r.Timestamp,
+        }
+    }
+
+    fn update(&mut self, controller: &RawGameController) -> windows::core::Result<()> {
+        match self {
+            Reading::Raw(raw_reading) => {
+                raw_reading.update(controller)?;
+            }
+            Reading::Gamepad(gamepad_reading) => {
+                let gamepad: WgiGamepad = WgiGamepad::FromGameController(controller)?;
+                *gamepad_reading = gamepad.GetCurrentReading()?;
+            }
+        }
+        Ok(())
+    }
+
+    fn send_events_for_differences(
+        old: &Self,
+        new: &Self,
+        controller: &RawGameController,
+        tx: &Sender<WgiEvent>,
+    ) {
+        debug_assert!(old.time() < new.time());
+        match (old, new) {
+            // WGI RawGameController
+            (Reading::Raw(old), Reading::Raw(new)) => {
+                // Axis changes
+                for index in 0..new.axes.len() {
+                    if old.axes.get(index) != new.axes.get(index) {
+                        // https://github.com/libsdl-org/SDL/blob/6af17369ca773155bd7f39b8801725c4a6d52e4f/src/joystick/windows/SDL_windows_gaming_input.c#L863
+                        let value = ((new.axes[index] * 65535.0) - 32768.0) as i32;
+                        let event_type = EventType::AxisValueChanged(
+                            value,
+                            crate::EvCode(EvCode {
+                                kind: EvCodeKind::Axis,
+                                index: index as u32,
+                            }),
+                        );
+                        tx.send(WgiEvent::new(controller.clone(), event_type))
+                            .unwrap()
+                    }
+                }
+                for index in 0..new.buttons.len() {
+                    if old.buttons.get(index) != new.buttons.get(index) {
+                        let event_type = match new.buttons[index] {
+                            true => EventType::ButtonPressed(crate::EvCode(EvCode {
+                                kind: EvCodeKind::Button,
+                                index: index as u32,
+                            })),
+                            false => EventType::ButtonReleased(crate::EvCode(EvCode {
+                                kind: EvCodeKind::Button,
+                                index: index as u32,
+                            })),
+                        };
+                        tx.send(WgiEvent::new(controller.clone(), event_type))
+                            .unwrap()
+                    }
+                }
+                // Todo: Decide if this should be treated as a button or axis
+                // for index in 0..new_reading.switches.len() {
+                //     if self.switches.get(index) != new_reading.switches.get(index) {
+                //
+                //     }
+                // }
+            }
+            // WGI Gamepad
+            (Reading::Gamepad(old), Reading::Gamepad(new)) => {
+                #[rustfmt::skip]
+                let axes = [
+                    (new.LeftTrigger, old.LeftTrigger, nec::AXIS_LT2),
+                    (new.RightTrigger, old.RightTrigger, nec::AXIS_RT2),
+                    (new.LeftThumbstickX, old.LeftThumbstickX, nec::AXIS_LSTICKX),
+                    (new.LeftThumbstickY, old.LeftThumbstickY, nec::AXIS_LSTICKY),
+                    (new.RightThumbstickX, old.RightThumbstickX, nec::AXIS_RSTICKX),
+                    (new.RightThumbstickY, old.RightThumbstickY, nec::AXIS_RSTICKY),
+                ];
+                for (new, old, code) in axes {
+                    if new != old {
+                        let _ = tx.send(WgiEvent::new(
+                            controller.clone(),
+                            EventType::AxisValueChanged((new * i32::MAX as f64) as i32, code),
+                        ));
+                    }
+                }
+
+                for (current_button, ev_code) in WGI_TO_GILRS_BUTTON_MAP {
+                    if (new.Buttons & current_button) != (old.Buttons & current_button) {
+                        let _ = match new.Buttons & current_button != GamepadButtons::None {
+                            true => tx.send(WgiEvent::new(
+                                controller.clone(),
+                                EventType::ButtonPressed(ev_code),
+                            )),
+                            false => tx.send(WgiEvent::new(
+                                controller.clone(),
+                                EventType::ButtonReleased(ev_code),
+                            )),
+                        };
+                    }
+                }
+            }
+            (a, b) => {
+                warn!(
+                    "WGI Controller changed from gamepad: {} to gamepad: {}. Could not compare \
+                     last update.",
+                    a.is_gamepad(),
+                    b.is_gamepad()
+                );
+                #[cfg(debug_assertions)]
+                panic!(
+                    "Controllers shouldn't change type between updates, likely programmer error"
+                );
+            }
+        }
+    }
+
+    fn is_gamepad(&self) -> bool {
+        matches!(self, Reading::Gamepad(_))
+    }
+}
+
 #[derive(Debug)]
 pub struct Gamepad {
     id: u32,
@@ -284,32 +396,39 @@ impl Gamepad {
             Err(_) => "unknown".to_string(),
         };
 
-        // If it's wireless, use the Bluetooth bustype to match SDL
-        // https://github.com/libsdl-org/SDL/blob/294ccba0a23b37fffef62189423444f93732e565/src/joystick/windows/SDL_windows_gaming_input.c#L335-L338
-        let bustype = match raw_game_controller.IsWireless() {
-            Ok(true) => SDL_HARDWARE_BUS_BLUETOOTH,
-            _ => SDL_HARDWARE_BUS_USB,
-        }
-        .to_be();
+        let uuid = match wgi_gamepad.is_some() {
+            true => Uuid::nil(),
+            false => {
+                let vendor_id = raw_game_controller.HardwareVendorId().unwrap_or(0).to_be();
+                let product_id = raw_game_controller.HardwareProductId().unwrap_or(0).to_be();
+                let version = 0;
 
-        let vendor_id = raw_game_controller.HardwareVendorId().unwrap_or(0).to_be();
-        let product_id = raw_game_controller.HardwareProductId().unwrap_or(0).to_be();
-        let version = 0;
-        let uuid = Uuid::from_fields(
-            bustype,
-            vendor_id,
-            0,
-            &[
-                (product_id >> 8) as u8,
-                product_id as u8,
-                0,
-                0,
-                (version >> 8) as u8,
-                version as u8,
-                0,
-                0,
-            ],
-        );
+                // If it's wireless, use the Bluetooth bustype to match SDL
+                // https://github.com/libsdl-org/SDL/blob/294ccba0a23b37fffef62189423444f93732e565/src/joystick/windows/SDL_windows_gaming_input.c#L335-L338
+                let bustype = match Err(()) {
+                    //raw_game_controller.IsWireless() {
+                    Ok(true) => SDL_HARDWARE_BUS_BLUETOOTH,
+                    _ => SDL_HARDWARE_BUS_USB,
+                }
+                .to_be();
+
+                Uuid::from_fields(
+                    bustype,
+                    vendor_id,
+                    0,
+                    &[
+                        (product_id >> 8) as u8,
+                        product_id as u8,
+                        0,
+                        0,
+                        (version >> 8) as u8,
+                        version as u8,
+                        0,
+                        0,
+                    ],
+                )
+            }
+        };
 
         let mut gamepad = Gamepad {
             id,
@@ -393,12 +512,32 @@ impl Gamepad {
         &self.axes
     }
 
-    pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
-        Some(&AxisInfo {
-            min: i16::MIN as i32,
-            max: i16::MAX as i32,
-            deadzone: None,
-        })
+    pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
+        // If it isn't a Windows "Gamepad" then just return a default
+        if self.wgi_gamepad.is_none() {
+            return Some(&AxisInfo {
+                min: i16::MIN as i32,
+                max: i16::MAX as i32,
+                deadzone: None,
+            });
+        }
+
+        // For Windows Gamepads, the triggers are 0.0 to 1.0 and the thumbsticks are -1.0 to 1.0
+        // https://learn.microsoft.com/en-us/uwp/api/windows.gaming.input.gamepadreading#fields
+        // Since Gilrs processes axis data as integers, the input has already been multiplied by
+        // i32::MAX in the joy_value method.
+        match nec {
+            native_ev_codes::AXIS_LT2 | native_ev_codes::AXIS_RT2 => Some(&AxisInfo {
+                min: 0,
+                max: i32::MAX,
+                deadzone: None,
+            }),
+            _ => Some(&AxisInfo {
+                min: i32::MIN,
+                max: i32::MAX,
+                deadzone: None,
+            }),
+        }
     }
 
     fn collect_axes_and_buttons(&mut self) {
