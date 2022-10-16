@@ -230,6 +230,23 @@ impl RawGamepadReading {
     }
 }
 
+/// Treats switches like a two axes similar to a Directional pad.
+/// Returns a tuple containing the values of the x and y axis.
+/// Value's range is -1 to 1.
+fn direction_from_switch(switch: GameControllerSwitchPosition) -> (i32, i32) {
+    match switch {
+        GameControllerSwitchPosition::Up => (0, 1),
+        GameControllerSwitchPosition::Down => (0, -1),
+        GameControllerSwitchPosition::Right => (1, 0),
+        GameControllerSwitchPosition::Left => (-1, 0),
+        GameControllerSwitchPosition::UpLeft => (-1, 1),
+        GameControllerSwitchPosition::UpRight => (1, 1),
+        GameControllerSwitchPosition::DownLeft => (-1, -1),
+        GameControllerSwitchPosition::DownRight => (1, -1),
+        _ => (0, 0),
+    }
+}
+
 #[derive(Clone)]
 enum Reading {
     Raw(RawGamepadReading),
@@ -299,12 +316,33 @@ impl Reading {
                             .unwrap()
                     }
                 }
-                // Todo: Decide if this should be treated as a button or axis
-                // for index in 0..new_reading.switches.len() {
-                //     if self.switches.get(index) != new_reading.switches.get(index) {
-                //
-                //     }
-                // }
+
+                for index in 0..old.switches.len() {
+                    let (old_x, old_y) = direction_from_switch(old.switches[index]);
+                    let (new_x, new_y) = direction_from_switch(new.switches[index]);
+                    if old_x != new_x {
+                        let event_type = EventType::AxisValueChanged(
+                            new_x,
+                            crate::EvCode(EvCode {
+                                kind: EvCodeKind::Switch,
+                                index: (index * 2) as u32,
+                            }),
+                        );
+                        tx.send(WgiEvent::new(controller.clone(), event_type))
+                            .unwrap()
+                    }
+                    if old_y != new_y {
+                        let event_type = EventType::AxisValueChanged(
+                            index as i32,
+                            crate::EvCode(EvCode {
+                                kind: EvCodeKind::Switch,
+                                index: (index * 2) as u32 + 1,
+                            }),
+                        );
+                        tx.send(WgiEvent::new(controller.clone(), event_type))
+                            .unwrap()
+                    }
+                }
             }
             // WGI Gamepad
             (Reading::Gamepad(old), Reading::Gamepad(new)) => {
@@ -515,11 +553,19 @@ impl Gamepad {
     pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
         // If it isn't a Windows "Gamepad" then just return a default
         if self.wgi_gamepad.is_none() {
-            return Some(&AxisInfo {
-                min: i16::MIN as i32,
-                max: i16::MAX as i32,
-                deadzone: None,
-            });
+            return match nec.kind {
+                EvCodeKind::Button => None,
+                EvCodeKind::Axis => Some(&AxisInfo {
+                    min: i16::MIN as i32,
+                    max: i16::MAX as i32,
+                    deadzone: None,
+                }),
+                EvCodeKind::Switch => Some(&AxisInfo {
+                    min: -1,
+                    max: 1,
+                    deadzone: None,
+                }),
+            };
         }
 
         // For Windows Gamepads, the triggers are 0.0 to 1.0 and the thumbsticks are -1.0 to 1.0
@@ -541,17 +587,35 @@ impl Gamepad {
     }
 
     fn collect_axes_and_buttons(&mut self) {
-        self.buttons = (0..(self.raw_game_controller.ButtonCount().unwrap() as u32))
+        let axis_count = self.raw_game_controller.AxisCount().unwrap() as u32;
+        let button_count = self.raw_game_controller.ButtonCount().unwrap() as u32;
+        let switch_count = self.raw_game_controller.SwitchCount().unwrap() as u32;
+        self.buttons = (0..button_count)
             .map(|index| EvCode {
                 kind: EvCodeKind::Button,
                 index,
             })
             .collect();
-        self.axes = (0..(self.raw_game_controller.AxisCount().unwrap() as u32))
+        self.axes = (0..axis_count)
             .map(|index| EvCode {
                 kind: EvCodeKind::Axis,
                 index,
             })
+            .chain(
+                // Treat switches as two axes
+                (0..switch_count).flat_map(|index| {
+                    [
+                        EvCode {
+                            kind: EvCodeKind::Switch,
+                            index: index * 2,
+                        },
+                        EvCode {
+                            kind: EvCodeKind::Switch,
+                            index: (index * 2) + 1,
+                        },
+                    ]
+                }),
+            )
             .collect();
     }
 }
