@@ -1,6 +1,23 @@
 Change Log
 ==========
 
+v0.10.0 - Unreleased
+--------------------
+
+### Changed
+
+- Windows now defaults to using Windows Gaming Input instead of xinput.
+  
+  If you need to use xInput you can disable the `wgi` feature (It's enabled by default) and enable the `xinput` feature.
+  ``` toml
+  gilrs = {version = "0.10.0", default-features = false, features = ["wgi"]}
+  ```
+- Apps on Windows will now require a focused window to receive inputs by default. 
+  
+  This is a limitation of Windows Gaming Input. It requires an in focus Window be associated with the process to receive events. You can still switch back to using xInput by turning off default features and enabling the `xinput` feature.
+
+  Note: Some (Older?) devices may still report inputs without a window but this is not the case for all devices so if you are writing a terminal based game, use the `xinput` feature instead.
+
 v0.9.0 - 2022-05-22
 -------------------
 
