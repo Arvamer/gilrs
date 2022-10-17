@@ -11,6 +11,7 @@ use crate::{utils, AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 #[cfg(feature = "serde-serialize")]
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, SystemTime};
@@ -114,16 +115,20 @@ impl Gilrs {
         RawGameController::RawGameControllerRemoved(&removed_handler).unwrap();
 
         thread::spawn(move || {
+            let mut controllers: Vec<RawGameController> = Vec::new();
             // To avoid allocating every update, store old and new readings for every controller
             // and swap their memory
-            let mut readings: Vec<(Reading, Reading)> = Vec::new();
+            let mut readings: HashMap<String, (Reading, Reading)> = HashMap::new();
             loop {
-                let controllers: Vec<RawGameController> = RawGameController::RawGameControllers()
-                    .into_iter()
-                    .flatten()
-                    .collect();
-                for (index, controller) in controllers.iter().enumerate() {
-                    if readings.get(index).is_none() {
+                controllers.clear();
+                controllers.extend(
+                    RawGameController::RawGameControllers()
+                        .into_iter()
+                        .flatten(),
+                );
+                for controller in controllers.iter() {
+                    let id = controller.NonRoamableId().unwrap().to_string();
+                    let (old_reading, new_reading) = readings.entry(id).or_insert({
                         let reading = match WgiGamepad::FromGameController(controller) {
                             Ok(wgi_gamepad) => {
                                 Reading::Gamepad(wgi_gamepad.GetCurrentReading().unwrap())
@@ -131,9 +136,8 @@ impl Gilrs {
                             _ => Reading::Raw(RawGamepadReading::new(controller).unwrap()),
                         };
 
-                        readings.push((reading.clone(), reading));
-                    }
-                    let (old_reading, new_reading) = &mut readings[index];
+                        (reading.clone(), reading)
+                    });
 
                     // Make last update's reading the old reading and get a new one.
                     std::mem::swap(old_reading, new_reading);
@@ -280,7 +284,6 @@ impl Reading {
         controller: &RawGameController,
         tx: &Sender<WgiEvent>,
     ) {
-        debug_assert!(old.time() < new.time());
         match (old, new) {
             // WGI RawGameController
             (Reading::Raw(old), Reading::Raw(new)) => {
