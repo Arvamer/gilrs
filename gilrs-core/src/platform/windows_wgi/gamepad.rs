@@ -29,8 +29,10 @@ use windows::System::Power::BatteryStatus;
 const SDL_HARDWARE_BUS_USB: u32 = 0x03;
 const SDL_HARDWARE_BUS_BLUETOOTH: u32 = 0x05;
 
-// Chosen by dice roll ;)
-const EVENT_THREAD_SLEEP_TIME: u64 = 10;
+// The general consensus is that standard xbox controllers poll at ~125 hz which
+// means 8 ms between updates.
+// Seems like a good target for how often we update the background thread.
+const EVENT_THREAD_SLEEP_TIME: u64 = 8;
 
 const WGI_TO_GILRS_BUTTON_MAP: [(GamepadButtons, crate::EvCode); 14] = [
     (GamepadButtons::DPadUp, nec::BTN_DPAD_UP),
