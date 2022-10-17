@@ -10,7 +10,7 @@ v0.5.0 - Unreleased
 
   If you need to use xInput you can disable the `wgi` feature (It's enabled by default) and enable the `xinput` feature.
   ``` toml
-  gilrs = {version = "0.10.0", default-features = false, features = ["wgi"]}
+  gilrs-core = {version = "0.5.0", default-features = false, features = ["wgi"]}
   ```
 - Apps on Windows will now require a focused window to receive inputs by default.
 
