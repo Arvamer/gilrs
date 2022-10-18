@@ -11,7 +11,6 @@ use crate::{utils, AxisInfo, Event, EventType, PlatformError, PowerInfo};
 
 #[cfg(feature = "serde-serialize")]
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, SystemTime};
@@ -120,7 +119,7 @@ impl Gilrs {
             let mut controllers: Vec<RawGameController> = Vec::new();
             // To avoid allocating every update, store old and new readings for every controller
             // and swap their memory
-            let mut readings: HashMap<String, (Reading, Reading)> = HashMap::new();
+            let mut readings: Vec<(HSTRING, Reading, Reading)> = Vec::new();
             loop {
                 controllers.clear();
                 controllers.extend(
@@ -129,17 +128,24 @@ impl Gilrs {
                         .flatten(),
                 );
                 for controller in controllers.iter() {
-                    let id = controller.NonRoamableId().unwrap().to_string();
-                    let (old_reading, new_reading) = readings.entry(id).or_insert({
-                        let reading = match WgiGamepad::FromGameController(controller) {
-                            Ok(wgi_gamepad) => {
-                                Reading::Gamepad(wgi_gamepad.GetCurrentReading().unwrap())
-                            }
-                            _ => Reading::Raw(RawGamepadReading::new(controller).unwrap()),
-                        };
+                    let id: HSTRING = controller.NonRoamableId().unwrap();
+                    // Find readings for this controller or insert new ones.
+                    let index = match readings.iter().position(|(other_id, ..)| id == *other_id) {
+                        None => {
+                            let reading = match WgiGamepad::FromGameController(controller) {
+                                Ok(wgi_gamepad) => {
+                                    Reading::Gamepad(wgi_gamepad.GetCurrentReading().unwrap())
+                                }
+                                _ => Reading::Raw(RawGamepadReading::new(controller).unwrap()),
+                            };
 
-                        (reading.clone(), reading)
-                    });
+                            readings.push((id, reading.clone(), reading));
+                            readings.len() - 1
+                        }
+                        Some(i) => i,
+                    };
+
+                    let (_, old_reading, new_reading) = &mut readings[index];
 
                     // Make last update's reading the old reading and get a new one.
                     std::mem::swap(old_reading, new_reading);
