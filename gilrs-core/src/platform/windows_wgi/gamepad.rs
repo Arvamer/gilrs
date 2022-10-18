@@ -562,20 +562,29 @@ impl Gamepad {
     }
 
     pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
-        // If it isn't a Windows "Gamepad" then just return a default
+        // If it isn't a Windows "Gamepad" then return what we SDL mappings to be able to use
         if self.wgi_gamepad.is_none() {
-            return match nec.kind {
-                EvCodeKind::Button => None,
-                EvCodeKind::Axis => Some(&AxisInfo {
-                    min: i16::MIN as i32,
-                    max: i16::MAX as i32,
+            return match nec {
+                // Flip Y axes
+                // Can't just use IS_Y_AXIS_REVERSED because WGI Gamepads are not flipped
+                native_ev_codes::AXIS_LSTICKY | native_ev_codes::AXIS_RSTICKY => Some(&AxisInfo {
+                    min: i16::MAX as i32,
+                    max: i16::MIN as i32,
                     deadzone: None,
                 }),
-                EvCodeKind::Switch => Some(&AxisInfo {
-                    min: -1,
-                    max: 1,
-                    deadzone: None,
-                }),
+                EvCode { kind, .. } => match kind {
+                    EvCodeKind::Button => None,
+                    EvCodeKind::Axis => Some(&AxisInfo {
+                        min: i16::MIN as i32,
+                        max: i16::MAX as i32,
+                        deadzone: None,
+                    }),
+                    EvCodeKind::Switch => Some(&AxisInfo {
+                        min: -1,
+                        max: 1,
+                        deadzone: None,
+                    }),
+                },
             };
         }
 
