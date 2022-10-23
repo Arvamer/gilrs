@@ -360,6 +360,7 @@ impl Gamepad {
                         deadzone: None,
                     },
                 );
+                self.axes.push(EvCode::new(page, usage));
                 // All hat switches are translated into *two* axes
                 self.axes_info.insert(
                     (usage + 1) as usize, // "+ 1" is assumed for usage of 2nd hat switch axis
@@ -369,6 +370,7 @@ impl Gamepad {
                         deadzone: None,
                     },
                 );
+                self.axes.push(EvCode::new(page, usage + 1));
             }
         }
     }
