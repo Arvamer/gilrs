@@ -344,7 +344,7 @@ impl Reading {
                     }
                     if old_y != new_y {
                         let event_type = EventType::AxisValueChanged(
-                            new_y,
+                            -new_y,
                             crate::EvCode(EvCode {
                                 kind: EvCodeKind::Switch,
                                 index: (index * 2) as u32 + 1,
@@ -431,8 +431,8 @@ pub struct Gamepad {
     /// If the controller has a [Gamepad](https://learn.microsoft.com/en-us/uwp/api/windows.gaming.input.gamepad?view=winrt-22621)
     /// mapping, this is used to access the mapped values.
     wgi_gamepad: Option<WgiGamepad>,
-    axes: Vec<EvCode>,
-    buttons: Vec<EvCode>,
+    axes: Option<Vec<EvCode>>,
+    buttons: Option<Vec<EvCode>>,
 }
 
 impl Gamepad {
@@ -490,11 +490,13 @@ impl Gamepad {
             raw_game_controller,
             non_roamable_id,
             wgi_gamepad,
-            axes: Vec::new(),
-            buttons: Vec::new(),
+            axes: None,
+            buttons: None,
         };
 
-        gamepad.collect_axes_and_buttons();
+        if gamepad.wgi_gamepad.is_none() {
+            gamepad.collect_axes_and_buttons();
+        }
 
         gamepad
     }
@@ -557,11 +559,17 @@ impl Gamepad {
     }
 
     pub fn buttons(&self) -> &[EvCode] {
-        &self.buttons
+        match &self.buttons {
+            None => &native_ev_codes::BUTTONS,
+            Some(buttons) => buttons,
+        }
     }
 
     pub fn axes(&self) -> &[EvCode] {
-        &self.axes
+        match &self.axes {
+            None => &native_ev_codes::AXES,
+            Some(axes) => axes,
+        }
     }
 
     pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
@@ -604,33 +612,37 @@ impl Gamepad {
         let axis_count = self.raw_game_controller.AxisCount().unwrap() as u32;
         let button_count = self.raw_game_controller.ButtonCount().unwrap() as u32;
         let switch_count = self.raw_game_controller.SwitchCount().unwrap() as u32;
-        self.buttons = (0..button_count)
-            .map(|index| EvCode {
-                kind: EvCodeKind::Button,
-                index,
-            })
-            .collect();
-        self.axes = (0..axis_count)
-            .map(|index| EvCode {
-                kind: EvCodeKind::Axis,
-                index,
-            })
-            .chain(
-                // Treat switches as two axes
-                (0..switch_count).flat_map(|index| {
-                    [
-                        EvCode {
-                            kind: EvCodeKind::Switch,
-                            index: index * 2,
-                        },
-                        EvCode {
-                            kind: EvCodeKind::Switch,
-                            index: (index * 2) + 1,
-                        },
-                    ]
-                }),
-            )
-            .collect();
+        self.buttons = Some(
+            (0..button_count)
+                .map(|index| EvCode {
+                    kind: EvCodeKind::Button,
+                    index,
+                })
+                .collect(),
+        );
+        self.axes = Some(
+            (0..axis_count)
+                .map(|index| EvCode {
+                    kind: EvCodeKind::Axis,
+                    index,
+                })
+                .chain(
+                    // Treat switches as two axes
+                    (0..switch_count).flat_map(|index| {
+                        [
+                            EvCode {
+                                kind: EvCodeKind::Switch,
+                                index: index * 2,
+                            },
+                            EvCode {
+                                kind: EvCodeKind::Switch,
+                                index: (index * 2) + 1,
+                            },
+                        ]
+                    }),
+                )
+                .collect(),
+        );
     }
 }
 
@@ -675,64 +687,65 @@ impl Display for EvCode {
 pub mod native_ev_codes {
     use super::{EvCode, EvCodeKind};
 
-    pub const AXIS_LSTICKY: EvCode = EvCode {
+    pub const AXIS_LSTICKX: EvCode = EvCode {
         kind: EvCodeKind::Axis,
         index: 0,
     };
-    pub const AXIS_LSTICKX: EvCode = EvCode {
+    pub const AXIS_LSTICKY: EvCode = EvCode {
         kind: EvCodeKind::Axis,
         index: 1,
-    };
-    pub const AXIS_RSTICKY: EvCode = EvCode {
-        kind: EvCodeKind::Axis,
-        index: 2,
     };
     pub const AXIS_RSTICKX: EvCode = EvCode {
         kind: EvCodeKind::Axis,
-        index: 3,
+        index: 2,
     };
     pub const AXIS_LT2: EvCode = EvCode {
         kind: EvCodeKind::Axis,
-        index: 4,
+        index: 3,
     };
     pub const AXIS_RT2: EvCode = EvCode {
         kind: EvCodeKind::Axis,
+        index: 4,
+    };
+    pub const AXIS_RSTICKY: EvCode = EvCode {
+        kind: EvCodeKind::Axis,
         index: 5,
-    };
-    pub const AXIS_DPADX: EvCode = EvCode {
-        kind: EvCodeKind::Axis,
-        index: 6,
-    };
-    pub const AXIS_DPADY: EvCode = EvCode {
-        kind: EvCodeKind::Axis,
-        index: 7,
     };
     pub const AXIS_RT: EvCode = EvCode {
         kind: EvCodeKind::Axis,
-        index: 8,
+        index: 6,
     };
     pub const AXIS_LT: EvCode = EvCode {
         kind: EvCodeKind::Axis,
-        index: 9,
+        index: 7,
     };
     pub const AXIS_LEFTZ: EvCode = EvCode {
         kind: EvCodeKind::Axis,
-        index: 10,
+        index: 8,
     };
     pub const AXIS_RIGHTZ: EvCode = EvCode {
         kind: EvCodeKind::Axis,
-        index: 11,
+        index: 9,
     };
 
-    pub const BTN_SOUTH: EvCode = EvCode {
+    pub const AXIS_DPADX: EvCode = EvCode {
+        kind: EvCodeKind::Switch,
+        index: 0,
+    };
+    pub const AXIS_DPADY: EvCode = EvCode {
+        kind: EvCodeKind::Switch,
+        index: 1,
+    };
+
+    pub const BTN_WEST: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 0,
     };
-    pub const BTN_EAST: EvCode = EvCode {
+    pub const BTN_SOUTH: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 1,
     };
-    pub const BTN_WEST: EvCode = EvCode {
+    pub const BTN_EAST: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 2,
     };
@@ -748,59 +761,82 @@ pub mod native_ev_codes {
         kind: EvCodeKind::Button,
         index: 5,
     };
-    pub const BTN_SELECT: EvCode = EvCode {
+    pub const BTN_LT2: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 6,
     };
-    pub const BTN_START: EvCode = EvCode {
+    pub const BTN_RT2: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 7,
     };
-    pub const BTN_LTHUMB: EvCode = EvCode {
+    pub const BTN_SELECT: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 8,
     };
-    pub const BTN_RTHUMB: EvCode = EvCode {
+    pub const BTN_START: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 9,
     };
-
-    pub const BTN_DPAD_UP: EvCode = EvCode {
+    pub const BTN_LTHUMB: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 10,
     };
-    pub const BTN_DPAD_RIGHT: EvCode = EvCode {
+    pub const BTN_RTHUMB: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 11,
     };
-    pub const BTN_DPAD_DOWN: EvCode = EvCode {
+    pub const BTN_MODE: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 12,
     };
-    pub const BTN_DPAD_LEFT: EvCode = EvCode {
+    pub const BTN_DPAD_UP: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 13,
     };
-
-    pub const BTN_MODE: EvCode = EvCode {
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 14,
     };
-    pub const BTN_C: EvCode = EvCode {
+    pub const BTN_DPAD_DOWN: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 15,
     };
-    pub const BTN_Z: EvCode = EvCode {
+    pub const BTN_DPAD_LEFT: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 16,
     };
-
-    pub const BTN_LT2: EvCode = EvCode {
+    pub const BTN_C: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 17,
     };
-    pub const BTN_RT2: EvCode = EvCode {
+    pub const BTN_Z: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 18,
     };
+
+    pub(super) static BUTTONS: [EvCode; 14] = [
+        BTN_WEST,
+        BTN_SOUTH,
+        BTN_EAST,
+        BTN_NORTH,
+        BTN_LT,
+        BTN_RT,
+        BTN_SELECT,
+        BTN_START,
+        BTN_LTHUMB,
+        BTN_RTHUMB,
+        BTN_DPAD_UP,
+        BTN_DPAD_RIGHT,
+        BTN_DPAD_DOWN,
+        BTN_DPAD_LEFT,
+    ];
+
+    pub(super) static AXES: [EvCode; 6] = [
+        AXIS_LSTICKX,
+        AXIS_LSTICKY,
+        AXIS_RSTICKX,
+        AXIS_LT2,
+        AXIS_RT2,
+        AXIS_RSTICKY,
+    ];
 }
