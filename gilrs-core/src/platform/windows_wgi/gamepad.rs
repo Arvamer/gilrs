@@ -344,7 +344,7 @@ impl Reading {
                     }
                     if old_y != new_y {
                         let event_type = EventType::AxisValueChanged(
-                            index as i32,
+                            new_y,
                             crate::EvCode(EvCode {
                                 kind: EvCodeKind::Switch,
                                 index: (index * 2) as u32 + 1,
