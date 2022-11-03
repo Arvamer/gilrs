@@ -359,18 +359,21 @@ impl Reading {
             (Reading::Gamepad(old), Reading::Gamepad(new)) => {
                 #[rustfmt::skip]
                 let axes = [
-                    (new.LeftTrigger, old.LeftTrigger, nec::AXIS_LT2),
-                    (new.RightTrigger, old.RightTrigger, nec::AXIS_RT2),
-                    (new.LeftThumbstickX, old.LeftThumbstickX, nec::AXIS_LSTICKX),
-                    (new.LeftThumbstickY, old.LeftThumbstickY, nec::AXIS_LSTICKY),
-                    (new.RightThumbstickX, old.RightThumbstickX, nec::AXIS_RSTICKX),
-                    (new.RightThumbstickY, old.RightThumbstickY, nec::AXIS_RSTICKY),
+                    (new.LeftTrigger, old.LeftTrigger, nec::AXIS_LT2, 1.0),
+                    (new.RightTrigger, old.RightTrigger, nec::AXIS_RT2, 1.0),
+                    (new.LeftThumbstickX, old.LeftThumbstickX, nec::AXIS_LSTICKX, 1.0),
+                    (new.LeftThumbstickY, old.LeftThumbstickY, nec::AXIS_LSTICKY, -1.0),
+                    (new.RightThumbstickX, old.RightThumbstickX, nec::AXIS_RSTICKX, 1.0),
+                    (new.RightThumbstickY, old.RightThumbstickY, nec::AXIS_RSTICKY, -1.0),
                 ];
-                for (new, old, code) in axes {
+                for (new, old, code, multiplier) in axes {
                     if new != old {
                         let _ = tx.send(WgiEvent::new(
                             controller.clone(),
-                            EventType::AxisValueChanged((new * i32::MAX as f64) as i32, code),
+                            EventType::AxisValueChanged(
+                                (multiplier * new * i32::MAX as f64) as i32,
+                                code,
+                            ),
                         ));
                     }
                 }
@@ -562,29 +565,20 @@ impl Gamepad {
     }
 
     pub(crate) fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
-        // If it isn't a Windows "Gamepad" then return what we SDL mappings to be able to use
+        // If it isn't a Windows "Gamepad" then return what we want SDL mappings to be able to use
         if self.wgi_gamepad.is_none() {
-            return match nec {
-                // Flip Y axes
-                // Can't just use IS_Y_AXIS_REVERSED because WGI Gamepads are not flipped
-                native_ev_codes::AXIS_LSTICKY | native_ev_codes::AXIS_RSTICKY => Some(&AxisInfo {
-                    min: i16::MAX as i32,
-                    max: i16::MIN as i32,
+            return match nec.kind {
+                EvCodeKind::Button => None,
+                EvCodeKind::Axis => Some(&AxisInfo {
+                    min: i16::MIN as i32,
+                    max: i16::MAX as i32,
                     deadzone: None,
                 }),
-                EvCode { kind, .. } => match kind {
-                    EvCodeKind::Button => None,
-                    EvCodeKind::Axis => Some(&AxisInfo {
-                        min: i16::MIN as i32,
-                        max: i16::MAX as i32,
-                        deadzone: None,
-                    }),
-                    EvCodeKind::Switch => Some(&AxisInfo {
-                        min: -1,
-                        max: 1,
-                        deadzone: None,
-                    }),
-                },
+                EvCodeKind::Switch => Some(&AxisInfo {
+                    min: -1,
+                    max: 1,
+                    deadzone: None,
+                }),
             };
         }
 

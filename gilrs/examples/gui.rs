@@ -260,8 +260,12 @@ impl eframe::App for MyEguiApp {
                                         (axis_data.value() * 0.5) + 0.5,
                                     )
                                     .text(
-                                        RichText::new(format!("{:+.4} {name}", axis_data.value()))
-                                            .monospace(),
+                                        RichText::new(format!(
+                                            "{:+.4} {name} {}",
+                                            axis_data.value(),
+                                            code
+                                        ))
+                                        .monospace(),
                                     ),
                                 );
                             }
