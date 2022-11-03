@@ -789,29 +789,35 @@ pub mod native_ev_codes {
         kind: EvCodeKind::Button,
         index: 12,
     };
-    pub const BTN_DPAD_UP: EvCode = EvCode {
+    pub const BTN_C: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 13,
     };
-    pub const BTN_DPAD_RIGHT: EvCode = EvCode {
+    pub const BTN_Z: EvCode = EvCode {
         kind: EvCodeKind::Button,
         index: 14,
     };
+
+    // The DPad for DS4 controllers is a hat/switch that gets mapped to the DPad native event
+    // code buttons. These "buttons" don't exist on the DS4 controller, so it doesn't matter
+    // what the index is, but if it overlaps with an existing button it will send the event
+    // for the overlapping button as a dpad button instead of unknown.
+    // By using a large index it should avoid this.
+    pub const BTN_DPAD_UP: EvCode = EvCode {
+        kind: EvCodeKind::Button,
+        index: u32::MAX - 3,
+    };
+    pub const BTN_DPAD_RIGHT: EvCode = EvCode {
+        kind: EvCodeKind::Button,
+        index: u32::MAX - 2,
+    };
     pub const BTN_DPAD_DOWN: EvCode = EvCode {
         kind: EvCodeKind::Button,
-        index: 15,
+        index: u32::MAX - 1,
     };
     pub const BTN_DPAD_LEFT: EvCode = EvCode {
         kind: EvCodeKind::Button,
-        index: 16,
-    };
-    pub const BTN_C: EvCode = EvCode {
-        kind: EvCodeKind::Button,
-        index: 17,
-    };
-    pub const BTN_Z: EvCode = EvCode {
-        kind: EvCodeKind::Button,
-        index: 18,
+        index: u32::MAX,
     };
 
     pub(super) static BUTTONS: [EvCode; 14] = [
