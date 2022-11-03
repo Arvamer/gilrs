@@ -183,22 +183,22 @@ impl eframe::App for MyEguiApp {
                     });
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
-                            ui.set_width(250.0);
+                            ui.set_width(300.0);
                             ui.heading("Buttons");
 
                             for (code, button_data) in gamepad_state.buttons() {
                                 let name = match gamepad.axis_or_btn_name(code) {
                                     Some(AxisOrBtn::Btn(b)) => format!("{b:?}"),
-                                    _ => code.to_string(),
+                                    _ => "Unknown".to_string(),
                                 };
 
                                 ui.add(
                                     egui::widgets::ProgressBar::new(button_data.value()).text(
                                         RichText::new(format!(
-                                            "{name:<13} {:<5} {:.4} {:>5}",
+                                            "{name:<14} {:<5} {:.4} {}",
                                             button_data.is_pressed(),
                                             button_data.value(),
-                                            code.into_u32()
+                                            code
                                         ))
                                         .monospace(),
                                     ),
@@ -261,7 +261,7 @@ impl eframe::App for MyEguiApp {
                                     )
                                     .text(
                                         RichText::new(format!(
-                                            "{:+.4} {name} {}",
+                                            "{:+.4} {name:<15} {}",
                                             axis_data.value(),
                                             code
                                         ))
@@ -284,7 +284,10 @@ impl eframe::App for MyEguiApp {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        initial_window_size: Some(Vec2::new(1024.0, 768.0)),
+        ..Default::default()
+    };
     eframe::run_native(
         "Gilrs Input Tester",
         native_options,
