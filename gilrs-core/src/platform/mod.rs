@@ -38,7 +38,7 @@ compile_error!(
 #[cfg(all(feature = "wgi", feature = "xinput"))]
 compile_error!("features `gilrs/xinput` and `gilrs/wgi` are mutually exclusive");
 
-#[cfg(all(target_os = "windows", feature = "xinput"))]
+#[cfg(all(target_os = "windows", feature = "xinput", not(feature = "wgi")))]
 #[path = "windows_xinput/mod.rs"]
 mod platform;
 
