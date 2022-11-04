@@ -26,7 +26,7 @@ use windows::Gaming::Input::{
 use windows::System::Power::BatteryStatus;
 
 const SDL_HARDWARE_BUS_USB: u32 = 0x03;
-const SDL_HARDWARE_BUS_BLUETOOTH: u32 = 0x05;
+// const SDL_HARDWARE_BUS_BLUETOOTH: u32 = 0x05;
 
 // The general consensus is that standard xbox controllers poll at ~125 hz which
 // means 8 ms between updates.
@@ -455,14 +455,12 @@ impl Gamepad {
                 let product_id = raw_game_controller.HardwareProductId().unwrap_or(0).to_be();
                 let version = 0;
 
-                // If it's wireless, use the Bluetooth bustype to match SDL
+                // SDL uses the SDL_HARDWARE_BUS_BLUETOOTH bustype for IsWireless devices:
                 // https://github.com/libsdl-org/SDL/blob/294ccba0a23b37fffef62189423444f93732e565/src/joystick/windows/SDL_windows_gaming_input.c#L335-L338
-                let bustype = match Err(()) {
-                    //raw_game_controller.IsWireless() {
-                    Ok(true) => SDL_HARDWARE_BUS_BLUETOOTH,
-                    _ => SDL_HARDWARE_BUS_USB,
-                }
-                .to_be();
+                // In my testing though, it caused my controllers to not find mappings.
+                // SDL only uses their WGI implementation for UWP apps so I guess it hasn't been
+                // used enough for people to submit mappings with the different bustype.
+                let bustype = SDL_HARDWARE_BUS_USB.to_be();
 
                 Uuid::from_fields(
                     bustype,
