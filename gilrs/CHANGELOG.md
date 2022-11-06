@@ -18,6 +18,8 @@ v0.10.0 - 2022-11-06
 
   Note: Some (Older?) devices may still report inputs without a window but this is not the case for all devices so if you are writing a terminal based game, use the `xinput` feature instead.
 
+- Minimal supported rust version is now 1.64.
+
 
 v0.9.0 - 2022-05-22
 -------------------

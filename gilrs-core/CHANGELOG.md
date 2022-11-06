@@ -16,6 +16,8 @@ v0.5.0 - 2022-11-06
 
   This is a limitation of Windows Gaming Input. It requires an in focus Window be associated with the process to receive events. You can still switch back to using xInput by turning off default features and enabling the `xinput` feature.
 
+- Minimal supported rust version is now 1.64.
+
 ### Fixed
 
 - `Gamepad::axes()` on macos now also returns "hat" axes. This should fix dpad on single Switch Joy-Con.
