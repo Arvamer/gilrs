@@ -6,7 +6,7 @@ image:
 
 environment:
   global:
-    RUST_VERSION: 1.56.0
+    RUST_VERSION: 1.62.0
     CRATE_NAME: gilrs
 
   matrix:
