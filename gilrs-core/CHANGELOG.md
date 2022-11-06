@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-v0.5.0 - Unreleased
+v0.5.0 - 2022-11-06
 --------------------
 
 ### Changed
@@ -15,6 +15,10 @@ v0.5.0 - Unreleased
 - Apps on Windows will now require a focused window to receive inputs by default.
 
   This is a limitation of Windows Gaming Input. It requires an in focus Window be associated with the process to receive events. You can still switch back to using xInput by turning off default features and enabling the `xinput` feature.
+
+### Fixed
+
+- `Gamepad::axes()` on macos now also returns "hat" axes. This should fix dpad on single Switch Joy-Con.
 
 v0.4.1 - 2022-05-29
 -------------------

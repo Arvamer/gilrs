@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-v0.10.0 - Unreleased
+v0.10.0 - 2022-11-06
 --------------------
 
 ### Changed
@@ -17,6 +17,7 @@ v0.10.0 - Unreleased
   This is a limitation of Windows Gaming Input. It requires an in focus Window be associated with the process to receive events. You can still switch back to using xInput by turning off default features and enabling the `xinput` feature.
 
   Note: Some (Older?) devices may still report inputs without a window but this is not the case for all devices so if you are writing a terminal based game, use the `xinput` feature instead.
+
 
 v0.9.0 - 2022-05-22
 -------------------
