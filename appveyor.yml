@@ -2,7 +2,7 @@
 # https://github.com/japaric/trust/tree/v0.1.1
 
 image:
-  - Visual Studio 2017
+  - Visual Studio 2022
 
 environment:
   global:
