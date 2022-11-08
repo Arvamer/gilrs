@@ -376,8 +376,8 @@ pub mod native_ev_codes {
     pub(super) static BUTTONS: [EvCode; 17] = [
         BTN_SOUTH,
         BTN_EAST,
-        BTN_NORTH,
         BTN_WEST,
+        BTN_NORTH,
         BTN_LT,
         BTN_RT,
         BTN_LT2,
