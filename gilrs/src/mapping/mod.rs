@@ -449,9 +449,10 @@ impl MappingDb {
     }
 
     pub fn add_included_mappings(&mut self) {
-        self.insert(include_str!(
-            "../../SDL_GameControllerDB/gamecontrollerdb.txt"
-        ));
+        self.insert(include_str!(concat!(
+            env!("OUT_DIR"),
+            "/gamecontrollerdb.txt"
+        )));
     }
 
     pub fn add_env_mappings(&mut self) {
