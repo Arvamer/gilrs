@@ -99,6 +99,8 @@ wasm32-unknown-unknown. For wasm-bindgen, you will need the wasm-bindgen cli or 
 [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/).
 Unlike other platforms, events are only generated when you call `Gilrs::next_event()`.
 
+See [`./gilrs/examples/wasm/README.md`](./gilrs/examples/wasm/README.md) for running the examples using Wasm.
+
 License
 =======
 

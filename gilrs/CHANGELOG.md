@@ -1,6 +1,18 @@
 Change Log
 ==========
 
+Unreleased
+----------
+
+### Added
+
+- Supporting files and documentation for running the GUI example using Wasm in a browser. See [examples/wasm/README.md](./examples/wasm/README.md)
+
+### Fixed
+
+- GUI example crash when the current platform does not support force feedback. 
+
+
 v0.10.0 - 2022-11-06
 --------------------
 

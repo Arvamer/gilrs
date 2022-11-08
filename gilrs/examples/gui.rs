@@ -15,8 +15,10 @@ struct MyEguiApp {
     gilrs: Gilrs,
     current_gamepad: Option<GamepadId>,
     log_messages: [Option<String>; 300],
-    ff_strong: Effect,
-    ff_weak: Effect,
+
+    // These will be none if Force feedback isn't supported for this platform e.g. Wasm
+    ff_strong: Option<Effect>,
+    ff_weak: Option<Effect>,
 }
 
 impl Default for MyEguiApp {
@@ -31,7 +33,7 @@ impl Default for MyEguiApp {
             })
             .repeat(Repeat::For(Ticks::from_ms(100)))
             .finish(&mut gilrs)
-            .unwrap();
+            .ok();
         let ff_weak = EffectBuilder::new()
             .add_effect(BaseEffect {
                 kind: BaseEffectType::Weak { magnitude: 60_000 },
@@ -40,7 +42,7 @@ impl Default for MyEguiApp {
             })
             .repeat(Repeat::For(Ticks::from_ms(100)))
             .finish(&mut gilrs)
-            .unwrap();
+            .ok();
         Self {
             gilrs,
             current_gamepad: None,
@@ -170,13 +172,17 @@ impl eframe::App for MyEguiApp {
                         if gamepad.is_ff_supported() {
                             ui.vertical(|ui| {
                                 ui.label("Force Feedback");
-                                if ui.button("Play Strong").clicked() {
-                                    self.ff_strong.add_gamepad(&gamepad).unwrap();
-                                    self.ff_strong.play().unwrap();
+                                if let Some(ff_strong) = &self.ff_strong {
+                                    if ui.button("Play Strong").clicked() {
+                                        ff_strong.add_gamepad(&gamepad).unwrap();
+                                        ff_strong.play().unwrap();
+                                    }
                                 }
-                                if ui.button("Play Weak").clicked() {
-                                    self.ff_weak.add_gamepad(&gamepad).unwrap();
-                                    self.ff_weak.play().unwrap();
+                                if let Some(ff_weak) = &self.ff_weak {
+                                    if ui.button("Play Weak").clicked() {
+                                        ff_weak.add_gamepad(&gamepad).unwrap();
+                                        ff_weak.play().unwrap();
+                                    }
                                 }
                             });
                         }
@@ -297,6 +303,7 @@ fn main() {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
+    console_error_panic_hook::set_once();
     let web_options = eframe::WebOptions::default();
     eframe::start_web(
         "canvas",

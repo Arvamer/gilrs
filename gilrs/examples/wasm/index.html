@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <title>Gilrs Example</title>
+        <style>
+            html, body {
+                margin: 0;
+                /* prevent scroll bar from showing */
+                overflow: hidden;
+                /*
+                Egui automatically resizes the canvas to fit it's parent element so ensures the canvas will
+                resize to always be fullscreen.
+                */
+                width: 100%;
+                height: 100%;
+            }
+            canvas {
+                /*
+                Egui adds these to the canvas automatically, but not until it gets focus,
+                causing it to grow until you click on it. This prevents that.
+                */
+                position: absolute;
+                top: 0;
+            }
+        </style>
+    </head>
+    <script type="module">
+        import init from './target/wasm_example.js'
+
+        init()
+    </script>
+    <canvas id="canvas"></canvas>
+</html>
