@@ -143,6 +143,7 @@ pub struct Gamepad {
     usage: u32,
     axes_info: VecMap<AxisInfo>,
     axes: Vec<EvCode>,
+    hats: Vec<EvCode>,
     buttons: Vec<EvCode>,
     is_connected: bool,
 }
@@ -225,6 +226,7 @@ impl Gamepad {
             usage,
             axes_info: VecMap::with_capacity(8),
             axes: Vec::with_capacity(8),
+            hats: Vec::with_capacity(4),
             buttons: Vec::with_capacity(16),
             is_connected: true,
         };
@@ -324,6 +326,10 @@ impl Gamepad {
 
         self.collect_axes(&elements, &mut cookies);
         self.axes.sort_by_key(|axis| axis.usage);
+        self.hats.sort_by_key(|axis| axis.usage);
+        // Because "hat is axis" is gilrs thing, we want ensure that all hats are at the end of
+        // axis vector, so SDL mappings still works.
+        self.axes.extend(&self.hats);
 
         self.collect_buttons(&elements, &mut cookies);
         self.buttons.sort_by_key(|button| button.usage);
@@ -360,7 +366,7 @@ impl Gamepad {
                         deadzone: None,
                     },
                 );
-                self.axes.push(EvCode::new(page, usage));
+                self.hats.push(EvCode::new(page, usage));
                 // All hat switches are translated into *two* axes
                 self.axes_info.insert(
                     (usage + 1) as usize, // "+ 1" is assumed for usage of 2nd hat switch axis
@@ -370,7 +376,7 @@ impl Gamepad {
                         deadzone: None,
                     },
                 );
-                self.axes.push(EvCode::new(page, usage + 1));
+                self.hats.push(EvCode::new(page, usage + 1));
             }
         }
     }
