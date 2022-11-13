@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+v0.5.1 - 2022-11-13
+
+### Fixed
+
+- macOS: Fixed that hat axes were sometimes added before other axes breaking SDL mappings.
+- web: Fixed swapped north and west buttons for gamepads with "standard" mapping
+
+
 v0.5.0 - 2022-11-06
 --------------------
 

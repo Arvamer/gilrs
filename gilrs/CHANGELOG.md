@@ -1,12 +1,16 @@
 Change Log
 ==========
 
-Unreleased
+v0.10.1 - 2022-11-13
 ----------
 
 ### Added
 
 - Supporting files and documentation for running the GUI example using Wasm in a browser. See [examples/wasm/README.md](./examples/wasm/README.md)
+
+### Changed
+
+- Bundled SDL mappings are now filtered by platform, reducing binary size.
 
 ### Fixed
 

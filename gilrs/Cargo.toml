@@ -1,6 +1,6 @@
 [package]
 name = "gilrs"
-version = "0.10.0"
+version = "0.10.1"
 authors = ["Arvamer <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 exclude = ["controller.svg"]
@@ -11,6 +11,7 @@ readme = "../README.md"
 keywords = ["gamepad", "joystick", "input"]
 categories = ["game-engines"]
 edition = "2021"
+rust-version = "1.64.0"
 
 [badges]
 gitlab = { repository = "gilrs-project/gilrs" }
