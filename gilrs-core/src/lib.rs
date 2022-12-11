@@ -116,7 +116,7 @@ impl Gilrs {
         self.inner.next_event()
     }
 
-    /// Borrows `Gamrpad` or return `None` if index is invalid. Returned gamepad may be disconnected.
+    /// Borrows `Gamepad` or return `None` if index is invalid. Returned gamepad may be disconnected.
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
         unsafe {
             let gp: Option<&platform::Gamepad> = self.inner.gamepad(id);

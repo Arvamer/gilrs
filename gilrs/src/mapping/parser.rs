@@ -245,7 +245,7 @@ impl<'a> Parser<'a> {
                     .parse()
                     .map_err(|_| Error::new(ErrorKind::InvalidValue, pos + 1))?;
                 let direction = value
-                    .get((dot_idx as usize + 1)..)
+                    .get((dot_idx + 1)..)
                     .and_then(|s| s.parse().ok())
                     .ok_or_else(|| Error::new(ErrorKind::InvalidValue, pos + dot_idx + 1))?;
 

@@ -17,20 +17,22 @@ use libc as c;
 use uuid::Uuid;
 use vec_map::VecMap;
 
-use std::error;
+use std::{error, thread};
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::mem::{self, MaybeUninit};
 use std::ops::Index;
 use std::os::raw::c_char;
 use std::str;
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
-    monitor: Monitor,
     event_counter: usize,
+    hotplug_rx: Receiver<HotplugEvent>,
 }
 
 impl Gilrs {
@@ -61,15 +63,31 @@ impl Gilrs {
             }
         }
 
-        let monitor = match Monitor::new(&udev) {
-            Some(m) => m,
-            None => return Err(PlatformError::Other(Box::new(Error::UdevMonitor))),
-        };
+        let (hotplug_tx, hotplug_rx) = mpsc::channel();
+        thread::spawn(move || {
+            let udev = match Udev::new() {
+                Some(udev) => udev,
+                None => {
+                    error!("Failed to create udev for hot plug thread!");
+                    return;
+                }
+            };
+
+            let monitor = match Monitor::new(&udev) {
+                Some(m) => m,
+                None => {
+                    error!("Failed to create udev monitor for hot plug thread!");
+                    return;
+                },
+            };
+
+            handle_hotplug(hotplug_tx, monitor)
+        });
 
         Ok(Gilrs {
             gamepads,
-            monitor,
             event_counter: 0,
+            hotplug_rx,
         })
     }
 
@@ -117,71 +135,87 @@ impl Gilrs {
     }
 
     fn handle_hotplug(&mut self) -> Option<Event> {
-        while self.monitor.hotplug_available() {
-            let dev = self.monitor.device();
-
-            unsafe {
-                if let Some(val) = dev.property_value(cstr_new(b"ID_INPUT_JOYSTICK\0")) {
-                    if val != cstr_new(b"1\0") {
-                        continue;
+        while let Ok(event) = self.hotplug_rx.try_recv() {
+            match event {
+                HotplugEvent::New(gamepad) => {
+                    return if let Some(id) = self
+                        .gamepads
+                        .iter()
+                        .position(|gp| gp.uuid() == gamepad.uuid && !gp.is_connected)
+                    {
+                        self.gamepads[id] = *gamepad;
+                        Some(Event::new(id, EventType::Connected))
+                    } else {
+                        self.gamepads.push(*gamepad);
+                        Some(Event::new(self.gamepads.len() - 1, EventType::Connected))
                     }
-                } else {
-                    continue;
                 }
-
-                let action = match dev.action() {
-                    Some(a) => a,
-                    None => continue,
-                };
-
-                if action == cstr_new(b"add\0") {
-                    if let Some(gamepad) = Gamepad::open(&dev) {
-                        if let Some(id) = self
-                            .gamepads
-                            .iter()
-                            .position(|gp| gp.uuid() == gamepad.uuid && !gp.is_connected)
-                        {
-                            self.gamepads[id] = gamepad;
-                            return Some(Event::new(id, EventType::Connected));
-                        } else {
-                            self.gamepads.push(gamepad);
-                            return Some(Event::new(self.gamepads.len() - 1, EventType::Connected));
-                        }
-                    }
-                } else if action == cstr_new(b"remove\0") {
-                    if let Some(devnode) = dev.devnode() {
-                        if let Some(id) = self
-                            .gamepads
-                            .iter()
-                            .position(|gp| is_eq_cstr_str(devnode, &gp.devpath) && gp.is_connected)
-                        {
-                            self.gamepads[id].disconnect();
-                            return Some(Event::new(id, EventType::Disconnected));
-                        } else {
-                            debug!("Could not find disconnected gamepad {:?}", devnode);
-                        }
+                HotplugEvent::Removed(devpath) => {
+                    if let Some(id) = self
+                        .gamepads
+                        .iter()
+                        .position(|gp| devpath == gp.devpath && gp.is_connected)
+                    {
+                        self.gamepads[id].disconnect();
+                        return Some(Event::new(id, EventType::Disconnected));
+                    } else {
+                        debug!("Could not find disconnected gamepad {devpath:?}");
                     }
                 }
             }
         }
+
         None
     }
 }
 
-fn is_eq_cstr_str(l: &CStr, r: &str) -> bool {
-    unsafe {
-        let mut l_ptr = l.as_ptr();
-        let mut r_ptr = r.as_ptr();
-        let end = r_ptr.add(r.len());
-        while *l_ptr != 0 && r_ptr != end {
-            if *l_ptr != *r_ptr as c_char {
-                return false;
-            }
-            l_ptr = l_ptr.offset(1);
-            r_ptr = r_ptr.offset(1);
+enum HotplugEvent {
+    New(Box<Gamepad>),
+    Removed(String),
+}
+
+fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor) {
+    loop {
+        if !monitor.wait_hotplug_available() {
+            continue;
         }
 
-        *l_ptr == 0 && r_ptr == end
+        let dev = monitor.device();
+
+        unsafe {
+            if let Some(val) = dev.property_value(cstr_new(b"ID_INPUT_JOYSTICK\0")) {
+                if val != cstr_new(b"1\0") {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+
+            let action = match dev.action() {
+                Some(a) => a,
+                None => continue,
+            };
+
+            if action == cstr_new(b"add\0") {
+                if let Some(gamepad) = Gamepad::open(&dev) {
+                    if sender.send(HotplugEvent::New(Box::new(gamepad))).is_err() {
+                        debug!("All receivers dropped, ending hot plug loop.");
+                        break;
+                    }
+                }
+            } else if action == cstr_new(b"remove\0") {
+                if let Some(devnode) = dev.devnode() {
+                    if let Ok(str) = devnode.to_str() {
+                        if sender.send(HotplugEvent::Removed(str.to_owned())).is_err() {
+                            debug!("All receivers dropped, ending hot plug loop.");
+                            break;
+                        }
+                    } else {
+                        warn!("Received event with devnode that is not valid utf8: {devnode:?}")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -237,9 +271,7 @@ pub struct Gamepad {
     devpath: String,
     name: String,
     uuid: Uuid,
-    // TODO: path or RefCell<File>
     bt_capacity_fd: i32,
-    // TODO: path or RefCell<File>
     bt_status_fd: i32,
     axes_values: VecMap<i32>,
     buttons_values: VecMap<bool>,
@@ -801,7 +833,6 @@ impl Display for EvCode {
 enum Error {
     UdevCtx,
     UdevEnumerate,
-    UdevMonitor,
 }
 
 impl Display for Error {
@@ -809,7 +840,6 @@ impl Display for Error {
         match *self {
             Error::UdevCtx => f.write_str("Failed to create udev context"),
             Error::UdevEnumerate => f.write_str("Failed to create udev enumerate object"),
-            Error::UdevMonitor => f.write_str("Failed to create udev monitor."),
         }
     }
 }

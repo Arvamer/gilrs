@@ -296,8 +296,8 @@ impl Gamepad {
 
     pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
         Some(&AxisInfo {
-            min: i32::MIN as i32,
-            max: i32::MAX as i32,
+            min: i32::MIN,
+            max: i32::MAX,
             deadzone: None,
         })
     }

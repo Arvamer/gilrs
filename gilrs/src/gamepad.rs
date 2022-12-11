@@ -1119,6 +1119,13 @@ impl error::Error for Error {
     }
 }
 
+const _: () = {
+    const fn assert_send<T: Send>() {}
+
+    #[cfg(not(target_arch = "wasm32"))]
+    assert_send::<Gilrs>();
+};
+
 #[cfg(test)]
 mod tests {
     use super::{axis_value, Axis, AxisInfo};

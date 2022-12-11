@@ -17,7 +17,7 @@ pub fn ceil_div(a: u32, b: u32) -> u32 {
 }
 
 pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
-    x.max(min).min(max)
+    x.clamp(min, max)
 }
 
 #[cfg(test)]
