@@ -1,7 +1,14 @@
 Change Log
 ==========
 
+Unreleased
+----------
+
+### Fixed
+- Crash when app is launched through steam on Windows
+
 v0.5.1 - 2022-11-13
+-------------------
 
 ### Fixed
 

@@ -78,12 +78,23 @@ pub struct Gilrs {
 
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
-        let gamepads: Vec<_> = RawGameController::RawGameControllers()
-            .map_err(|e| PlatformError::Other(Box::new(e)))?
+        let raw_game_controllers = RawGameController::RawGameControllers()
+            .map_err(|e| PlatformError::Other(Box::new(e)))?;
+        let count = raw_game_controllers
+            .Size()
+            .map_err(|e| PlatformError::Other(Box::new(e)))?;
+        // Intentionally avoiding using RawGameControllers.into_iter() as it triggers a crash when
+        // the app is run through steam.
+        // https://gitlab.com/gilrs-project/gilrs/-/issues/132
+        let gamepads = (0..count)
             .into_iter()
-            .enumerate()
-            .map(|(i, controller)| Gamepad::new(i as u32, controller))
-            .collect();
+            .map(|i| {
+                let controller = raw_game_controllers
+                    .GetAt(i)
+                    .map_err(|e| PlatformError::Other(Box::new(e)))?;
+                Ok(Gamepad::new(i as u32, controller))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let (tx, rx) = mpsc::channel();
         Self::spawn_thread(tx);
@@ -122,11 +133,21 @@ impl Gilrs {
             let mut readings: Vec<(HSTRING, Reading, Reading)> = Vec::new();
             loop {
                 controllers.clear();
-                controllers.extend(
-                    RawGameController::RawGameControllers()
-                        .into_iter()
-                        .flatten(),
-                );
+                // Avoiding using RawGameControllers().into_iter() here due to it causing an
+                // unhandled exception when the app is running through steam.
+                // https://gitlab.com/gilrs-project/gilrs/-/issues/132
+                match RawGameController::RawGameControllers() {
+                    Ok(raw_game_controllers) => {
+                        let count = raw_game_controllers.Size().unwrap_or_default();
+                        for index in 0..count {
+                            if let Ok(controller) = raw_game_controllers.GetAt(index) {
+                                controllers.push(controller);
+                            }
+                        }
+                    }
+                    Err(_) => {}
+                }
+
                 for controller in controllers.iter() {
                     let id: HSTRING = controller.NonRoamableId().unwrap();
                     // Find readings for this controller or insert new ones.
