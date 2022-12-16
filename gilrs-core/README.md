@@ -2,7 +2,7 @@ GilRs Core
 ==========
 
 [![pipeline status](https://gitlab.com/gilrs-project/gilrs/badges/master/pipeline.svg)](https://gitlab.com/gilrs-project/gilrs-core/commits/master)
-[![Minimum rustc version](https://img.shields.io/badge/rustc-1.31.1+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.64.0+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
 
 This library is minimal event based abstraction for working with gamepads. If
 you are looking for something more hight level, take a look at `gilrs` crate.

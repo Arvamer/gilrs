@@ -1,11 +1,16 @@
 Change Log
 ==========
 
-Unreleased
+v0.5.2 - 2022-12-16
 ----------
 
+### Changed
+
+- `Gilrs` is now `Send` on Linux.
+
 ### Fixed
-- Crash when app is launched through steam on Windows
+- Crash when app is launched through steam on Windows (see
+  https://github.com/microsoft/windows-rs/issues/2252 for details).
 
 v0.5.1 - 2022-11-13
 -------------------
