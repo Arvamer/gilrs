@@ -17,7 +17,6 @@ use libc as c;
 use uuid::Uuid;
 use vec_map::VecMap;
 
-use std::{error, thread};
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::mem::{self, MaybeUninit};
@@ -27,6 +26,7 @@ use std::str;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{error, thread};
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -78,7 +78,7 @@ impl Gilrs {
                 None => {
                     error!("Failed to create udev monitor for hot plug thread!");
                     return;
-                },
+                }
             };
 
             handle_hotplug(hotplug_tx, monitor)

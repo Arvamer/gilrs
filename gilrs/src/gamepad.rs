@@ -926,7 +926,15 @@ impl GamepadData {
     ) -> Self {
         let mapping = db
             .get(Uuid::from_bytes(gamepad.uuid()))
-            .and_then(|s| Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()).ok())
+            .and_then(
+                |s| match Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()) {
+                    Ok(result) => Some(result),
+                    Err(e) => {
+                        warn!("Unable to parse SDL mapping for UUID {}\n\t{:?}\n\tDefault mapping will be used.", Uuid::from_bytes(gamepad.uuid()), e);
+                        Some(Mapping::default(gamepad))
+                    }
+                },
+            )
             .unwrap_or_else(|| Mapping::default(gamepad));
 
         if gamepad.is_ff_supported() && gamepad.is_connected() {

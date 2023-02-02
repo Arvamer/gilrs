@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::ev::{Axis, AxisOrBtn, Button};
 
 // Must be sorted!
-static BUTTONS_SDL: [&str; 19] = [
+static BUTTONS_SDL: [&str; 21] = [
     "a",
     "b",
     "back",
@@ -25,15 +25,17 @@ static BUTTONS_SDL: [&str; 19] = [
     "leftshoulder",
     "leftstick",
     "lefttrigger",
+    "misc1",
     "rightshoulder",
     "rightstick",
     "righttrigger",
     "start",
+    "touchpad",
     "x",
     "y",
     "z",
 ];
-static BUTTONS: [Button; 19] = [
+static BUTTONS: [Button; 21] = [
     Button::South,
     Button::East,
     Button::Select,
@@ -46,10 +48,12 @@ static BUTTONS: [Button; 19] = [
     Button::LeftTrigger,
     Button::LeftThumb,
     Button::LeftTrigger2,
+    Button::Unknown,
     Button::RightTrigger,
     Button::RightThumb,
     Button::RightTrigger2,
     Button::Start,
+    Button::Unknown,
     Button::West,
     Button::North,
     Button::Z,
@@ -351,7 +355,7 @@ enum State {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error {
-    position: usize,
+    pub(crate) position: usize,
     kind: ErrorKind,
 }
 
@@ -393,5 +397,39 @@ impl Display for Error {
         };
 
         f.write_fmt(format_args!("{} at {}", s, self.position))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mapping::parser::{ErrorKind, Parser};
+
+    #[test]
+    fn test_all_sdl_mappings_for_parse_errors() {
+        let included_mappings =
+            include_str!(concat!(env!("OUT_DIR"), "/gamecontrollerdb.txt")).lines();
+
+        let mut errors = 0;
+        let mut index = 0;
+        for line in included_mappings {
+            let mut parser = Parser::new(line);
+
+            while let Some(token) = parser.next_token() {
+                if let Err(ref e) = token {
+                    if e.kind() != &ErrorKind::EmptyValue {
+                        errors += 1;
+                        println!("{:?}", e);
+                        println!(
+                            "{}: {} (...) {}\n",
+                            index,
+                            line.chars().take(50).collect::<String>(),
+                            line.chars().skip(e.position).take(15).collect::<String>()
+                        );
+                    }
+                }
+                index += 1;
+            }
+        }
+        assert_eq!(errors, 0);
     }
 }

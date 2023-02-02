@@ -272,6 +272,7 @@ impl Mapping {
         let mut mapping = Mapping::new();
         let mut parser = Parser::new(line);
 
+        let mut uuid: Option<Uuid> = None;
         while let Some(token) = parser.next_token() {
             if let Err(ref e) = token {
                 if e.kind() == &ParserErrorKind::EmptyValue {
@@ -287,21 +288,35 @@ impl Mapping {
                         warn!("Mappings for different platform – {}", platform);
                     }
                 }
-                Token::Uuid(_) => (),
+                Token::Uuid(v) => uuid = Some(v),
+
                 Token::Name(name) => mapping.name = name.to_owned(),
                 Token::AxisMapping { from, to, .. } => {
-                    let axis = axes
-                        .get(from as usize)
-                        .cloned()
-                        .ok_or(ParseSdlMappingError::InvalidAxis)?;
-                    mapping.mappings.insert(axis, to);
+                    let axis = axes.get(from as usize).cloned();
+                    if let Some(axis) = axis {
+                        mapping.mappings.insert(axis, to);
+                    } else {
+                        warn!(
+                            "SDL-mapping {} {}: Unknown axis a{}",
+                            uuid.unwrap(),
+                            mapping.name,
+                            from
+                        )
+                    }
                 }
                 Token::ButtonMapping { from, to } => {
-                    let btn = buttons
-                        .get(from as usize)
-                        .cloned()
-                        .ok_or(ParseSdlMappingError::InvalidButton)?;
-                    mapping.mappings.insert(btn, AxisOrBtn::Btn(to));
+                    let btn = buttons.get(from as usize).cloned();
+
+                    if let Some(btn) = btn {
+                        mapping.mappings.insert(btn, AxisOrBtn::Btn(to));
+                    } else {
+                        warn!(
+                            "SDL-mapping {} {}: Unknown button b{}",
+                            uuid.unwrap(),
+                            mapping.name,
+                            from
+                        )
+                    }
                 }
                 Token::HatMapping { hat, direction, to } => {
                     if hat != 0 || !to.is_dpad() {
@@ -401,8 +416,6 @@ impl Mapping {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ParseSdlMappingError {
-    InvalidButton,
-    InvalidAxis,
     UnknownHatDirection,
     ParseError(ParserError),
 }
@@ -426,8 +439,8 @@ impl Error for ParseSdlMappingError {
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         let s = match self {
-            ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
-            ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
+            // ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
+            // ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
             ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
             ParseSdlMappingError::ParseError(_) => "parsing error",
         };
