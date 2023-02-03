@@ -31,8 +31,8 @@ mod platform;
 
 #[cfg(all(not(feature = "xinput"), not(feature = "wgi")))]
 compile_error!(
-    "Windows needs one of the features `gilrs/xinput` or `gilrs/wgi` enabled. \
-    \nEither don't use 'default-features = false' or add one of the features back."
+    "Windows needs one of the features `gilrs/xinput` or `gilrs/wgi` enabled. \nEither don't use \
+     'default-features = false' or add one of the features back."
 );
 
 #[cfg(all(feature = "wgi", feature = "xinput"))]

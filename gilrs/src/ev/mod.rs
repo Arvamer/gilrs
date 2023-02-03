@@ -259,3 +259,9 @@ pub enum AxisOrBtn {
     Axis(Axis),
     Btn(Button),
 }
+
+impl AxisOrBtn {
+    pub(crate) fn is_button(&self) -> bool {
+        matches!(self, AxisOrBtn::Btn(_))
+    }
+}

@@ -304,11 +304,11 @@ impl Mapping {
                         )
                     }
                 }
-                Token::ButtonMapping { from, to } => {
+                Token::ButtonMapping { from, to, .. } => {
                     let btn = buttons.get(from as usize).cloned();
 
                     if let Some(btn) = btn {
-                        mapping.mappings.insert(btn, AxisOrBtn::Btn(to));
+                        mapping.mappings.insert(btn, to);
                     } else {
                         warn!(
                             "SDL-mapping {} {}: Unknown button b{}",
@@ -318,8 +318,10 @@ impl Mapping {
                         )
                     }
                 }
-                Token::HatMapping { hat, direction, to } => {
-                    if hat != 0 || !to.is_dpad() {
+                Token::HatMapping {
+                    hat, direction, to, ..
+                } => {
+                    if hat != 0 {
                         warn!(
                             "Hat mappings are only supported for dpads (requested to map hat \
                              {}.{} to {:?}",
@@ -340,14 +342,25 @@ impl Mapping {
                             _ => return Err(ParseSdlMappingError::UnknownHatDirection),
                         };
 
-                        let to_axis = match to {
-                            Button::DPadLeft | Button::DPadRight => Axis::DPadX,
-                            Button::DPadUp | Button::DPadDown => Axis::DPadY,
-                            _ => unreachable!(),
-                        };
+                        if to.is_button() {
+                            match to {
+                                AxisOrBtn::Btn(Button::DPadLeft | Button::DPadRight) => {
+                                    mapping
+                                        .mappings
+                                        .insert(from_axis, AxisOrBtn::Axis(Axis::DPadX));
+                                }
+                                AxisOrBtn::Btn(Button::DPadUp | Button::DPadDown) => {
+                                    mapping
+                                        .mappings
+                                        .insert(from_axis, AxisOrBtn::Axis(Axis::DPadY));
+                                }
+                                _ => (),
+                            }
+                            mapping.mappings.insert(from_btn, to);
+                        } else {
+                            mapping.mappings.insert(from_axis, to);
+                        }
 
-                        mapping.mappings.insert(from_axis, AxisOrBtn::Axis(to_axis));
-                        mapping.mappings.insert(from_btn, AxisOrBtn::Btn(to));
                         mapping.hats_mapped |= direction as u8;
                     }
                 }
@@ -438,14 +451,12 @@ impl Error for ParseSdlMappingError {
 
 impl Display for ParseSdlMappingError {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
-        let s = match self {
-            // ParseSdlMappingError::InvalidButton => "gamepad doesn't have requested button",
-            // ParseSdlMappingError::InvalidAxis => "gamepad doesn't have requested axis",
-            ParseSdlMappingError::UnknownHatDirection => "hat direction wasn't 1, 2, 4 or 8",
-            ParseSdlMappingError::ParseError(_) => "parsing error",
-        };
-
-        fmt.write_str(s)
+        match self {
+            ParseSdlMappingError::UnknownHatDirection => {
+                fmt.write_str("hat direction wasn't 1, 2, 4 or 8")
+            }
+            ParseSdlMappingError::ParseError(_) => fmt.write_str("parsing error"),
+        }
     }
 }
 
