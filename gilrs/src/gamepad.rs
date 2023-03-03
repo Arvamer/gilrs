@@ -435,7 +435,7 @@ impl Gilrs {
         // Make sure that it will not panic even with invalid GamepadId, so ConnectedGamepadIterator
         // will always work.
         if let Some(data) = self.gamepads_data.get(id.0) {
-            let inner = self.inner.gamepad(id.0).unwrap();
+            let inner = self.inner.gamepad(id.0)?;
 
             if inner.is_connected() {
                 Some(Gamepad { inner, data })
