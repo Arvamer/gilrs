@@ -4,6 +4,8 @@
 ### Useful for gilrs devs that want a single script to to point their IDE to for run configurations.
 ### Make sure to run the install steps from the readme first.
 
+set -e
+
 # Start at this script's path and go up three levels to the workspace root.
 # Ensures a consistent path regardless of the working directory when you run the script.
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )

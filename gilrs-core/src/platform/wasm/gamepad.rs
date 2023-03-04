@@ -73,22 +73,27 @@ impl Gilrs {
             }
         };
 
-        let gamepads = gamepads.iter().map(|val| {
-            if val.is_null() {
-                None
-            } else {
-                Some(WebGamepad::from(val))
-            }
-        });
+        let mut new_gamepads: Vec<_> = gamepads
+            .iter()
+            .map(|val| {
+                if val.is_null() {
+                    None
+                } else {
+                    Some(Gamepad::new(WebGamepad::from(val)))
+                }
+            })
+            .collect();
+        if new_gamepads.len() < self.gamepads.len() {
+            new_gamepads.resize_with(self.gamepads.len(), || None);
+        }
 
-        let new_gamepads: Vec<_> = gamepads.flatten().map(Gamepad::new).collect();
-        let mut old_index = 0;
-        let mut new_index = 0;
-
-        loop {
-            match (self.gamepads.get(old_index), new_gamepads.get(new_index)) {
-                (Some(old), Some(new)) if old.gamepad.index() == new.gamepad.index() => {
-                    let index = old.index();
+        for (index, new) in new_gamepads.into_iter().enumerate() {
+            match (self.gamepads.get_mut(index), new) {
+                (Some(old), Some(new)) => {
+                    if !old.connected {
+                        self.event_cache
+                            .push_back(Event::new(new.index(), EventType::Connected));
+                    }
 
                     // Compare the two gamepads and generate events
                     let buttons = old.mapping.buttons().zip(new.mapping.buttons()).enumerate();
@@ -116,41 +121,27 @@ impl Gilrs {
                             ));
                         }
                     }
-                    old_index += 1;
-                    new_index += 1;
-                }
-                (Some(old), Some(new)) if old.gamepad.index() > new.gamepad.index() => {
-                    // Create a connected event
-                    self.event_cache
-                        .push_back(Event::new(new.index(), EventType::Connected));
-                    new_index += 1;
-                }
-                (Some(old), Some(_new)) => {
-                    // Create a disconnect event
-                    self.event_cache
-                        .push_back(Event::new(old.index(), EventType::Disconnected));
-                    old_index += 1;
+
+                    *old = new;
                 }
                 (Some(old), None) => {
                     // Create a disconnect event
-                    self.event_cache
-                        .push_back(Event::new(old.index(), EventType::Disconnected));
-                    old_index += 1;
+                    if old.connected {
+                        self.event_cache
+                            .push_back(Event::new(index, EventType::Disconnected));
+                        old.connected = false;
+                    }
                 }
                 (None, Some(new)) => {
                     // Create a connected event
-                    let index = new.index();
                     let event = Event::new(index, EventType::Connected);
                     self.event_cache.push_back(event);
-                    new_index += 1;
+                    self.gamepads.push(new);
                 }
-                (None, None) => {
-                    break;
-                }
+                (None, None) => {}
             }
         }
 
-        self.gamepads = new_gamepads;
         self.event_cache.pop_front()
     }
 
@@ -193,6 +184,7 @@ pub struct Gamepad {
     gamepad: WebGamepad,
     name: String,
     mapping: Mapping,
+    connected: bool,
 }
 
 impl Gamepad {
@@ -241,6 +233,7 @@ impl Gamepad {
             gamepad,
             name,
             mapping,
+            connected: true,
         }
     }
 
