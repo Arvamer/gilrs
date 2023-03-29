@@ -1,12 +1,16 @@
 Change Log
 ==========
 
-v0.5.3 - 2023-2-12
+v0.5.3 - 2023-03-29
 ----------
 
 ### Changed
 
 - Updated `windows` to 0.44
+
+### Fixed
+
+- web: Fixed handling of disconnected gamepads
 
 v0.5.2 - 2022-12-16
 ----------
