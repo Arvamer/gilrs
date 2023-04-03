@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+v0.5.4 - 2023-02-03
+----------
+
+### Changed
+
+- Updated `io-kit-sys`, `windows` and `nix`
+
 v0.5.3 - 2023-03-29
 ----------
 
