@@ -185,36 +185,55 @@ impl Gilrs {
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
-        self.rx.try_recv().ok().map(|wgi_event: WgiEvent| {
-            // Find the index of the gamepad in our vec or insert it
-            let id = self
-                .gamepads
-                .iter()
-                .position(
-                    |gamepad| match wgi_event.raw_game_controller.NonRoamableId() {
-                        Ok(id) => id == gamepad.non_roamable_id,
-                        _ => false,
-                    },
-                )
-                .unwrap_or_else(|| {
-                    self.gamepads.push(Gamepad::new(
-                        self.gamepads.len() as u32,
-                        wgi_event.raw_game_controller,
-                    ));
-                    self.gamepads.len() - 1
-                });
+        self.rx
+            .try_recv()
+            .ok()
+            .map(|wgi_event: WgiEvent| self.handle_event(wgi_event))
+    }
 
-            match wgi_event.event {
-                EventType::Connected => self.gamepads[id].is_connected = true,
-                EventType::Disconnected => self.gamepads[id].is_connected = false,
-                _ => (),
-            }
-            Event {
-                id,
-                event: wgi_event.event,
-                time: wgi_event.time,
-            }
-        })
+    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        if let Some(timeout) = timeout {
+            self.rx
+                .recv_timeout(timeout)
+                .ok()
+                .map(|wgi_event: WgiEvent| self.handle_event(wgi_event))
+        } else {
+            self.rx
+                .recv()
+                .ok()
+                .map(|wgi_event: WgiEvent| self.handle_event(wgi_event))
+        }
+    }
+
+    fn handle_event(&mut self, wgi_event: WgiEvent) -> Event {
+        // Find the index of the gamepad in our vec or insert it
+        let id = self
+            .gamepads
+            .iter()
+            .position(
+                |gamepad| match wgi_event.raw_game_controller.NonRoamableId() {
+                    Ok(id) => id == gamepad.non_roamable_id,
+                    _ => false,
+                },
+            )
+            .unwrap_or_else(|| {
+                self.gamepads.push(Gamepad::new(
+                    self.gamepads.len() as u32,
+                    wgi_event.raw_game_controller,
+                ));
+                self.gamepads.len() - 1
+            });
+
+        match wgi_event.event {
+            EventType::Connected => self.gamepads[id].is_connected = true,
+            EventType::Disconnected => self.gamepads[id].is_connected = false,
+            _ => (),
+        }
+        Event {
+            id,
+            event: wgi_event.event,
+            time: wgi_event.time,
+        }
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {

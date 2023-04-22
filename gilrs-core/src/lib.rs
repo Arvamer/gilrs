@@ -116,6 +116,11 @@ impl Gilrs {
         self.inner.next_event()
     }
 
+    /// Returns oldest event, waiting for new event if necessary.
+    pub fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        self.inner.next_event_blocking(timeout)
+    }
+
     /// Borrows `Gamepad` or return `None` if index is invalid. Returned gamepad may be disconnected.
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
         unsafe {

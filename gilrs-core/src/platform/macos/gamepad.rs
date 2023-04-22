@@ -24,6 +24,7 @@ use std::os::raw::c_void;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -78,7 +79,22 @@ impl Gilrs {
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
-        match self.rx.try_recv().ok() {
+        let event = self.rx.try_recv().ok();
+        self.handle_event(event)
+    }
+
+    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        let event = if let Some(timeout) = timeout {
+            self.rx.recv_timeout(timeout).ok()
+        } else {
+            self.rx.recv().ok()
+        };
+
+        self.handle_event(event)
+    }
+
+    fn handle_event(&mut self, event: Option<(Event, Option<IOHIDDevice>)>) -> Option<Event> {
+        match event {
             Some((event, Some(device))) => {
                 if event.event == EventType::Connected {
                     if self.gamepads.get(event.id).is_some() {

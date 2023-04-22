@@ -7,6 +7,7 @@
 
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::time::Duration;
 
 use uuid::Uuid;
 use wasm_bindgen::JsCast;
@@ -143,6 +144,10 @@ impl Gilrs {
         }
 
         self.event_cache.pop_front()
+    }
+
+    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        unimplemented!("next_event_blocking is not supported on web. Use next_event.")
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {

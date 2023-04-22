@@ -17,22 +17,33 @@ use libc as c;
 use uuid::Uuid;
 use vec_map::VecMap;
 
+use nix::errno::Errno;
+use nix::sys::epoll::{EpollEvent, EpollFlags, EpollOp};
+use nix::sys::eventfd::EfdFlags;
+use nix::sys::{epoll, eventfd};
+use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fs::File;
+use std::io::Write;
 use std::mem::{self, MaybeUninit};
 use std::ops::Index;
 use std::os::raw::c_char;
+use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::str;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{error, thread};
 
+const HOTPLUG_DATA: u64 = u64::MAX;
+
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
-    event_counter: usize,
+    epoll: OwnedFd,
     hotplug_rx: Receiver<HotplugEvent>,
+    to_check: VecDeque<usize>,
 }
 
 impl Gilrs {
@@ -55,9 +66,27 @@ impl Gilrs {
         unsafe { en.add_match_property(cstr_new(b"ID_INPUT_JOYSTICK\0"), cstr_new(b"1\0")) }
         en.scan_devices();
 
+        let epoll =
+            epoll::epoll_create().map_err(|e| errno_to_platform_error(e, "creating epoll fd"))?;
+        let epoll = unsafe { OwnedFd::from_raw_fd(epoll) };
+
+        let hotplug_event = eventfd::eventfd(1, EfdFlags::EFD_NONBLOCK)
+            .map_err(|e| errno_to_platform_error(e, "creating eventfd"))?;
+        epoll::epoll_ctl(
+            epoll.as_raw_fd(),
+            EpollOp::EpollCtlAdd,
+            hotplug_event,
+            &mut EpollEvent::new(EpollFlags::EPOLLIN | EpollFlags::EPOLLET, HOTPLUG_DATA),
+        )
+        .map_err(|e| errno_to_platform_error(e, "adding evevntfd do epoll"))?;
+
         for dev in en.iter() {
             if let Some(dev) = Device::from_syspath(&udev, &dev) {
                 if let Some(gamepad) = Gamepad::open(&dev) {
+                    let idx = gamepads.len();
+                    gamepad
+                        .register_fd(epoll.as_raw_fd(), idx as u64)
+                        .map_err(|e| errno_to_platform_error(e, "registering gamepad in epoll"))?;
                     gamepads.push(gamepad);
                 }
             }
@@ -81,49 +110,96 @@ impl Gilrs {
                 }
             };
 
-            handle_hotplug(hotplug_tx, monitor)
+            handle_hotplug(hotplug_tx, monitor, hotplug_event)
         });
 
         Ok(Gilrs {
             gamepads,
-            event_counter: 0,
+            epoll,
             hotplug_rx,
+            to_check: VecDeque::new(),
         })
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
-        if let Some(event) = self.handle_hotplug() {
-            return Some(event);
+        self.next_event_impl(Some(Duration::new(0, 0)))
+    }
+
+    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        self.next_event_impl(timeout)
+    }
+
+    fn next_event_impl(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        let mut check_hotplug = false;
+
+        if self.to_check.is_empty() {
+            let mut events = [EpollEvent::new(EpollFlags::empty(), 0); 16];
+            let timeout = if let Some(timeout) = timeout {
+                timeout.as_millis().try_into().expect("timeout too large")
+            } else {
+                -1
+            };
+
+            let n = match epoll::epoll_wait(self.epoll.as_raw_fd(), &mut events, timeout) {
+                Ok(n) => n,
+                Err(e) => {
+                    error!("epoll failed: {}", e);
+                    return None;
+                }
+            };
+
+            if n == 0 {
+                return None;
+            }
+
+            for event in events {
+                if event.events().contains(EpollFlags::EPOLLIN) {
+                    if event.data() == HOTPLUG_DATA {
+                        check_hotplug = true;
+                    } else {
+                        self.to_check.push_back(event.data() as usize);
+                    }
+                }
+            }
         }
 
-        loop {
-            let gamepad = match self.gamepads.get_mut(self.event_counter) {
+        if check_hotplug {
+            if let Some(event) = self.handle_hotplug() {
+                return Some(event);
+            }
+        }
+
+        while let Some(idx) = self.to_check.front().copied() {
+            let gamepad = match self.gamepads.get_mut(idx) {
                 Some(gp) => gp,
                 None => {
-                    self.event_counter = 0;
+                    warn!("Somehow got invalid index from event");
+                    self.to_check.pop_front();
                     return None;
                 }
             };
 
             if !gamepad.is_connected {
-                self.event_counter += 1;
+                self.to_check.pop_front();
                 continue;
             }
 
             match gamepad.event() {
                 Some((event, time)) => {
                     return Some(Event {
-                        id: self.event_counter,
+                        id: idx,
                         event,
                         time,
                     });
                 }
                 None => {
-                    self.event_counter += 1;
+                    self.to_check.pop_front();
                     continue;
                 }
             };
         }
+
+        None
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {
@@ -143,9 +219,17 @@ impl Gilrs {
                         .iter()
                         .position(|gp| gp.uuid() == gamepad.uuid && !gp.is_connected)
                     {
+                        if let Err(e) = gamepad.register_fd(self.epoll.as_raw_fd(), id as u64) {
+                            error!("Failed to add gamepad to epoll: {}", e);
+                        }
                         self.gamepads[id] = *gamepad;
                         Some(Event::new(id, EventType::Connected))
                     } else {
+                        if let Err(e) =
+                            gamepad.register_fd(self.epoll.as_raw_fd(), self.gamepads.len() as u64)
+                        {
+                            error!("Failed to add gamepad to epoll: {}", e);
+                        }
                         self.gamepads.push(*gamepad);
                         Some(Event::new(self.gamepads.len() - 1, EventType::Connected))
                     }
@@ -156,6 +240,15 @@ impl Gilrs {
                         .iter()
                         .position(|gp| devpath == gp.devpath && gp.is_connected)
                     {
+                        if let Err(e) = epoll::epoll_ctl(
+                            self.epoll.as_raw_fd(),
+                            EpollOp::EpollCtlDel,
+                            self.gamepads[id].fd,
+                            &mut EpollEvent::empty(),
+                        ) {
+                            error!("Failed to remove disconnected gamepad from epoll: {}", e);
+                        }
+
                         self.gamepads[id].disconnect();
                         return Some(Event::new(id, EventType::Disconnected));
                     } else {
@@ -174,7 +267,9 @@ enum HotplugEvent {
     Removed(String),
 }
 
-fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor) {
+fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: RawFd) {
+    let mut event = unsafe { File::from_raw_fd(event) };
+
     loop {
         if !monitor.wait_hotplug_available() {
             continue;
@@ -196,12 +291,15 @@ fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor) {
                 None => continue,
             };
 
+            let mut sent = false;
+
             if action == cstr_new(b"add\0") {
                 if let Some(gamepad) = Gamepad::open(&dev) {
                     if sender.send(HotplugEvent::New(Box::new(gamepad))).is_err() {
                         debug!("All receivers dropped, ending hot plug loop.");
                         break;
                     }
+                    sent = true;
                 }
             } else if action == cstr_new(b"remove\0") {
                 if let Some(devnode) = dev.devnode() {
@@ -210,9 +308,19 @@ fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor) {
                             debug!("All receivers dropped, ending hot plug loop.");
                             break;
                         }
+                        sent = true;
                     } else {
                         warn!("Received event with devnode that is not valid utf8: {devnode:?}")
                     }
+                }
+            }
+
+            if sent {
+                if let Err(e) = event.write(&0u64.to_ne_bytes()) {
+                    error!(
+                        "Failed to notify other thread about new hotplug events: {}",
+                        e
+                    );
                 }
             }
         }
@@ -360,6 +468,15 @@ impl Gamepad {
         Some(gamepad)
     }
 
+    fn register_fd(&self, epoll: RawFd, data: u64) -> Result<(), Errno> {
+        epoll::epoll_ctl(
+            epoll,
+            EpollOp::EpollCtlAdd,
+            self.fd,
+            &mut EpollEvent::new(EpollFlags::EPOLLIN, data),
+        )
+    }
+
     fn collect_axes_and_buttons(&mut self) {
         let mut key_bits = [0u8; (KEY_MAX / 8) as usize + 1];
         let mut abs_bits = [0u8; (ABS_MAX / 8) as usize + 1];
@@ -479,7 +596,7 @@ impl Gamepad {
 
     fn battery_fd(dev: &Device) -> (i32, i32) {
         use std::ffi::OsStr;
-        use std::fs::{self, File};
+        use std::fs::{self};
         use std::os::unix::ffi::OsStrExt;
         use std::os::unix::io::IntoRawFd;
         use std::path::Path;
@@ -833,6 +950,7 @@ impl Display for EvCode {
 enum Error {
     UdevCtx,
     UdevEnumerate,
+    Errno(Errno, &'static str),
 }
 
 impl Display for Error {
@@ -840,11 +958,16 @@ impl Display for Error {
         match *self {
             Error::UdevCtx => f.write_str("Failed to create udev context"),
             Error::UdevEnumerate => f.write_str("Failed to create udev enumerate object"),
+            Error::Errno(e, ctx) => f.write_fmt(format_args!("{} failed: {}", ctx, e)),
         }
     }
 }
 
 impl error::Error for Error {}
+
+fn errno_to_platform_error(errno: Errno, ctx: &'static str) -> PlatformError {
+    PlatformError::Other(Box::new(Error::Errno(errno, ctx)))
+}
 
 const KEY_MAX: u16 = 0x2ff;
 #[allow(dead_code)]

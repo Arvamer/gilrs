@@ -30,6 +30,7 @@ use std::{
     error,
     fmt::{self, Display},
     sync::mpsc::Sender,
+    time::Duration,
 };
 
 pub use gilrs_core::PowerInfo;
@@ -152,15 +153,30 @@ impl Gilrs {
 
     /// Returns next pending event. If there is no pending event, `None` is
     /// returned. This function will not block current thread and should be safe
-    /// to call in async context.
+    /// to call in async context. Doesn't block the thread it is run in
     pub fn next_event(&mut self) -> Option<Event> {
+        self.next_event_inner(false, None)
+    }
+
+    /// Same as [Gilrs::next_event], but blocks the thread it is run in. Useful
+    /// for apps that aren't run inside a loop and just react to the user's input,
+    /// like GUI apps.
+    ///
+    /// ## Platform support
+    ///
+    /// This function is not supported on web and will always panic.
+    pub fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        self.next_event_inner(true, timeout)
+    }
+
+    fn next_event_inner(&mut self, is_blocking: bool, blocking_timeout: Option<Duration>) -> Option<Event> {
         use crate::ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
 
         let ev = if self.default_filters {
             let jitter_filter = Jitter::new();
             loop {
                 let ev = self
-                    .next_event_priv()
+                    .next_event_priv(is_blocking, blocking_timeout)
                     .filter_ev(&axis_dpad_to_button, self)
                     .filter_ev(&jitter_filter, self)
                     .filter_ev(&deadzone, self);
@@ -172,7 +188,7 @@ impl Gilrs {
                 }
             }
         } else {
-            self.next_event_priv()
+            self.next_event_priv(is_blocking, blocking_timeout)
         };
 
         if self.update_state {
@@ -185,11 +201,17 @@ impl Gilrs {
     }
 
     /// Returns next pending event.
-    fn next_event_priv(&mut self) -> Option<Event> {
+    fn next_event_priv(&mut self, is_blocking: bool, blocking_timeout: Option<Duration>) -> Option<Event> {
         if let Some(ev) = self.events.pop_front() {
             Some(ev)
         } else {
-            match self.inner.next_event() {
+            let event = if is_blocking {
+                self.inner.next_event_blocking(blocking_timeout)
+            } else {
+                self.inner.next_event()
+            };
+
+            match event {
                 Some(RawEvent { id, event, time }) => {
                     trace!("Original event: {:?}", RawEvent { id, event, time });
                     let id = GamepadId(id);

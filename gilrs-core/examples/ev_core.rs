@@ -5,7 +5,7 @@ fn main() {
 
     let mut gilrs = Gilrs::new().unwrap();
     loop {
-        while let Some(ev) = gilrs.next_event() {
+        while let Some(ev) = gilrs.next_event_blocking(None) {
             println!("{:?}", ev);
         }
     }

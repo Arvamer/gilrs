@@ -72,7 +72,24 @@ impl Gilrs {
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
         let ev = self.rx.try_recv().ok();
+        self.handle_evevnt(ev);
 
+        ev
+    }
+
+    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+        let ev = if let Some(tiemout) = timeout {
+            self.rx.recv_timeout(tiemout).ok()
+        } else {
+            self.rx.recv().ok()
+        };
+
+        self.handle_evevnt(ev);
+
+        ev
+    }
+
+    fn handle_evevnt(&mut self, ev: Option<Event>) {
         if let Some(ev) = ev {
             match ev.event {
                 EventType::Connected => self.gamepads[ev.id].is_connected = true,
@@ -80,8 +97,6 @@ impl Gilrs {
                 _ => (),
             }
         }
-
-        ev
     }
 
     pub fn gamepad(&self, id: usize) -> Option<&Gamepad> {

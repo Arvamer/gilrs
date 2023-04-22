@@ -12,6 +12,7 @@ use std::u16::MAX as U16_MAX;
 use std::{mem, slice};
 
 use super::ioctl::{self, ff_effect, ff_replay, ff_rumble_effect, input_event};
+use nix::errno::Errno;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -110,10 +111,12 @@ impl Drop for Device {
         let effect = self.effect as ::libc::c_int;
 
         if let Err(err) = unsafe { ioctl::eviocrmff(self.file.as_raw_fd(), effect) } {
-            error!(
-                "Failed to remove effect of gamepad {:?}: {}",
-                self.file, err
-            )
+            if err != Errno::ENODEV {
+                error!(
+                    "Failed to remove effect of gamepad {:?}: {}",
+                    self.file, err
+                )
+            }
         };
     }
 }

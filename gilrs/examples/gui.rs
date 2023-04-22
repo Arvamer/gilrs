@@ -290,6 +290,7 @@ impl eframe::App for MyEguiApp {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    env_logger::init();
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(Vec2::new(1024.0, 768.0)),
         ..Default::default()

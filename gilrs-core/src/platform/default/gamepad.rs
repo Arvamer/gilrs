@@ -11,6 +11,7 @@ use crate::{AxisInfo, Event, PlatformError, PowerInfo};
 use uuid::Uuid;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Gilrs {}
@@ -21,6 +22,10 @@ impl Gilrs {
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
+        None
+    }
+
+    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
         None
     }
 
