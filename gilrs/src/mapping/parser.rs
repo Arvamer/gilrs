@@ -376,11 +376,16 @@ impl Display for Error {
 #[cfg(test)]
 mod tests {
     use crate::mapping::parser::{ErrorKind, Parser};
+    use crate::utils::PATH_SEPARATOR;
 
     #[test]
     fn test_all_sdl_mappings_for_parse_errors() {
-        let included_mappings =
-            include_str!(concat!(env!("OUT_DIR"), "/gamecontrollerdb.txt")).lines();
+        let included_mappings = include_str!(concat!(
+            env!("OUT_DIR"),
+            PATH_SEPARATOR!(),
+            "gamecontrollerdb.txt"
+        ))
+        .lines();
 
         let mut errors = 0;
         let mut index = 0;

@@ -20,6 +20,22 @@ pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
     x.clamp(min, max)
 }
 
+#[cfg(path_separator = "backslash")]
+macro_rules! PATH_SEPARATOR {
+    () => {
+        r"\"
+    };
+}
+
+#[cfg(path_separator = "slash")]
+macro_rules! PATH_SEPARATOR {
+    () => {
+        r"/"
+    };
+}
+
+pub(crate) use PATH_SEPARATOR;
+
 #[cfg(test)]
 mod tests {
     use super::*;

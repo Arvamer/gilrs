@@ -9,6 +9,7 @@
 mod parser;
 
 use crate::ev::{self, Axis, AxisOrBtn, Button};
+use crate::utils::PATH_SEPARATOR;
 use gilrs_core::native_ev_codes as nec;
 use gilrs_core::EvCode;
 
@@ -475,7 +476,8 @@ impl MappingDb {
     pub fn add_included_mappings(&mut self) {
         self.insert(include_str!(concat!(
             env!("OUT_DIR"),
-            "/gamecontrollerdb.txt"
+            PATH_SEPARATOR!(),
+            "gamecontrollerdb.txt"
         )));
     }
 

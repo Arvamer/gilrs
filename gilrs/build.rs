@@ -10,7 +10,15 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
+#[cfg(windows)]
+const PATH_SEPARATOR: &str = "backslash";
+
+#[cfg(not(windows))]
+const PATH_SEPARATOR: &str = "slash";
+
 fn main() {
+    println!(r#"cargo:rustc-cfg=path_separator="{}""#, PATH_SEPARATOR);
+
     let out_dir = env::var("OUT_DIR").unwrap();
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
