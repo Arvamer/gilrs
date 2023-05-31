@@ -767,6 +767,12 @@ impl<'a> Gamepad<'a> {
         self.inner.uuid()
     }
 
+    /// Returns dev path or location id which represents the unique io location of the gamepad in Macos or Windows.
+    /// Always None in other platforms.
+    pub fn mount_point(&self) -> Option<String> {
+        self.inner.mount_point()
+    }
+
     /// Returns cached gamepad state.
     pub fn state(&self) -> &GamepadState {
         &self.data.state

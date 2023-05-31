@@ -244,6 +244,10 @@ impl Gamepad {
         self.uuid
     }
 
+    pub fn mount_point(&self) -> Option<String> {
+        None
+    }
+
     pub fn is_connected(&self) -> bool {
         self.gamepad.connected()
     }

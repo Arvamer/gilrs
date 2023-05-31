@@ -303,6 +303,11 @@ impl Gamepad {
         false
     }
 
+    pub fn mount_point(&self) -> Option<String> {
+        let location_id = self.location_id.to_string();
+        Some(location_id)
+    }
+
     /// Creates Ffdevice corresponding to this gamepad.
     pub fn ff_device(&self) -> Option<FfDevice> {
         Some(FfDevice)

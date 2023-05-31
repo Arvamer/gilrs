@@ -165,6 +165,12 @@ impl Gamepad {
         *self.inner.uuid().as_bytes()
     }
 
+    /// Returns dev path or location id which represents the unique io location of the gamepad in Macos or Windows.
+    /// Always None in other platforms.
+    pub fn mount_point(&self) -> Option<String> {
+        self.inner.mount_point()
+    }
+
     /// Returns device's power supply state.
     pub fn power_info(&self) -> PowerInfo {
         self.inner.power_info()

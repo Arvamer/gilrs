@@ -686,6 +686,10 @@ impl Gamepad {
         }
     }
 
+    pub fn mount_point(&self) -> Option<String> {
+        Some(self.devpath)
+    }
+
     pub fn buttons(&self) -> &[EvCode] {
         &self.buttons
     }
