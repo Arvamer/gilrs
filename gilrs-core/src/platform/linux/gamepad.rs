@@ -774,9 +774,10 @@ impl Gamepad {
                     self.bt_capacity_fd,
                     buff.as_mut_ptr() as *mut c::c_void,
                     buff.len(),
-                ) as usize;
+                );
 
                 if len > 0 {
+                    let len = len as usize;
                     let cap = match str::from_utf8_unchecked(&buff[..(len - 1)]).parse() {
                         Ok(cap) => cap,
                         Err(_) => {
@@ -792,9 +793,10 @@ impl Gamepad {
                         self.bt_status_fd,
                         buff.as_mut_ptr() as *mut c::c_void,
                         buff.len(),
-                    ) as usize;
+                    );
 
                     if len > 0 {
+                        let len = len as usize;
                         return match str::from_utf8_unchecked(&buff[..(len - 1)]) {
                             "Charging" => PowerInfo::Charging(cap),
                             "Discharging" => PowerInfo::Discharging(cap),
