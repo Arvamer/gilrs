@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+v0.5.6 - 2023-06-19
+----------
+
+### Fixed
+
+- Linux: fixed panic when calling `get_power_info` on disconnected gamepad.
+
 v0.5.5 - 2023-04-23
 ----------
 
