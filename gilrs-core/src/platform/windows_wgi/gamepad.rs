@@ -12,7 +12,8 @@ use crate::{utils, AxisInfo, Event, EventType, PlatformError, PowerInfo};
 #[cfg(feature = "serde-serialize")]
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{thread, u32};
 use uuid::Uuid;
@@ -74,6 +75,8 @@ impl WgiEvent {
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
     rx: Receiver<WgiEvent>,
+    join_handle: Option<JoinHandle<()>>,
+    stop_tx: Sender<()>,
 }
 
 impl Gilrs {
@@ -97,11 +100,12 @@ impl Gilrs {
             .collect::<Result<Vec<_>, _>>()?;
 
         let (tx, rx) = mpsc::channel();
-        Self::spawn_thread(tx);
-        Ok(Gilrs { gamepads, rx })
+        let (stop_tx, stop_rx) = mpsc::channel();
+        let join_handle = Some(Self::spawn_thread(tx, stop_rx));
+        Ok(Gilrs { gamepads, rx, join_handle, stop_tx })
     }
 
-    fn spawn_thread(tx: Sender<WgiEvent>) {
+    fn spawn_thread(tx: Sender<WgiEvent>, stop_rx: Receiver<()>) -> JoinHandle<()> {
         let added_tx = tx.clone();
         let added_handler: EventHandler<RawGameController> =
             EventHandler::new(move |_, g: &Option<RawGameController>| {
@@ -132,6 +136,14 @@ impl Gilrs {
             // and swap their memory
             let mut readings: Vec<(HSTRING, Reading, Reading)> = Vec::new();
             loop {
+                match stop_rx.try_recv() {
+                    Ok(_) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        warn!("stop_rx channel disconnected prematurely");
+                        break;
+                    }
+                    Err(TryRecvError::Empty) => {}
+                }
                 controllers.clear();
                 // Avoiding using RawGameControllers().into_iter() here due to it causing an
                 // unhandled exception when the app is running through steam.
@@ -181,7 +193,7 @@ impl Gilrs {
                 }
                 thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
             }
-        });
+        })
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {
@@ -242,6 +254,17 @@ impl Gilrs {
 
     pub fn last_gamepad_hint(&self) -> usize {
         self.gamepads.len()
+    }
+}
+
+impl Drop for Gilrs {
+    fn drop(&mut self) {
+        if let Err(e) = self.stop_tx.send(()) {
+            warn!("Failed to send stop signal to thread: {e:?}");
+        }
+        if let Err(e) = self.join_handle.take().unwrap().join() {
+            warn!("Failed to join thread: {e:?}");
+        }
     }
 }
 
