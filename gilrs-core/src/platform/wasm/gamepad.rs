@@ -14,7 +14,10 @@ use wasm_bindgen::JsCast;
 use web_sys::{DomException, Gamepad as WebGamepad, GamepadButton, GamepadMappingType};
 
 use super::FfDevice;
+use crate::platform::native_ev_codes::{BTN_LT2, BTN_RT2};
 use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
+#[cfg(feature = "serde-serialize")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct Gilrs {
@@ -100,14 +103,28 @@ impl Gilrs {
                     let buttons = old.mapping.buttons().zip(new.mapping.buttons()).enumerate();
                     for (btn_index, (old_button, new_button)) in buttons {
                         let ev_code = crate::EvCode(new.button_code(btn_index));
-                        match (old_button, new_button) {
-                            (false, true) => self
-                                .event_cache
-                                .push_back(Event::new(index, EventType::ButtonPressed(ev_code))),
-                            (true, false) => self
-                                .event_cache
-                                .push_back(Event::new(index, EventType::ButtonReleased(ev_code))),
-                            _ => (),
+
+                        if [BTN_LT2, BTN_RT2].contains(&ev_code.0) && old_button.1 != new_button.1 {
+                            // Treat left and right triggers as axes so we get non-binary values.
+                            // Button Pressed/Changed events are generated from the axis changed
+                            // events later.
+                            let value = (new_button.1 * i32::MAX as f64) as i32;
+                            self.event_cache.push_back(Event::new(
+                                index,
+                                EventType::AxisValueChanged(value, ev_code),
+                            ));
+                        } else {
+                            match (old_button.0, new_button.0) {
+                                (false, true) => self.event_cache.push_back(Event::new(
+                                    index,
+                                    EventType::ButtonPressed(ev_code),
+                                )),
+                                (true, false) => self.event_cache.push_back(Event::new(
+                                    index,
+                                    EventType::ButtonReleased(ev_code),
+                                )),
+                                _ => (),
+                            }
                         }
                     }
 
@@ -161,12 +178,18 @@ impl Gilrs {
 
 #[derive(Debug)]
 enum Mapping {
-    Standard { buttons: [bool; 17], axes: [f64; 4] },
-    NoMapping { buttons: Vec<bool>, axes: Vec<f64> },
+    Standard {
+        buttons: [(bool, f64); 17],
+        axes: [f64; 4],
+    },
+    NoMapping {
+        buttons: Vec<(bool, f64)>,
+        axes: Vec<f64>,
+    },
 }
 
 impl Mapping {
-    fn buttons(&self) -> impl Iterator<Item = bool> + '_ {
+    fn buttons(&self) -> impl Iterator<Item = (bool, f64)> + '_ {
         match self {
             Mapping::Standard { buttons, .. } => buttons.iter(),
             Mapping::NoMapping { buttons, .. } => buttons.iter(),
@@ -213,11 +236,11 @@ impl Gamepad {
 
         let mapping = match gamepad.mapping() {
             GamepadMappingType::Standard => {
-                let mut buttons = [false; 17];
+                let mut buttons = [(false, 0.0); 17];
                 let mut axes = [0.0; 4];
 
                 for (index, button) in button_iter.enumerate().take(buttons.len()) {
-                    buttons[index] = button.pressed();
+                    buttons[index] = (button.pressed(), button.value());
                 }
 
                 for (index, axis) in axis_iter.enumerate().take(axes.len()) {
@@ -227,7 +250,9 @@ impl Gamepad {
                 Mapping::Standard { buttons, axes }
             }
             _ => {
-                let buttons = button_iter.map(|button| button.pressed()).collect();
+                let buttons = button_iter
+                    .map(|button| (button.pressed(), button.value()))
+                    .collect();
                 let axes = axis_iter.collect();
                 Mapping::NoMapping { buttons, axes }
             }
@@ -293,6 +318,13 @@ impl Gamepad {
     }
 
     pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
+        if self.buttons().contains(&_nec) {
+            return Some(&AxisInfo {
+                min: 0,
+                max: i32::MAX,
+                deadzone: None,
+            });
+        }
         Some(&AxisInfo {
             min: i32::MIN,
             max: i32::MAX,
@@ -300,8 +332,6 @@ impl Gamepad {
         })
     }
 }
-#[cfg(feature = "serde-serialize")]
-use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

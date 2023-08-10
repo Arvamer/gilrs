@@ -23,6 +23,8 @@ struct MyEguiApp {
 
 impl Default for MyEguiApp {
     fn default() -> Self {
+        #[cfg(target_arch = "wasm32")]
+        console_log::init().unwrap();
         const INIT: Option<String> = None;
         let mut gilrs = GilrsBuilder::new().set_update_state(false).build().unwrap();
         let ff_strong = EffectBuilder::new()
