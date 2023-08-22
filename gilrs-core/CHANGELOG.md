@@ -1,6 +1,18 @@
 Change Log
 ==========
 
+v0.5.7 - 2023-08-22
+----------
+
+### Fixed
+
+- windows: Join wgi thread on `Gilrs`'s drop
+- wasm: Fix trigger2 only sending binary values
+
+## Changed
+
+- Update `windows` to 0.51
+
 v0.5.6 - 2023-06-19
 ----------
 
