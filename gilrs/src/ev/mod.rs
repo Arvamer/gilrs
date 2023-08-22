@@ -104,7 +104,7 @@ pub enum EventType {
 }
 
 #[repr(u16)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 /// Gamepad's elements which state can be represented by value from 0.0 to 1.0.
 ///
@@ -135,6 +135,7 @@ pub enum Button {
     DPadLeft = BTN_DPAD_LEFT,
     DPadRight = BTN_DPAD_RIGHT,
 
+    #[default]
     Unknown = BTN_UNKNOWN,
 }
 
@@ -193,12 +194,6 @@ impl Button {
             _ => None,
         }
         .map(Code)
-    }
-}
-
-impl Default for Button {
-    fn default() -> Self {
-        Button::Unknown
     }
 }
 

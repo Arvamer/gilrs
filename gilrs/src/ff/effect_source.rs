@@ -22,9 +22,10 @@ use vec_map::VecMap;
 ///
 /// Make sure that all parameters are ≥ 0. Additionally `Linear` and `LinearClamped` models don't
 /// like if `ref_distance == max_distance` while others would prefer `ref_distance > 0`.
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum DistanceModel {
     /// Effect is not attenuated by distance.
+    #[default]
     None,
     /// Linear distance model.
     Linear {
@@ -198,12 +199,6 @@ impl DistanceModel {
         } else {
             Ok(())
         }
-    }
-}
-
-impl Default for DistanceModel {
-    fn default() -> Self {
-        DistanceModel::None
     }
 }
 

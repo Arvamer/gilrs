@@ -104,16 +104,11 @@ impl Rem for Ticks {
 }
 
 /// Describes how long effect should be played.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Repeat {
     /// Play effect until stop() is called.
+    #[default]
     Infinitely,
     /// Play effect for specified time.
     For(Ticks),
-}
-
-impl Default for Repeat {
-    fn default() -> Self {
-        Repeat::Infinitely
-    }
 }

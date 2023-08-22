@@ -169,7 +169,11 @@ impl Gilrs {
         self.next_event_inner(true, timeout)
     }
 
-    fn next_event_inner(&mut self, is_blocking: bool, blocking_timeout: Option<Duration>) -> Option<Event> {
+    fn next_event_inner(
+        &mut self,
+        is_blocking: bool,
+        blocking_timeout: Option<Duration>,
+    ) -> Option<Event> {
         use crate::ev::filter::{axis_dpad_to_button, deadzone, Filter, Jitter};
 
         let ev = if self.default_filters {
@@ -201,7 +205,11 @@ impl Gilrs {
     }
 
     /// Returns next pending event.
-    fn next_event_priv(&mut self, is_blocking: bool, blocking_timeout: Option<Duration>) -> Option<Event> {
+    fn next_event_priv(
+        &mut self,
+        is_blocking: bool,
+        blocking_timeout: Option<Duration>,
+    ) -> Option<Event> {
         if let Some(ev) = self.events.pop_front() {
             Some(ev)
         } else {
@@ -948,12 +956,12 @@ impl GamepadData {
     ) -> Self {
         let mapping = db
             .get(Uuid::from_bytes(gamepad.uuid()))
-            .and_then(
+            .map(
                 |s| match Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()) {
-                    Ok(result) => Some(result),
+                    Ok(result) => result,
                     Err(e) => {
                         warn!("Unable to parse SDL mapping for UUID {}\n\t{:?}\n\tDefault mapping will be used.", Uuid::from_bytes(gamepad.uuid()), e);
-                        Some(Mapping::default(gamepad))
+                        Mapping::default(gamepad)
                     }
                 },
             )

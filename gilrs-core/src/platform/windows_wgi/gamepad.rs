@@ -90,19 +90,23 @@ impl Gilrs {
         // the app is run through steam.
         // https://gitlab.com/gilrs-project/gilrs/-/issues/132
         let gamepads = (0..count)
-            .into_iter()
             .map(|i| {
                 let controller = raw_game_controllers
                     .GetAt(i)
                     .map_err(|e| PlatformError::Other(Box::new(e)))?;
-                Ok(Gamepad::new(i as u32, controller))
+                Ok(Gamepad::new(i, controller))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         let (tx, rx) = mpsc::channel();
         let (stop_tx, stop_rx) = mpsc::channel();
         let join_handle = Some(Self::spawn_thread(tx, stop_rx));
-        Ok(Gilrs { gamepads, rx, join_handle, stop_tx })
+        Ok(Gilrs {
+            gamepads,
+            rx,
+            join_handle,
+            stop_tx,
+        })
     }
 
     fn spawn_thread(tx: Sender<WgiEvent>, stop_rx: Receiver<()>) -> JoinHandle<()> {
@@ -148,16 +152,13 @@ impl Gilrs {
                 // Avoiding using RawGameControllers().into_iter() here due to it causing an
                 // unhandled exception when the app is running through steam.
                 // https://gitlab.com/gilrs-project/gilrs/-/issues/132
-                match RawGameController::RawGameControllers() {
-                    Ok(raw_game_controllers) => {
-                        let count = raw_game_controllers.Size().unwrap_or_default();
-                        for index in 0..count {
-                            if let Ok(controller) = raw_game_controllers.GetAt(index) {
-                                controllers.push(controller);
-                            }
+                if let Ok(raw_game_controllers) = RawGameController::RawGameControllers() {
+                    let count = raw_game_controllers.Size().unwrap_or_default();
+                    for index in 0..count {
+                        if let Ok(controller) = raw_game_controllers.GetAt(index) {
+                            controllers.push(controller);
                         }
                     }
-                    Err(_) => {}
                 }
 
                 for controller in controllers.iter() {
