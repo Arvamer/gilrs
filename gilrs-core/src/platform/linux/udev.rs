@@ -64,6 +64,13 @@ impl Enumerate {
         }
     }
 
+    pub fn add_match_subsystem(&self, subsystem: &CStr) {
+        // TODO: Check for error
+        unsafe {
+            ud::udev_enumerate_add_match_subsystem(self.0, subsystem.as_ptr());
+        }
+    }
+
     pub fn iter(&self) -> DeviceIterator {
         DeviceIterator(unsafe { ud::udev_enumerate_get_list_entry(self.0) })
     }

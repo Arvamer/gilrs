@@ -64,6 +64,7 @@ impl Gilrs {
         };
 
         unsafe { en.add_match_property(cstr_new(b"ID_INPUT_JOYSTICK\0"), cstr_new(b"1\0")) }
+        unsafe { en.add_match_subsystem(cstr_new(b"input\0")) }
         en.scan_devices();
 
         let epoll =
