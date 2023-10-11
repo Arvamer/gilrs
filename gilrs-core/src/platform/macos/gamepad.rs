@@ -52,30 +52,33 @@ impl Gilrs {
         tx: Sender<(Event, Option<IOHIDDevice>)>,
         device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
     ) {
-        thread::spawn(move || unsafe {
-            let mut manager = match IOHIDManager::new() {
-                Some(manager) => manager,
-                None => {
-                    error!("Failed to create IOHIDManager object");
-                    return;
-                }
-            };
+        std::thread::Builder::new()
+            .name("gilrs".to_owned())
+            .spawn(move || unsafe {
+                let mut manager = match IOHIDManager::new() {
+                    Some(manager) => manager,
+                    None => {
+                        error!("Failed to create IOHIDManager object");
+                        return;
+                    }
+                };
 
-            manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
+                manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
 
-            let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
-            manager.register_device_matching_callback(device_matching_cb, context);
+                let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
+                manager.register_device_matching_callback(device_matching_cb, context);
 
-            let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
-            manager.register_device_removal_callback(device_removal_cb, context);
+                let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
+                manager.register_device_removal_callback(device_removal_cb, context);
 
-            let context = &(tx, device_infos) as *const _ as *mut c_void;
-            manager.register_input_value_callback(input_value_cb, context);
+                let context = &(tx, device_infos) as *const _ as *mut c_void;
+                manager.register_input_value_callback(input_value_cb, context);
 
-            CFRunLoop::run_current();
+                CFRunLoop::run_current();
 
-            manager.unschedule_from_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
-        });
+                manager.unschedule_from_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
+            })
+            .expect("failed to spawn thread");
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {

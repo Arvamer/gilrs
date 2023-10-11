@@ -112,49 +112,52 @@ impl Gilrs {
         connected: [bool; MAX_XINPUT_CONTROLLERS],
         xinput_handle: Arc<XInputHandle>,
     ) {
-        thread::spawn(move || unsafe {
-            // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
-            let mut prev_states: [XState; MAX_XINPUT_CONTROLLERS] =
-                [mem::zeroed::<XState>(); MAX_XINPUT_CONTROLLERS];
-            let mut connected = connected;
-            let mut counter = 0;
+        std::thread::Builder::new()
+            .name("gilrs".to_owned())
+            .spawn(move || unsafe {
+                // Issue #70 fix - Maintain a prev_state per controller id. Otherwise the loop will compare the prev_state of a different controller.
+                let mut prev_states: [XState; MAX_XINPUT_CONTROLLERS] =
+                    [mem::zeroed::<XState>(); MAX_XINPUT_CONTROLLERS];
+                let mut connected = connected;
+                let mut counter = 0;
 
-            loop {
-                for id in 0..MAX_XINPUT_CONTROLLERS {
-                    if *connected.get_unchecked(id)
-                        || counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
-                    {
-                        match xinput_handle.get_state(id as u32) {
-                            Ok(XInputState { raw: state }) => {
-                                if !connected[id] {
-                                    connected[id] = true;
-                                    let _ = tx.send(Event::new(id, EventType::Connected));
-                                }
+                loop {
+                    for id in 0..MAX_XINPUT_CONTROLLERS {
+                        if *connected.get_unchecked(id)
+                            || counter % ITERATIONS_TO_CHECK_IF_CONNECTED == 0
+                        {
+                            match xinput_handle.get_state(id as u32) {
+                                Ok(XInputState { raw: state }) => {
+                                    if !connected[id] {
+                                        connected[id] = true;
+                                        let _ = tx.send(Event::new(id, EventType::Connected));
+                                    }
 
-                                if state.dwPacketNumber != prev_states[id].dwPacketNumber {
-                                    Self::compare_state(
-                                        id,
-                                        &state.Gamepad,
-                                        &prev_states[id].Gamepad,
-                                        &tx,
-                                    );
-                                    prev_states[id] = state;
+                                    if state.dwPacketNumber != prev_states[id].dwPacketNumber {
+                                        Self::compare_state(
+                                            id,
+                                            &state.Gamepad,
+                                            &prev_states[id].Gamepad,
+                                            &tx,
+                                        );
+                                        prev_states[id] = state;
+                                    }
                                 }
+                                Err(XInputUsageError::DeviceNotConnected) if connected[id] => {
+                                    connected[id] = false;
+                                    let _ = tx.send(Event::new(id, EventType::Disconnected));
+                                }
+                                Err(XInputUsageError::DeviceNotConnected) => (),
+                                Err(e) => error!("Failed to get gamepad state: {:?}", e),
                             }
-                            Err(XInputUsageError::DeviceNotConnected) if connected[id] => {
-                                connected[id] = false;
-                                let _ = tx.send(Event::new(id, EventType::Disconnected));
-                            }
-                            Err(XInputUsageError::DeviceNotConnected) => (),
-                            Err(e) => error!("Failed to get gamepad state: {:?}", e),
                         }
                     }
-                }
 
-                counter = counter.wrapping_add(1);
-                thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
-            }
-        });
+                    counter = counter.wrapping_add(1);
+                    thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
+                }
+            })
+            .expect("failed to spawn thread");
     }
 
     fn compare_state(id: usize, g: &XGamepad, pg: &XGamepad, tx: &Sender<Event>) {

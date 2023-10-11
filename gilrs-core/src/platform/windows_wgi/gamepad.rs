@@ -134,67 +134,76 @@ impl Gilrs {
             });
         RawGameController::RawGameControllerRemoved(&removed_handler).unwrap();
 
-        thread::spawn(move || {
-            let mut controllers: Vec<RawGameController> = Vec::new();
-            // To avoid allocating every update, store old and new readings for every controller
-            // and swap their memory
-            let mut readings: Vec<(HSTRING, Reading, Reading)> = Vec::new();
-            loop {
-                match stop_rx.try_recv() {
-                    Ok(_) => break,
-                    Err(TryRecvError::Disconnected) => {
-                        warn!("stop_rx channel disconnected prematurely");
-                        break;
+        std::thread::Builder::new()
+            .name("gilrs".to_owned())
+            .spawn(move || {
+                let mut controllers: Vec<RawGameController> = Vec::new();
+                // To avoid allocating every update, store old and new readings for every controller
+                // and swap their memory
+                let mut readings: Vec<(HSTRING, Reading, Reading)> = Vec::new();
+                loop {
+                    match stop_rx.try_recv() {
+                        Ok(_) => break,
+                        Err(TryRecvError::Disconnected) => {
+                            warn!("stop_rx channel disconnected prematurely");
+                            break;
+                        }
+                        Err(TryRecvError::Empty) => {}
                     }
-                    Err(TryRecvError::Empty) => {}
-                }
-                controllers.clear();
-                // Avoiding using RawGameControllers().into_iter() here due to it causing an
-                // unhandled exception when the app is running through steam.
-                // https://gitlab.com/gilrs-project/gilrs/-/issues/132
-                if let Ok(raw_game_controllers) = RawGameController::RawGameControllers() {
-                    let count = raw_game_controllers.Size().unwrap_or_default();
-                    for index in 0..count {
-                        if let Ok(controller) = raw_game_controllers.GetAt(index) {
-                            controllers.push(controller);
+                    controllers.clear();
+                    // Avoiding using RawGameControllers().into_iter() here due to it causing an
+                    // unhandled exception when the app is running through steam.
+                    // https://gitlab.com/gilrs-project/gilrs/-/issues/132
+                    if let Ok(raw_game_controllers) = RawGameController::RawGameControllers() {
+                        let count = raw_game_controllers.Size().unwrap_or_default();
+                        for index in 0..count {
+                            if let Ok(controller) = raw_game_controllers.GetAt(index) {
+                                controllers.push(controller);
+                            }
                         }
                     }
-                }
 
-                for controller in controllers.iter() {
-                    let id: HSTRING = controller.NonRoamableId().unwrap();
-                    // Find readings for this controller or insert new ones.
-                    let index = match readings.iter().position(|(other_id, ..)| id == *other_id) {
-                        None => {
-                            let reading = match WgiGamepad::FromGameController(controller) {
-                                Ok(wgi_gamepad) => {
-                                    Reading::Gamepad(wgi_gamepad.GetCurrentReading().unwrap())
-                                }
-                                _ => Reading::Raw(RawGamepadReading::new(controller).unwrap()),
-                            };
+                    for controller in controllers.iter() {
+                        let id: HSTRING = controller.NonRoamableId().unwrap();
+                        // Find readings for this controller or insert new ones.
+                        let index = match readings.iter().position(|(other_id, ..)| id == *other_id)
+                        {
+                            None => {
+                                let reading = match WgiGamepad::FromGameController(controller) {
+                                    Ok(wgi_gamepad) => {
+                                        Reading::Gamepad(wgi_gamepad.GetCurrentReading().unwrap())
+                                    }
+                                    _ => Reading::Raw(RawGamepadReading::new(controller).unwrap()),
+                                };
 
-                            readings.push((id, reading.clone(), reading));
-                            readings.len() - 1
+                                readings.push((id, reading.clone(), reading));
+                                readings.len() - 1
+                            }
+                            Some(i) => i,
+                        };
+
+                        let (_, old_reading, new_reading) = &mut readings[index];
+
+                        // Make last update's reading the old reading and get a new one.
+                        std::mem::swap(old_reading, new_reading);
+                        new_reading.update(controller).unwrap();
+
+                        // Skip if this is the same reading as the last one.
+                        if old_reading.time() == new_reading.time() {
+                            continue;
                         }
-                        Some(i) => i,
-                    };
 
-                    let (_, old_reading, new_reading) = &mut readings[index];
-
-                    // Make last update's reading the old reading and get a new one.
-                    std::mem::swap(old_reading, new_reading);
-                    new_reading.update(controller).unwrap();
-
-                    // Skip if this is the same reading as the last one.
-                    if old_reading.time() == new_reading.time() {
-                        continue;
+                        Reading::send_events_for_differences(
+                            old_reading,
+                            new_reading,
+                            controller,
+                            &tx,
+                        );
                     }
-
-                    Reading::send_events_for_differences(old_reading, new_reading, controller, &tx);
+                    thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
                 }
-                thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
-            }
-        })
+            })
+            .expect("failed to spawn thread")
     }
 
     pub(crate) fn next_event(&mut self) -> Option<Event> {

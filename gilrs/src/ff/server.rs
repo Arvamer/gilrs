@@ -271,7 +271,10 @@ pub(crate) fn init() -> Sender<Message> {
 
     // Wasm doesn't support threads and force feedback
     #[cfg(not(target_arch = "wasm32"))]
-    thread::spawn(move || run(_rx));
+    std::thread::Builder::new()
+        .name("gilrs".to_owned())
+        .spawn(move || run(_rx))
+        .expect("failed to spawn thread");
 
     tx
 }

@@ -94,25 +94,28 @@ impl Gilrs {
         }
 
         let (hotplug_tx, hotplug_rx) = mpsc::channel();
-        thread::spawn(move || {
-            let udev = match Udev::new() {
-                Some(udev) => udev,
-                None => {
-                    error!("Failed to create udev for hot plug thread!");
-                    return;
-                }
-            };
+        std::thread::Builder::new()
+            .name("gilrs".to_owned())
+            .spawn(move || {
+                let udev = match Udev::new() {
+                    Some(udev) => udev,
+                    None => {
+                        error!("Failed to create udev for hot plug thread!");
+                        return;
+                    }
+                };
 
-            let monitor = match Monitor::new(&udev) {
-                Some(m) => m,
-                None => {
-                    error!("Failed to create udev monitor for hot plug thread!");
-                    return;
-                }
-            };
+                let monitor = match Monitor::new(&udev) {
+                    Some(m) => m,
+                    None => {
+                        error!("Failed to create udev monitor for hot plug thread!");
+                        return;
+                    }
+                };
 
-            handle_hotplug(hotplug_tx, monitor, hotplug_event)
-        });
+                handle_hotplug(hotplug_tx, monitor, hotplug_event)
+            })
+            .expect("failed to spawn thread");
 
         Ok(Gilrs {
             gamepads,
