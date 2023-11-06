@@ -245,6 +245,12 @@ enum PlatformError {
     Other(Box<dyn error::Error + Send + Sync>),
 }
 
+impl From<std::io::Error> for PlatformError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Other(Box::new(error))
+    }
+}
+
 impl Display for PlatformError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {

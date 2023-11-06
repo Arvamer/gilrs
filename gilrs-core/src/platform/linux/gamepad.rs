@@ -17,24 +17,28 @@ use libc as c;
 use uuid::Uuid;
 use vec_map::VecMap;
 
+use inotify::{EventMask, Inotify, WatchMask};
 use nix::errno::Errno;
 use nix::sys::epoll::{EpollEvent, EpollFlags, EpollOp};
 use nix::sys::eventfd::EfdFlags;
 use nix::sys::{epoll, eventfd};
 use std::collections::VecDeque;
-use std::ffi::CStr;
+use std::error;
+use std::ffi::OsStr;
+use std::ffi::{CStr, CString};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs::File;
 use std::io::Write;
 use std::mem::{self, MaybeUninit};
 use std::ops::Index;
 use std::os::raw::c_char;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{error, thread};
 
 const HOTPLUG_DATA: u64 = u64::MAX;
 
@@ -46,10 +50,82 @@ pub struct Gilrs {
     to_check: VecDeque<usize>,
 }
 
+const INPUT_DIR_PATH: &str = "/dev/input";
+
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
         let mut gamepads = Vec::new();
+        let epoll =
+            epoll::epoll_create().map_err(|e| errno_to_platform_error(e, "creating epoll fd"))?;
+        let epoll = unsafe { OwnedFd::from_raw_fd(epoll) };
 
+        let hotplug_event = eventfd::eventfd(1, EfdFlags::EFD_NONBLOCK)
+            .map_err(|e| errno_to_platform_error(e, "creating eventfd"))?;
+        epoll::epoll_ctl(
+            epoll.as_raw_fd(),
+            EpollOp::EpollCtlAdd,
+            hotplug_event,
+            &mut EpollEvent::new(EpollFlags::EPOLLIN | EpollFlags::EPOLLET, HOTPLUG_DATA),
+        )
+        .map_err(|e| errno_to_platform_error(e, "adding evevntfd do epoll"))?;
+
+        if Path::new("/.flatpak-info").exists() || std::env::var("GILRS_DISABLE_UDEV").is_ok() {
+            let (hotplug_tx, hotplug_rx) = mpsc::channel();
+            let mut inotify = Inotify::init()?;
+            let input_dir = Path::new(INPUT_DIR_PATH);
+            inotify.watches().add(
+                input_dir,
+                WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVE | WatchMask::ATTRIB,
+            )?;
+
+            for entry in input_dir.read_dir()?.flatten() {
+                let file_name = match entry.file_name().into_string() {
+                    Ok(file_name) => file_name,
+                    Err(_) => continue,
+                };
+                let (gamepad_path, syspath) = match get_gamepad_path(&file_name) {
+                    Some((gamepad_path, syspath)) => (gamepad_path, syspath),
+                    None => continue,
+                };
+                let devpath = CString::new(gamepad_path.as_os_str().as_encoded_bytes()).unwrap();
+                if let Some(gamepad) = Gamepad::open(&devpath, &syspath) {
+                    let idx = gamepads.len();
+                    gamepad
+                        .register_fd(epoll.as_raw_fd(), idx as u64)
+                        .map_err(|e| errno_to_platform_error(e, "registering gamepad in epoll"))?;
+                    gamepads.push(gamepad);
+                }
+            }
+
+            std::thread::Builder::new()
+                .name("gilrs".to_owned())
+                .spawn(move || {
+                    let mut buffer = [0u8; 1024];
+                    debug!("Started gilrs inotify thread");
+                    let mut event_fd = unsafe { File::from_raw_fd(hotplug_event) };
+                    loop {
+                        let events = match inotify.read_events_blocking(&mut buffer) {
+                            Ok(events) => events,
+                            Err(err) => {
+                                error!("Failed to check for changes to joysticks: {err}");
+                                return;
+                            }
+                        };
+                        for event in events {
+                            if !handle_inotify(&hotplug_tx, event, &mut event_fd) {
+                                return;
+                            }
+                        }
+                    }
+                })
+                .expect("failed to spawn thread");
+            return Ok(Gilrs {
+                gamepads,
+                epoll,
+                hotplug_rx,
+                to_check: VecDeque::new(),
+            });
+        }
         let udev = match Udev::new() {
             Some(udev) => udev,
             None => {
@@ -67,23 +143,14 @@ impl Gilrs {
         unsafe { en.add_match_subsystem(cstr_new(b"input\0")) }
         en.scan_devices();
 
-        let epoll =
-            epoll::epoll_create().map_err(|e| errno_to_platform_error(e, "creating epoll fd"))?;
-        let epoll = unsafe { OwnedFd::from_raw_fd(epoll) };
-
-        let hotplug_event = eventfd::eventfd(1, EfdFlags::EFD_NONBLOCK)
-            .map_err(|e| errno_to_platform_error(e, "creating eventfd"))?;
-        epoll::epoll_ctl(
-            epoll.as_raw_fd(),
-            EpollOp::EpollCtlAdd,
-            hotplug_event,
-            &mut EpollEvent::new(EpollFlags::EPOLLIN | EpollFlags::EPOLLET, HOTPLUG_DATA),
-        )
-        .map_err(|e| errno_to_platform_error(e, "adding evevntfd do epoll"))?;
-
         for dev in en.iter() {
             if let Some(dev) = Device::from_syspath(&udev, &dev) {
-                if let Some(gamepad) = Gamepad::open(&dev) {
+                let devpath = match dev.devnode() {
+                    Some(devpath) => devpath,
+                    None => continue,
+                };
+                let syspath = Path::new(OsStr::from_bytes(dev.syspath().to_bytes()));
+                if let Some(gamepad) = Gamepad::open(devpath, syspath) {
                     let idx = gamepads.len();
                     gamepad
                         .register_fd(epoll.as_raw_fd(), idx as u64)
@@ -217,25 +284,36 @@ impl Gilrs {
     fn handle_hotplug(&mut self) -> Option<Event> {
         while let Ok(event) = self.hotplug_rx.try_recv() {
             match event {
-                HotplugEvent::New(gamepad) => {
-                    return if let Some(id) = self
+                HotplugEvent::New { devpath, syspath } => {
+                    // We already know this gamepad, ignore it:
+                    let gamepad_path_str = devpath.clone().to_string_lossy().into_owned();
+                    if self
                         .gamepads
                         .iter()
-                        .position(|gp| gp.uuid() == gamepad.uuid && !gp.is_connected)
+                        .any(|gamepad| gamepad.devpath == gamepad_path_str && gamepad.is_connected)
                     {
-                        if let Err(e) = gamepad.register_fd(self.epoll.as_raw_fd(), id as u64) {
-                            error!("Failed to add gamepad to epoll: {}", e);
-                        }
-                        self.gamepads[id] = *gamepad;
-                        Some(Event::new(id, EventType::Connected))
-                    } else {
-                        if let Err(e) =
-                            gamepad.register_fd(self.epoll.as_raw_fd(), self.gamepads.len() as u64)
+                        continue;
+                    }
+                    if let Some(gamepad) = Gamepad::open(&devpath, &syspath) {
+                        return if let Some(id) = self
+                            .gamepads
+                            .iter()
+                            .position(|gp| gp.uuid() == gamepad.uuid && !gp.is_connected)
                         {
-                            error!("Failed to add gamepad to epoll: {}", e);
-                        }
-                        self.gamepads.push(*gamepad);
-                        Some(Event::new(self.gamepads.len() - 1, EventType::Connected))
+                            if let Err(e) = gamepad.register_fd(self.epoll.as_raw_fd(), id as u64) {
+                                error!("Failed to add gamepad to epoll: {}", e);
+                            }
+                            self.gamepads[id] = gamepad;
+                            Some(Event::new(id, EventType::Connected))
+                        } else {
+                            if let Err(e) = gamepad
+                                .register_fd(self.epoll.as_raw_fd(), self.gamepads.len() as u64)
+                            {
+                                error!("Failed to add gamepad to epoll: {}", e);
+                            }
+                            self.gamepads.push(gamepad);
+                            Some(Event::new(self.gamepads.len() - 1, EventType::Connected))
+                        };
                     }
                 }
                 HotplugEvent::Removed(devpath) => {
@@ -267,8 +345,77 @@ impl Gilrs {
 }
 
 enum HotplugEvent {
-    New(Box<Gamepad>),
+    New { devpath: CString, syspath: PathBuf },
     Removed(String),
+}
+
+fn handle_inotify(
+    sender: &Sender<HotplugEvent>,
+    event: inotify::Event<&std::ffi::OsStr>,
+    event_fd: &mut File,
+) -> bool {
+    let name = match event.name.and_then(|name| name.to_str()) {
+        Some(name) => name,
+        None => return true,
+    };
+    let (gamepad_path, syspath) = match get_gamepad_path(name) {
+        Some((gamepad_path, syspath)) => (gamepad_path, syspath),
+        None => return true,
+    };
+
+    let mut sent = false;
+
+    if !(event.mask & (EventMask::CREATE | EventMask::MOVED_TO | EventMask::ATTRIB)).is_empty() {
+        if sender
+            .send(HotplugEvent::New {
+                devpath: CString::new(gamepad_path.as_os_str().as_encoded_bytes()).unwrap(),
+                syspath,
+            })
+            .is_err()
+        {
+            debug!("All receivers dropped, ending hot plug loop.");
+            return false;
+        }
+        sent = true;
+    } else if !(event.mask & (EventMask::DELETE | EventMask::MOVED_FROM)).is_empty() {
+        if sender
+            .send(HotplugEvent::Removed(
+                gamepad_path.to_string_lossy().to_string(),
+            ))
+            .is_err()
+        {
+            debug!("All receivers dropped, ending hot plug loop.");
+            return false;
+        }
+        sent = true;
+    }
+    if sent {
+        if let Err(e) = event_fd.write(&0u64.to_ne_bytes()) {
+            error!(
+                "Failed to notify other thread about new hotplug events: {}",
+                e
+            );
+        }
+    }
+    true
+}
+
+fn get_gamepad_path(name: &str) -> Option<(PathBuf, PathBuf)> {
+    let event_id = match name.strip_prefix("event") {
+        Some(event_id) => event_id,
+        None => return None,
+    };
+    if event_id.is_empty()
+        || event_id
+            .chars()
+            .any(|character| !character.is_ascii_digit())
+    {
+        return None;
+    }
+
+    let gamepad_path = Path::new(INPUT_DIR_PATH).join(name);
+    let syspath = Path::new("/sys/class/input/").join(name);
+    Some((gamepad_path, syspath))
 }
 
 fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: RawFd) {
@@ -298,8 +445,15 @@ fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: RawFd) 
             let mut sent = false;
 
             if action == cstr_new(b"add\0") {
-                if let Some(gamepad) = Gamepad::open(&dev) {
-                    if sender.send(HotplugEvent::New(Box::new(gamepad))).is_err() {
+                if let Some(devpath) = dev.devnode() {
+                    let syspath = Path::new(OsStr::from_bytes(dev.syspath().to_bytes()));
+                    if sender
+                        .send(HotplugEvent::New {
+                            devpath: devpath.into(),
+                            syspath: syspath.to_path_buf(),
+                        })
+                        .is_err()
+                    {
                         debug!("All receivers dropped, ending hot plug loop.");
                         break;
                     }
@@ -394,12 +548,7 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    fn open(dev: &Device) -> Option<Gamepad> {
-        let path = match dev.devnode() {
-            Some(path) => path,
-            None => return None,
-        };
-
+    fn open(path: &CStr, syspath: &Path) -> Option<Gamepad> {
         if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const c_char).is_null() } {
             trace!("Device {:?} is js interface, ignoring.", path);
             return None;
@@ -429,7 +578,7 @@ impl Gamepad {
 
         let axesi = AxesInfo::new(fd);
         let ff_supported = Self::test_ff(fd);
-        let (cap, status) = Self::battery_fd(dev);
+        let (cap, status) = Self::battery_fd(syspath);
 
         let mut gamepad = Gamepad {
             fd,
@@ -598,14 +747,10 @@ impl Gamepad {
         axes
     }
 
-    fn battery_fd(dev: &Device) -> (i32, i32) {
-        use std::ffi::OsStr;
+    fn battery_fd(syspath: &Path) -> (i32, i32) {
         use std::fs::{self};
-        use std::os::unix::ffi::OsStrExt;
         use std::os::unix::io::IntoRawFd;
-        use std::path::Path;
 
-        let syspath = Path::new(OsStr::from_bytes(dev.syspath().to_bytes()));
         // Returned syspath points to <device path>/input/inputXX/eventXX. First "device" is
         // symlink to inputXX, second to actual device root.
         let syspath = syspath.join("device/device/power_supply");
