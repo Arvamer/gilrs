@@ -87,7 +87,7 @@ impl Gilrs {
                     Some((gamepad_path, syspath)) => (gamepad_path, syspath),
                     None => continue,
                 };
-                let devpath = CString::new(gamepad_path.as_os_str().as_encoded_bytes()).unwrap();
+                let devpath = CString::new(gamepad_path.to_str().unwrap()).unwrap();
                 if let Some(gamepad) = Gamepad::open(&devpath, &syspath) {
                     let idx = gamepads.len();
                     gamepad
@@ -368,7 +368,7 @@ fn handle_inotify(
     if !(event.mask & (EventMask::CREATE | EventMask::MOVED_TO | EventMask::ATTRIB)).is_empty() {
         if sender
             .send(HotplugEvent::New {
-                devpath: CString::new(gamepad_path.as_os_str().as_encoded_bytes()).unwrap(),
+                devpath: CString::new(gamepad_path.to_str().unwrap()).unwrap(),
                 syspath,
             })
             .is_err()
