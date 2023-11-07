@@ -71,14 +71,21 @@ impl Gilrs {
 
         if Path::new("/.flatpak-info").exists() || std::env::var("GILRS_DISABLE_UDEV").is_ok() {
             let (hotplug_tx, hotplug_rx) = mpsc::channel();
-            let mut inotify = Inotify::init()?;
+            let mut inotify = Inotify::init().map_err(|err| PlatformError::Other(Box::new(err)))?;
             let input_dir = Path::new(INPUT_DIR_PATH);
-            inotify.watches().add(
-                input_dir,
-                WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVE | WatchMask::ATTRIB,
-            )?;
+            inotify
+                .watches()
+                .add(
+                    input_dir,
+                    WatchMask::CREATE | WatchMask::DELETE | WatchMask::MOVE | WatchMask::ATTRIB,
+                )
+                .map_err(|err| PlatformError::Other(Box::new(err)))?;
 
-            for entry in input_dir.read_dir()?.flatten() {
+            for entry in input_dir
+                .read_dir()
+                .map_err(|err| PlatformError::Other(Box::new(err)))?
+                .flatten()
+            {
                 let file_name = match entry.file_name().into_string() {
                     Ok(file_name) => file_name,
                     Err(_) => continue,
