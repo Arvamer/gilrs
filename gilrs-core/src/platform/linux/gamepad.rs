@@ -48,6 +48,13 @@ pub struct Gilrs {
     epoll: OwnedFd,
     hotplug_rx: Receiver<HotplugEvent>,
     to_check: VecDeque<usize>,
+    discovery_backend: DiscoveryBackend,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum DiscoveryBackend {
+    Udev,
+    Inotify,
 }
 
 const INPUT_DIR_PATH: &str = "/dev/input";
@@ -70,6 +77,7 @@ impl Gilrs {
         .map_err(|e| errno_to_platform_error(e, "adding evevntfd do epoll"))?;
 
         if Path::new("/.flatpak-info").exists() || std::env::var("GILRS_DISABLE_UDEV").is_ok() {
+            log::debug!("Looks like we're in an environment without udev. Falling back to inotify");
             let (hotplug_tx, hotplug_rx) = mpsc::channel();
             let mut inotify = Inotify::init().map_err(|err| PlatformError::Other(Box::new(err)))?;
             let input_dir = Path::new(INPUT_DIR_PATH);
@@ -95,7 +103,8 @@ impl Gilrs {
                     None => continue,
                 };
                 let devpath = CString::new(gamepad_path.to_str().unwrap()).unwrap();
-                if let Some(gamepad) = Gamepad::open(&devpath, &syspath) {
+                if let Some(gamepad) = Gamepad::open(&devpath, &syspath, DiscoveryBackend::Inotify)
+                {
                     let idx = gamepads.len();
                     gamepad
                         .register_fd(epoll.as_raw_fd(), idx as u64)
@@ -131,6 +140,7 @@ impl Gilrs {
                 epoll,
                 hotplug_rx,
                 to_check: VecDeque::new(),
+                discovery_backend: DiscoveryBackend::Inotify,
             });
         }
         let udev = match Udev::new() {
@@ -157,7 +167,7 @@ impl Gilrs {
                     None => continue,
                 };
                 let syspath = Path::new(OsStr::from_bytes(dev.syspath().to_bytes()));
-                if let Some(gamepad) = Gamepad::open(devpath, syspath) {
+                if let Some(gamepad) = Gamepad::open(devpath, syspath, DiscoveryBackend::Udev) {
                     let idx = gamepads.len();
                     gamepad
                         .register_fd(epoll.as_raw_fd(), idx as u64)
@@ -196,6 +206,7 @@ impl Gilrs {
             epoll,
             hotplug_rx,
             to_check: VecDeque::new(),
+            discovery_backend: DiscoveryBackend::Udev,
         })
     }
 
@@ -301,7 +312,8 @@ impl Gilrs {
                     {
                         continue;
                     }
-                    if let Some(gamepad) = Gamepad::open(&devpath, &syspath) {
+                    if let Some(gamepad) = Gamepad::open(&devpath, &syspath, self.discovery_backend)
+                    {
                         return if let Some(id) = self
                             .gamepads
                             .iter()
@@ -555,7 +567,7 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    fn open(path: &CStr, syspath: &Path) -> Option<Gamepad> {
+    fn open(path: &CStr, syspath: &Path, discovery_backend: DiscoveryBackend) -> Option<Gamepad> {
         if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const c_char).is_null() } {
             trace!("Device {:?} is js interface, ignoring.", path);
             return None;
@@ -563,7 +575,14 @@ impl Gamepad {
 
         let fd = unsafe { c::open(path.as_ptr(), c::O_RDWR | c::O_NONBLOCK) };
         if fd < 0 {
-            error!("Failed to open {:?}", path);
+            log!(
+                match discovery_backend {
+                    DiscoveryBackend::Inotify => log::Level::Debug,
+                    _ => log::Level::Error,
+                },
+                "Failed to open {:?}",
+                path
+            );
             return None;
         }
 
@@ -607,7 +626,11 @@ impl Gamepad {
         gamepad.collect_axes_and_buttons();
 
         if !gamepad.is_gamepad() {
-            warn!(
+            log!(
+                match discovery_backend {
+                    DiscoveryBackend::Inotify => log::Level::Debug,
+                    _ => log::Level::Warn,
+                },
                 "{:?} doesn't have at least 1 button and 2 axes, ignoring.",
                 path
             );
