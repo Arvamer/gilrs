@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
+
+v0.10.3 - 2023-11-11
+----------
+
+### Changed
+
+- All thread spawned by gilrs are now named. (!102)
+- MSRV is now 1.65.
+
 v0.10.2 - 2023-04-23
 ----------
 

@@ -1,6 +1,25 @@
 Change Log
 ==========
 
+v0.5.8 - 2023-11-11
+----------
+
+### Added
+
+- Flatpak is now supported by using inotify instead of udev. (!104)
+
+### Changed 
+
+- All thread spawned by gilrs are now named. (!102)
+- MSRV is now 1.65.
+
+### Fixed
+
+- Linux: Fixed delay in Gilrs::new by limiting udev scan to the input
+  subsystem. (!101)
+
+### Fixed
+
 v0.5.7 - 2023-08-22
 ----------
 
