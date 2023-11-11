@@ -19,9 +19,9 @@ use vec_map::VecMap;
 
 use inotify::{EventMask, Inotify, WatchMask};
 use nix::errno::Errno;
-use nix::sys::epoll::{EpollEvent, EpollFlags, EpollOp};
+use nix::sys::epoll::{Epoll, EpollCreateFlags, EpollEvent, EpollFlags};
+use nix::sys::eventfd;
 use nix::sys::eventfd::EfdFlags;
-use nix::sys::{epoll, eventfd};
 use std::collections::VecDeque;
 use std::error;
 use std::ffi::OsStr;
@@ -31,9 +31,10 @@ use std::fs::File;
 use std::io::Write;
 use std::mem::{self, MaybeUninit};
 use std::ops::Index;
+use std::os::fd::{BorrowedFd, RawFd};
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::unix::io::OwnedFd;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::mpsc;
@@ -45,7 +46,7 @@ const HOTPLUG_DATA: u64 = u64::MAX;
 #[derive(Debug)]
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
-    epoll: OwnedFd,
+    epoll: Epoll,
     hotplug_rx: Receiver<HotplugEvent>,
     to_check: VecDeque<usize>,
     discovery_backend: DiscoveryBackend,
@@ -62,19 +63,17 @@ const INPUT_DIR_PATH: &str = "/dev/input";
 impl Gilrs {
     pub(crate) fn new() -> Result<Self, PlatformError> {
         let mut gamepads = Vec::new();
-        let epoll =
-            epoll::epoll_create().map_err(|e| errno_to_platform_error(e, "creating epoll fd"))?;
-        let epoll = unsafe { OwnedFd::from_raw_fd(epoll) };
+        let epoll = Epoll::new(EpollCreateFlags::empty())
+            .map_err(|e| errno_to_platform_error(e, "creating epoll fd"))?;
 
         let hotplug_event = eventfd::eventfd(1, EfdFlags::EFD_NONBLOCK)
             .map_err(|e| errno_to_platform_error(e, "creating eventfd"))?;
-        epoll::epoll_ctl(
-            epoll.as_raw_fd(),
-            EpollOp::EpollCtlAdd,
-            hotplug_event,
-            &mut EpollEvent::new(EpollFlags::EPOLLIN | EpollFlags::EPOLLET, HOTPLUG_DATA),
-        )
-        .map_err(|e| errno_to_platform_error(e, "adding evevntfd do epoll"))?;
+        epoll
+            .add(
+                &hotplug_event,
+                EpollEvent::new(EpollFlags::EPOLLIN | EpollFlags::EPOLLET, HOTPLUG_DATA),
+            )
+            .map_err(|e| errno_to_platform_error(e, "adding evevntfd do epoll"))?;
 
         if Path::new("/.flatpak-info").exists() || std::env::var("GILRS_DISABLE_UDEV").is_ok() {
             log::debug!("Looks like we're in an environment without udev. Falling back to inotify");
@@ -107,7 +106,7 @@ impl Gilrs {
                 {
                     let idx = gamepads.len();
                     gamepad
-                        .register_fd(epoll.as_raw_fd(), idx as u64)
+                        .register_fd(&epoll, idx as u64)
                         .map_err(|e| errno_to_platform_error(e, "registering gamepad in epoll"))?;
                     gamepads.push(gamepad);
                 }
@@ -118,7 +117,7 @@ impl Gilrs {
                 .spawn(move || {
                     let mut buffer = [0u8; 1024];
                     debug!("Started gilrs inotify thread");
-                    let mut event_fd = unsafe { File::from_raw_fd(hotplug_event) };
+                    let mut event_fd = File::from(hotplug_event);
                     loop {
                         let events = match inotify.read_events_blocking(&mut buffer) {
                             Ok(events) => events,
@@ -170,7 +169,7 @@ impl Gilrs {
                 if let Some(gamepad) = Gamepad::open(devpath, syspath, DiscoveryBackend::Udev) {
                     let idx = gamepads.len();
                     gamepad
-                        .register_fd(epoll.as_raw_fd(), idx as u64)
+                        .register_fd(&epoll, idx as u64)
                         .map_err(|e| errno_to_platform_error(e, "registering gamepad in epoll"))?;
                     gamepads.push(gamepad);
                 }
@@ -229,7 +228,7 @@ impl Gilrs {
                 -1
             };
 
-            let n = match epoll::epoll_wait(self.epoll.as_raw_fd(), &mut events, timeout) {
+            let n = match self.epoll.wait(&mut events, timeout) {
                 Ok(n) => n,
                 Err(e) => {
                     error!("epoll failed: {}", e);
@@ -319,14 +318,14 @@ impl Gilrs {
                             .iter()
                             .position(|gp| gp.uuid() == gamepad.uuid && !gp.is_connected)
                         {
-                            if let Err(e) = gamepad.register_fd(self.epoll.as_raw_fd(), id as u64) {
+                            if let Err(e) = gamepad.register_fd(&self.epoll, id as u64) {
                                 error!("Failed to add gamepad to epoll: {}", e);
                             }
                             self.gamepads[id] = gamepad;
                             Some(Event::new(id, EventType::Connected))
                         } else {
-                            if let Err(e) = gamepad
-                                .register_fd(self.epoll.as_raw_fd(), self.gamepads.len() as u64)
+                            if let Err(e) =
+                                gamepad.register_fd(&self.epoll, self.gamepads.len() as u64)
                             {
                                 error!("Failed to add gamepad to epoll: {}", e);
                             }
@@ -341,12 +340,8 @@ impl Gilrs {
                         .iter()
                         .position(|gp| devpath == gp.devpath && gp.is_connected)
                     {
-                        if let Err(e) = epoll::epoll_ctl(
-                            self.epoll.as_raw_fd(),
-                            EpollOp::EpollCtlDel,
-                            self.gamepads[id].fd,
-                            &mut EpollEvent::empty(),
-                        ) {
+                        let gamepad_fd = unsafe { BorrowedFd::borrow_raw(self.gamepads[id].fd) };
+                        if let Err(e) = self.epoll.delete(gamepad_fd) {
                             error!("Failed to remove disconnected gamepad from epoll: {}", e);
                         }
 
@@ -437,8 +432,8 @@ fn get_gamepad_path(name: &str) -> Option<(PathBuf, PathBuf)> {
     Some((gamepad_path, syspath))
 }
 
-fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: RawFd) {
-    let mut event = unsafe { File::from_raw_fd(event) };
+fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: OwnedFd) {
+    let mut event = File::from(event);
 
     loop {
         if !monitor.wait_hotplug_available() {
@@ -550,14 +545,14 @@ impl Index<u16> for AxesInfo {
 
 #[derive(Debug)]
 pub struct Gamepad {
-    fd: i32,
+    fd: RawFd,
     axes_info: AxesInfo,
     ff_supported: bool,
     devpath: String,
     name: String,
     uuid: Uuid,
-    bt_capacity_fd: i32,
-    bt_status_fd: i32,
+    bt_capacity_fd: RawFd,
+    bt_status_fd: RawFd,
     axes_values: VecMap<i32>,
     buttons_values: VecMap<bool>,
     events: Vec<input_event>,
@@ -651,13 +646,9 @@ impl Gamepad {
         Some(gamepad)
     }
 
-    fn register_fd(&self, epoll: RawFd, data: u64) -> Result<(), Errno> {
-        epoll::epoll_ctl(
-            epoll,
-            EpollOp::EpollCtlAdd,
-            self.fd,
-            &mut EpollEvent::new(EpollFlags::EPOLLIN, data),
-        )
+    fn register_fd(&self, epoll: &Epoll, data: u64) -> Result<(), Errno> {
+        let fd = unsafe { BorrowedFd::borrow_raw(self.fd) };
+        epoll.add(fd, EpollEvent::new(EpollFlags::EPOLLIN, data))
     }
 
     fn collect_axes_and_buttons(&mut self) {

@@ -52,7 +52,7 @@ impl Gilrs {
         tx: Sender<(Event, Option<IOHIDDevice>)>,
         device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
     ) {
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name("gilrs".to_owned())
             .spawn(move || unsafe {
                 let mut manager = match IOHIDManager::new() {
