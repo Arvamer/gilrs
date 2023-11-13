@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+v0.5.9 - 2023-11-13
+----------
+
+### Fixed
+
+- Disabled unnecessary default features for `inotify`.
+
 v0.5.8 - 2023-11-11
 ----------
 
