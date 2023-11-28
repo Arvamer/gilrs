@@ -3,6 +3,14 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.10.4 - unreleased
+----------
+
+### Fixed
+
+- Fixed `Gilrs::set_mapping*` returning `MappingError::NotConnected` for
+  connected gamepads.
+
 v0.10.3 - 2023-11-11
 ----------
 

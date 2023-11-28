@@ -541,7 +541,7 @@ impl Gilrs {
         name: O,
     ) -> Result<String, MappingError> {
         if let Some(gamepad) = self.inner.gamepad(gamepad_id) {
-            if gamepad.is_connected() {
+            if !gamepad.is_connected() {
                 return Err(MappingError::NotConnected);
             }
 
@@ -960,7 +960,12 @@ impl GamepadData {
                 |s| match Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()) {
                     Ok(result) => result,
                     Err(e) => {
-                        warn!("Unable to parse SDL mapping for UUID {}\n\t{:?}\n\tDefault mapping will be used.", Uuid::from_bytes(gamepad.uuid()), e);
+                        warn!(
+                            "Unable to parse SDL mapping for UUID {}\n\t{:?}\n\tDefault mapping \
+                             will be used.",
+                            Uuid::from_bytes(gamepad.uuid()),
+                            e
+                        );
                         Mapping::default(gamepad)
                     }
                 },
