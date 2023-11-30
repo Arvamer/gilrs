@@ -140,8 +140,8 @@ pub struct Gilrs {
     events: VecDeque<Event>,
     axis_to_btn_pressed: f32,
     axis_to_btn_released: f32,
-    update_state: bool,
-    gamepads_data: Vec<GamepadData>,
+    pub(crate) update_state: bool,
+    pub(crate) gamepads_data: Vec<GamepadData>,
 }
 
 impl Gilrs {
@@ -940,11 +940,13 @@ impl<'a> Gamepad<'a> {
 }
 
 #[derive(Debug)]
-struct GamepadData {
+pub(crate) struct GamepadData {
     state: GamepadState,
     mapping: Mapping,
     tx: Sender<Message>,
     id: GamepadId,
+    // Flags used by the deadzone filter.
+    pub(crate) have_sent_nonzero_for_axis: [bool; 6],
 }
 
 impl GamepadData {
@@ -983,6 +985,7 @@ impl GamepadData {
             mapping,
             tx,
             id,
+            have_sent_nonzero_for_axis: Default::default(),
         }
     }
 

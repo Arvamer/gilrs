@@ -126,6 +126,20 @@ fn apply_deadzone(x: f32, y: f32, threshold: f32) -> (f32, f32) {
     }
 }
 
+fn deadzone_nonzero_axis_idx(axis: Axis) -> Option<usize> {
+    Some(match axis {
+        Axis::DPadX => 0,
+        Axis::DPadY => 1,
+        Axis::LeftStickX => 2,
+        Axis::LeftStickY => 3,
+        Axis::RightStickX => 4,
+        Axis::RightStickY => 5,
+        _ => {
+            return None;
+        }
+    })
+}
+
 /// Drops events in dead zone and remaps value to keep it in standard range.
 pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
     match ev {
@@ -139,16 +153,36 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
                 None => return ev,
             };
 
-            if let Some((_, other_code)) = axis
+            if let Some((other_axis, other_code)) = axis
                 .second_axis()
                 .and_then(|axis| gilrs.gamepad(id).axis_code(axis).map(|code| (axis, code)))
             {
                 let other_val = gilrs.gamepad(id).state().value(other_code);
                 let val = apply_deadzone(val, other_val, threshold);
 
+                // Since this is the second axis, deadzone_nonzero_axis_idx() will always returns something.
+                let other_axis_idx = deadzone_nonzero_axis_idx(other_axis).unwrap();
+
+                if val.0 == 0.
+                    && val.1 == 0.
+                    && gilrs.gamepads_data[id.0].have_sent_nonzero_for_axis[other_axis_idx]
+                    && gilrs.gamepad(id).state().value(other_code) != 0.
+                {
+                    // Clear other axis that is now within the dead zone threshold.
+                    gilrs.insert_event(Event {
+                        id,
+                        time,
+                        event: EventType::AxisChanged(other_axis, 0., other_code),
+                    });
+                    gilrs.gamepads_data[id.0].have_sent_nonzero_for_axis[other_axis_idx] = false;
+                }
+
                 Some(if gilrs.gamepad(id).state().value(nec) == val.0 {
                     Event::new(id, EventType::Dropped)
                 } else {
+                    if let Some(axis_idx) = deadzone_nonzero_axis_idx(axis) {
+                        gilrs.gamepads_data[id.0].have_sent_nonzero_for_axis[axis_idx] = val.0 != 0.;
+                    }
                     Event {
                         id,
                         time,
@@ -161,6 +195,9 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
                 Some(if gilrs.gamepad(id).state().value(nec) == val {
                     Event::new(id, EventType::Dropped)
                 } else {
+                    if let Some(axis_idx) = deadzone_nonzero_axis_idx(axis) {
+                        gilrs.gamepads_data[id.0].have_sent_nonzero_for_axis[axis_idx] = val != 0.;
+                    }
                     Event {
                         id,
                         time,
