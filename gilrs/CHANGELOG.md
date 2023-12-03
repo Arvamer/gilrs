@@ -3,13 +3,14 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
-v0.10.4 - unreleased
+v0.10.4 - 2023-12-03
 ----------
 
 ### Fixed
 
 - Fixed `Gilrs::set_mapping*` returning `MappingError::NotConnected` for
   connected gamepads.
+- Fix not setting other axis to 0 when in deadzone range.
 
 v0.10.3 - 2023-11-11
 ----------
