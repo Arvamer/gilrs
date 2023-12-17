@@ -1,6 +1,6 @@
 [package]
 name = "gilrs-core"
-version = "0.5.9"
+version = "0.5.10"
 authors = ["Mateusz Sieczko <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "Minimal event based abstraction for working with gamepads"
