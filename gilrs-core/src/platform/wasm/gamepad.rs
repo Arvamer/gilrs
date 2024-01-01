@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::time::Duration;
 
+use js_sys::RegExp;
 use uuid::Uuid;
 use wasm_bindgen::JsCast;
 use web_sys::{DomException, Gamepad as WebGamepad, GamepadButton, GamepadMappingType};
@@ -211,6 +212,8 @@ pub struct Gamepad {
     uuid: Uuid,
     gamepad: WebGamepad,
     name: String,
+    vendor: Option<u16>,
+    product: Option<u16>,
     mapping: Mapping,
     connected: bool,
 }
@@ -218,6 +221,30 @@ pub struct Gamepad {
 impl Gamepad {
     fn new(gamepad: WebGamepad) -> Gamepad {
         let name = gamepad.id();
+
+        // This regular expression extracts the vendor and product ID from the gamepad "id".
+        // Firefox:
+        //  054c-05c4-Sony Computer Entertainment Wireless Controller
+        // Chrome:
+        //  Sony Computer Entertainment Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 05c4)
+        let regexp = RegExp::new(
+            r"(?:^([a-f0-9]{4})-([a-f0-9]{4})-)|(?:Vendor: ([a-f0-9]{4}) Product: ([a-f0-9]{4})\)$)",
+            "",
+        );
+        let (vendor, product) = if let Some(matches) = regexp.exec(&name) {
+            let parse_hex = |index| {
+                matches
+                    .get(index)
+                    .as_string()
+                    .and_then(|id| u16::from_str_radix(&id, 16).ok())
+            };
+            (
+                parse_hex(1).or_else(|| parse_hex(3)),
+                parse_hex(2).or_else(|| parse_hex(4)),
+            )
+        } else {
+            (None, None)
+        };
 
         let buttons = gamepad.buttons();
         let button_iter = {
@@ -262,6 +289,8 @@ impl Gamepad {
             uuid: Uuid::nil(),
             gamepad,
             name,
+            vendor,
+            product,
             mapping,
             connected: true,
         }
@@ -277,6 +306,14 @@ impl Gamepad {
 
     pub fn uuid(&self) -> Uuid {
         self.uuid
+    }
+
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.vendor
+    }
+
+    pub fn product_id(&self) -> Option<u16> {
+        self.product
     }
 
     pub fn is_connected(&self) -> bool {

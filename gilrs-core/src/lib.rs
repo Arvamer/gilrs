@@ -170,6 +170,16 @@ impl Gamepad {
         *self.inner.uuid().as_bytes()
     }
 
+    /// Returns the vendor ID, as assigned by the USB-IF, when available.
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.inner.vendor_id()
+    }
+
+    /// Returns the product ID, as assigned by the vendor, when available.
+    pub fn product_id(&self) -> Option<u16> {
+        self.inner.product_id()
+    }
+
     /// Returns device's power supply state.
     pub fn power_info(&self) -> PowerInfo {
         self.inner.power_info()

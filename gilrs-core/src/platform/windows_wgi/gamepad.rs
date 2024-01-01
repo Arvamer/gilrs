@@ -580,6 +580,14 @@ impl Gamepad {
         self.uuid
     }
 
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.raw_game_controller.HardwareVendorId()
+    }
+
+    pub fn product_id(&self) -> Option<u16> {
+        self.raw_game_controller.HardwareProductId()
+    }
+
     pub fn is_connected(&self) -> bool {
         self.is_connected
     }

@@ -53,6 +53,14 @@ impl Gamepad {
         Uuid::nil()
     }
 
+    pub fn vendor_id(&self) -> Option<u16> {
+        None
+    }
+
+    pub fn product_id(&self) -> Option<u16> {
+        None
+    }
+
     pub fn power_info(&self) -> PowerInfo {
         PowerInfo::Unknown
     }

@@ -181,7 +181,8 @@ pub fn deadzone(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event> {
                     Event::new(id, EventType::Dropped)
                 } else {
                     if let Some(axis_idx) = deadzone_nonzero_axis_idx(axis) {
-                        gilrs.gamepads_data[id.0].have_sent_nonzero_for_axis[axis_idx] = val.0 != 0.;
+                        gilrs.gamepads_data[id.0].have_sent_nonzero_for_axis[axis_idx] =
+                            val.0 != 0.;
                     }
                     Event {
                         id,

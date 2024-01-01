@@ -136,6 +136,18 @@ impl eframe::App for MyEguiApp {
                                     ui.label(gamepad.name());
                                     ui.end_row();
 
+                                    if let Some(vendor) = gamepad.vendor_id() {
+                                        ui.label("Vendor ID");
+                                        ui.label(format!("{vendor:04x}"));
+                                        ui.end_row();
+                                    }
+
+                                    if let Some(product) = gamepad.product_id() {
+                                        ui.label("Product ID");
+                                        ui.label(format!("{product:04x}"));
+                                        ui.end_row();
+                                    }
+
                                     ui.label("Gilrs ID");
                                     ui.label(gamepad.id().to_string());
                                     ui.end_row();

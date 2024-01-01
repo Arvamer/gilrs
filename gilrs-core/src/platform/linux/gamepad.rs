@@ -550,6 +550,8 @@ pub struct Gamepad {
     devpath: String,
     name: String,
     uuid: Uuid,
+    vendor_id: u16,
+    product_id: u16,
     bt_capacity_fd: RawFd,
     bt_status_fd: RawFd,
     axes_values: VecMap<i32>,
@@ -580,8 +582,8 @@ impl Gamepad {
             return None;
         }
 
-        let uuid = match Self::create_uuid(fd) {
-            Some(uuid) => uuid,
+        let input_id = match Self::get_input_id(fd) {
+            Some(input_id) => input_id,
             None => {
                 error!("Failed to get id of device {:?}", path);
                 unsafe {
@@ -592,7 +594,7 @@ impl Gamepad {
         };
 
         let name = Self::get_name(fd).unwrap_or_else(|| {
-            error!("Failed to get name od device {:?}", path);
+            error!("Failed to get name of device {:?}", path);
             "Unknown".into()
         });
 
@@ -606,7 +608,9 @@ impl Gamepad {
             ff_supported,
             devpath: path.to_string_lossy().into_owned(),
             name,
-            uuid,
+            uuid: create_uuid(input_id),
+            vendor_id: input_id.vendor,
+            product_id: input_id.product,
             bt_capacity_fd: cap,
             bt_status_fd: status,
             axes_values: VecMap::new(),
@@ -688,6 +692,17 @@ impl Gamepad {
         }
     }
 
+    fn get_input_id(fd: i32) -> Option<ioctl::input_id> {
+        unsafe {
+            let mut iid = MaybeUninit::<ioctl::input_id>::uninit();
+            if ioctl::eviocgid(fd, iid.as_mut_ptr()).is_err() {
+                return None;
+            }
+
+            Some(iid.assume_init())
+        }
+    }
+
     fn test_ff(fd: i32) -> bool {
         unsafe {
             let mut ff_bits = [0u8; (FF_MAX / 8) as usize + 1];
@@ -711,18 +726,6 @@ impl Gamepad {
     fn is_gamepad(&self) -> bool {
         // TODO: improve it (for example check for buttons in range)
         !self.buttons.is_empty() && self.axes.len() >= 2
-    }
-
-    fn create_uuid(fd: i32) -> Option<Uuid> {
-        let iid = unsafe {
-            let mut iid = MaybeUninit::<ioctl::input_id>::uninit();
-            if ioctl::eviocgid(fd, iid.as_mut_ptr()).is_err() {
-                return None;
-            }
-
-            iid.assume_init()
-        };
-        Some(create_uuid(iid))
     }
 
     fn find_buttons(key_bits: &[u8], only_gamepad_btns: bool) -> Vec<EvCode> {
@@ -996,6 +999,14 @@ impl Gamepad {
 
     pub fn uuid(&self) -> Uuid {
         self.uuid
+    }
+
+    pub fn vendor_id(&self) -> Option<u16> {
+        Some(self.vendor_id)
+    }
+
+    pub fn product_id(&self) -> Option<u16> {
+        Some(self.product_id)
     }
 
     pub fn ff_device(&self) -> Option<FfDevice> {

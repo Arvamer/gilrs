@@ -155,6 +155,8 @@ impl Gilrs {
 #[allow(dead_code)]
 pub struct Gamepad {
     name: String,
+    vendor: Option<u16>,
+    product: Option<u16>,
     uuid: Uuid,
     entry_id: u64,
     location_id: u32,
@@ -238,6 +240,8 @@ impl Gamepad {
 
         let mut gamepad = Gamepad {
             name,
+            vendor: device.get_vendor_id(),
+            product: device.get_product_id(),
             uuid,
             entry_id,
             location_id,
@@ -305,6 +309,14 @@ impl Gamepad {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.vendor
+    }
+
+    pub fn product_id(&self) -> Option<u16> {
+        self.product
     }
 
     pub fn uuid(&self) -> Uuid {
