@@ -581,11 +581,11 @@ impl Gamepad {
     }
 
     pub fn vendor_id(&self) -> Option<u16> {
-        self.raw_game_controller.HardwareVendorId()
+        self.raw_game_controller.HardwareVendorId().ok()
     }
 
     pub fn product_id(&self) -> Option<u16> {
-        self.raw_game_controller.HardwareProductId()
+        self.raw_game_controller.HardwareProductId().ok()
     }
 
     pub fn is_connected(&self) -> bool {
