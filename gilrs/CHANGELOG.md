@@ -3,6 +3,13 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.10.5 - 2024-03-06
+----------
+
+### Added
+
+- Added `vendor_id()` and `product_id()` to `Gamepad`.
+
 v0.10.4 - 2023-12-03
 ----------
 
@@ -38,7 +45,8 @@ v0.10.1 - 2022-11-13
 
 ### Added
 
-- Supporting files and documentation for running the GUI example using Wasm in a browser. See [examples/wasm/README.md](./examples/wasm/README.md)
+- Supporting files and documentation for running the GUI example using Wasm in
+  a browser. See [examples/wasm/README.md](./examples/wasm/README.md)
 
 ### Changed
 
@@ -48,7 +56,6 @@ v0.10.1 - 2022-11-13
 
 - GUI example crash when the current platform does not support force feedback.
 
-
 v0.10.0 - 2022-11-06
 --------------------
 
@@ -56,27 +63,35 @@ v0.10.0 - 2022-11-06
 
 - Windows now defaults to using Windows Gaming Input instead of xinput.
 
-  If you need to use xInput you can disable the `wgi` feature (It's enabled by default) and enable the `xinput` feature.
+  If you need to use xInput you can disable the `wgi` feature (It's enabled by
+  default) and enable the `xinput` feature.
   ``` toml
   gilrs = {version = "0.10.0", default-features = false, features = ["wgi"]}
   ```
-- Apps on Windows will now require a focused window to receive inputs by default.
+- Apps on Windows will now require a focused window to receive inputs by
+  default.
 
-  This is a limitation of Windows Gaming Input. It requires an in focus Window be associated with the process to receive events. You can still switch back to using xInput by turning off default features and enabling the `xinput` feature.
+  This is a limitation of Windows Gaming Input. It requires an in focus Window
+  be associated with the process to receive events. You can still switch back
+  to using xInput by turning off default features and enabling the `xinput`
+  feature.
 
-  Note: Some (Older?) devices may still report inputs without a window but this is not the case for all devices so if you are writing a terminal based game, use the `xinput` feature instead.
+  Note: Some (Older?) devices may still report inputs without a window but this
+  is not the case for all devices so if you are writing a terminal based game,
+  use the `xinput` feature instead.
 
 - Minimal supported rust version is now 1.64.
-
 
 v0.9.0 - 2022-05-22
 -------------------
 
 ### Changed
 
-- wasm: web-sys/wasm-bindgen is now used by default, dependency on stdweb  and `wasm-bindgen` feature are removed.
+- wasm: web-sys/wasm-bindgen is now used by default, dependency on stdweb
+  and `wasm-bindgen` feature are removed.
 - Minimal supported rust version is now 1.56.
-- Changed `impl Into\<usize\> for GamepadId` to `impl From\<GamepadId\> for usize`
+- Changed `impl Into\<usize\> for GamepadId`
+  to `impl From\<GamepadId\> for usize`
 
 ### Fixed
 
@@ -94,7 +109,6 @@ v0.8.2 - 2021-12-30
 
 - Fixed overflow when calculating axis value and min/max range was
   i32::MIN/MAX (@wathiede)
-
 
 v0.8.1 - 2021-03-30
 -------------------
@@ -123,7 +137,8 @@ v0.8.0 - 2020-10-09
 
 ### Removed
 
-- Errors now longer implement deprecated methods (`source()` and `description()`).
+- Errors now longer implement deprecated methods (`source()`
+  and `description()`).
 
 v0.7.4 - 2020-02-06
 -------------------
@@ -223,7 +238,7 @@ v0.6.1 - 2018-07-18
 
 ### Fixed
 
-- Various fixes to logging at incorrect log level. Thanks to @fuggles for
+- Various fixes to logging at incorrect log level. Thanks to @fuggles for
   locating and reporting these issues.
 - Possible panic in `Repeat` filter.
 - `Axis::DPadY` was inverted on Linux.
@@ -242,11 +257,14 @@ v0.6.0 - 2018-02-11
 - `ButtonState::value()`.
 - `Mapping::insert_{btn,axis}()`.
 - `Gampead::os_name()` and `Gamepad::map_name()`. (@rukai)
-- `GilrsBuilder::add_env_mappings()` and `GilrsBuilder::add_included_mappings()`,
-  allow to configure whether to load mappings from `SDL_GAMECONTROLLERCONFIG` env
+- `GilrsBuilder::add_env_mappings()`
+  and `GilrsBuilder::add_included_mappings()`,
+  allow to configure whether to load mappings from `SDL_GAMECONTROLLERCONFIG`
+  env
   and bundled mappings. (@rukai)
 - `Gilrs::insert_event()`.
-- `Axis::second_axis()` – returns the other axis of gamepad element. For example,
+- `Axis::second_axis()` – returns the other axis of gamepad element. For
+  example,
   this function will return `LeftStickX` for `LeftStickY`.
 
 ### Removed
@@ -262,7 +280,8 @@ v0.6.0 - 2018-02-11
 - Gilrs now require Rust 1.20.0 or newer.
 - Updated bundled mappings.
 - Renamed `Filter::filter` to `Filter::filter_ev` because RFC 2124 added
-  `filter` method to `Option` (our `Filter` is implemented for `Option<Event>`).
+  `filter` method to `Option` (our `Filter` is implemented
+  for `Option<Event>`).
 - `Gamepad::deadzone()` now returns `Option<f32>` instead of `f32`.
 - All axis events are now in range [-1.0, 1.0].
 - `NativeEvCode` is replaced by `ev::Code`, a strongly typed struct that also
@@ -271,13 +290,16 @@ v0.6.0 - 2018-02-11
 - `State` now tracks floating-point value of buttons.
 - `State::value()` can now be used to also examine value of buttons.
 - By default, gamepad state is updated automatically. If you customize event
-  filters, you can disable this behaviour using `GilrsBuilder::set_update_state`.
-- `Gilrs::new()` and `GilrsBuilder::build()` now returns `Result`. Dummy context
+  filters, you can disable this behaviour
+  using `GilrsBuilder::set_update_state`.
+- `Gilrs::new()` and `GilrsBuilder::build()` now returns `Result`. Dummy
+  context
   can still be used, but only if result of failure is unsupported platform.
 - Renamed `Gilrs::connected_gamepad()` and `Gilrs::connected_gamepad_mut()` to
   `get()` and `get_mut()`.
 - `Filter` and `FilterFn` now borrows `Gilrs` mutably.
-- Windows: Gamepads are now named "Xbox Controller" instead of "XInput Controller".
+- Windows: Gamepads are now named "Xbox Controller" instead of "XInput
+  Controller".
   (@rukai)
 
 ### Fixed
@@ -312,7 +334,7 @@ v0.5.0 - 2017-09-24
 - `Gamepad::axis_data, button_data` – part of new extended gamepad state.
 - `Gamepad::id()` – returns gamepad ID.
 - `Gilrs::update, inc, counter, reset_counter` – part of new extended
-   gamepad state.
+  gamepad state.
 
 ### Removed
 
@@ -382,7 +404,6 @@ v0.4.2 - 2017-01-15
 - Values returned with `AxisChanged` event now have correctly applied
   deadzones.
 - Linux: Correctly handle event queue overrun.
-
 
 v0.4.1 - 2016-12-12
 -------------------

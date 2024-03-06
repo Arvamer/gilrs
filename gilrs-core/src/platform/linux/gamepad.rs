@@ -19,21 +19,19 @@ use vec_map::VecMap;
 
 use inotify::{EventMask, Inotify, WatchMask};
 use nix::errno::Errno;
-use nix::sys::epoll::{Epoll, EpollCreateFlags, EpollEvent, EpollFlags};
-use nix::sys::eventfd;
-use nix::sys::eventfd::EfdFlags;
+use nix::sys::epoll::{Epoll, EpollCreateFlags, EpollEvent, EpollFlags, EpollTimeout};
+use nix::sys::eventfd::{EfdFlags, EventFd};
 use std::collections::VecDeque;
 use std::error;
 use std::ffi::OsStr;
 use std::ffi::{CStr, CString};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs::File;
-use std::io::Write;
 use std::mem::{self, MaybeUninit};
 use std::ops::Index;
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::io::{BorrowedFd, OwnedFd, RawFd};
+use std::os::unix::io::{BorrowedFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::mpsc;
@@ -65,7 +63,7 @@ impl Gilrs {
         let epoll = Epoll::new(EpollCreateFlags::empty())
             .map_err(|e| errno_to_platform_error(e, "creating epoll fd"))?;
 
-        let hotplug_event = eventfd::eventfd(1, EfdFlags::EFD_NONBLOCK)
+        let mut hotplug_event = EventFd::from_value_and_flags(1, EfdFlags::EFD_NONBLOCK)
             .map_err(|e| errno_to_platform_error(e, "creating eventfd"))?;
         epoll
             .add(
@@ -116,7 +114,6 @@ impl Gilrs {
                 .spawn(move || {
                     let mut buffer = [0u8; 1024];
                     debug!("Started gilrs inotify thread");
-                    let mut event_fd = File::from(hotplug_event);
                     loop {
                         let events = match inotify.read_events_blocking(&mut buffer) {
                             Ok(events) => events,
@@ -126,7 +123,7 @@ impl Gilrs {
                             }
                         };
                         for event in events {
-                            if !handle_inotify(&hotplug_tx, event, &mut event_fd) {
+                            if !handle_inotify(&hotplug_tx, event, &mut hotplug_event) {
                                 return;
                             }
                         }
@@ -222,9 +219,9 @@ impl Gilrs {
         if self.to_check.is_empty() {
             let mut events = [EpollEvent::new(EpollFlags::empty(), 0); 16];
             let timeout = if let Some(timeout) = timeout {
-                timeout.as_millis().try_into().expect("timeout too large")
+                EpollTimeout::try_from(timeout).expect("timeout too large")
             } else {
-                -1
+                EpollTimeout::NONE
             };
 
             let n = match self.epoll.wait(&mut events, timeout) {
@@ -365,7 +362,7 @@ enum HotplugEvent {
 fn handle_inotify(
     sender: &Sender<HotplugEvent>,
     event: inotify::Event<&std::ffi::OsStr>,
-    event_fd: &mut File,
+    event_fd: &mut EventFd,
 ) -> bool {
     let name = match event.name.and_then(|name| name.to_str()) {
         Some(name) => name,
@@ -403,7 +400,7 @@ fn handle_inotify(
         sent = true;
     }
     if sent {
-        if let Err(e) = event_fd.write(&0u64.to_ne_bytes()) {
+        if let Err(e) = event_fd.write(0u64) {
             error!(
                 "Failed to notify other thread about new hotplug events: {}",
                 e
@@ -431,9 +428,7 @@ fn get_gamepad_path(name: &str) -> Option<(PathBuf, PathBuf)> {
     Some((gamepad_path, syspath))
 }
 
-fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: OwnedFd) {
-    let mut event = File::from(event);
-
+fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: EventFd) {
     loop {
         if !monitor.wait_hotplug_available() {
             continue;
@@ -487,7 +482,7 @@ fn handle_hotplug(sender: Sender<HotplugEvent>, monitor: Monitor, event: OwnedFd
             }
 
             if sent {
-                if let Err(e) = event.write(&0u64.to_ne_bytes()) {
+                if let Err(e) = event.write(0) {
                     error!(
                         "Failed to notify other thread about new hotplug events: {}",
                         e

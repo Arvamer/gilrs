@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+v0.5.11 - 2024-03-06
+----------
+
+### Added
+
+- Added `vendor_id()` and `product_id()` to `Gamepad`.
+
+### Changed
+
+- Updated `windows` crate to 0.54.
+
 v0.5.10 - 2023-12-17
 ----------
 
@@ -22,7 +33,7 @@ v0.5.8 - 2023-11-11
 
 - Flatpak is now supported by using inotify instead of udev. (!104)
 
-### Changed 
+### Changed
 
 - All thread spawned by gilrs are now named. (!102)
 - MSRV is now 1.65.
@@ -86,6 +97,7 @@ v0.5.2 - 2022-12-16
 - `Gilrs` is now `Send` on Linux.
 
 ### Fixed
+
 - Crash when app is launched through steam on Windows (see
   https://github.com/microsoft/windows-rs/issues/2252 for details).
 
@@ -94,9 +106,10 @@ v0.5.1 - 2022-11-13
 
 ### Fixed
 
-- macOS: Fixed that hat axes were sometimes added before other axes breaking SDL mappings.
-- web: Fixed swapped north and west buttons for gamepads with "standard" mapping
-
+- macOS: Fixed that hat axes were sometimes added before other axes breaking
+  SDL mappings.
+- web: Fixed swapped north and west buttons for gamepads with "standard"
+  mapping
 
 v0.5.0 - 2022-11-06
 --------------------
@@ -105,19 +118,25 @@ v0.5.0 - 2022-11-06
 
 - Windows now defaults to using Windows Gaming Input instead of xinput.
 
-  If you need to use xInput you can disable the `wgi` feature (It's enabled by default) and enable the `xinput` feature.
+  If you need to use xInput you can disable the `wgi` feature (It's enabled by
+  default) and enable the `xinput` feature.
   ``` toml
   gilrs-core = {version = "0.5.0", default-features = false, features = ["wgi"]}
   ```
-- Apps on Windows will now require a focused window to receive inputs by default.
+- Apps on Windows will now require a focused window to receive inputs by
+  default.
 
-  This is a limitation of Windows Gaming Input. It requires an in focus Window be associated with the process to receive events. You can still switch back to using xInput by turning off default features and enabling the `xinput` feature.
+  This is a limitation of Windows Gaming Input. It requires an in focus Window
+  be associated with the process to receive events. You can still switch back
+  to using xInput by turning off default features and enabling the `xinput`
+  feature.
 
 - Minimal supported rust version is now 1.64.
 
 ### Fixed
 
-- `Gamepad::axes()` on macos now also returns "hat" axes. This should fix dpad on single Switch Joy-Con.
+- `Gamepad::axes()` on macos now also returns "hat" axes. This should fix dpad
+  on single Switch Joy-Con.
 
 v0.4.1 - 2022-05-29
 -------------------
@@ -132,7 +151,8 @@ v0.4.0 - 2022-05-22
 
 ### Changed
 
-- wasm: web-sys/wasm-bindgen is now used by default, dependency on stdweb  and `wasm-bindgen` feature are removed.
+- wasm: web-sys/wasm-bindgen is now used by default, dependency on stdweb
+  and `wasm-bindgen` feature are removed.
 - Minimal supported rust version is now 1.56.
 - Updated `uuid` and `nix` to current version.
 
@@ -166,7 +186,6 @@ v0.3.0 - 2020-10-09
 
 - Minimal supported version is now 1.40
 
-
 v0.2.6 - 2020-05-11
 -------------------
 
@@ -192,7 +211,6 @@ v0.2.3 - 2019-08-06
 - xinput: Removed unneeded logging
 - macos: `IS_Y_AXIS_REVERSED` is now correctly set to `true`
 - macos: Fixed UUID calculation
-
 
 v0.2.2 - 2019-04-06
 -------------------
@@ -234,4 +252,5 @@ v0.2.0 - 2019-02-21
 
 ### Fixed
 
-- xinput: Incorrect gamepad ID when more than one gamepad is connected (@DTibbs).
+- xinput: Incorrect gamepad ID when more than one gamepad is connected (
+  @DTibbs).

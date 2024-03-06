@@ -1,6 +1,6 @@
 [package]
 name = "gilrs-core"
-version = "0.5.10"
+version = "0.5.11"
 authors = ["Mateusz Sieczko <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "Minimal event based abstraction for working with gamepads"
@@ -24,7 +24,7 @@ env_logger = "0.10.0"
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd"))'.dependencies]
 libudev-sys = "0.1.4"
 libc = "0.2"
-nix = { version = "0.27.1", default-features = false, features = ["ioctl", "event"] }
+nix = { version = "0.28.0", default-features = false, features = ["ioctl", "event"] }
 vec_map = "0.8"
 inotify = { version = "0.10.2", default-features = false }
 
