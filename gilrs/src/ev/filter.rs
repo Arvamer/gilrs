@@ -257,114 +257,175 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
         }
     }
 
-    match ev {
-        Some(Event {
-            event: EventType::AxisChanged(Axis::DPadX, val, _),
-            id,
-            time,
-        }) if can_map(&gilrs.gamepad(id)) => Some(if val == 1.0 {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadRight, 1.0, Code(necs::BTN_DPAD_RIGHT)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
+    let ev = ev?;
+    let gamepad = gilrs.gamepad(ev.id);
+
+    if !can_map(&gamepad) {
+        return Some(ev);
+    }
+
+    match ev.event {
+        EventType::AxisChanged(Axis::DPadX, val, _) => {
+            let mut release_left = false;
+            let mut release_right = false;
+            let mut event = None;
+
+            if val == 1.0 {
+                // The axis value might change from left (-1.0) to right (1.0) immediately without
+                // us getting an additional event for the release at the center position (0.0).
+                release_left = gamepad.state().is_pressed(Code(necs::BTN_DPAD_LEFT));
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(
+                        Button::DPadRight,
+                        1.0,
+                        Code(necs::BTN_DPAD_RIGHT),
+                    ),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
+                    ..ev
+                });
+            } else if val == -1.0 {
+                // The axis value might change from right (1.0) to left (-1.0) immediately without
+                // us getting an additional event for the release at the center position (0.0).
+                release_right = gamepad.state().is_pressed(Code(necs::BTN_DPAD_RIGHT));
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(
+                        Button::DPadLeft,
+                        1.0,
+                        Code(necs::BTN_DPAD_LEFT),
+                    ),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
+                    ..ev
+                });
+            } else {
+                release_left = gamepad.state().is_pressed(Code(necs::BTN_DPAD_LEFT));
+                release_right = gamepad.state().is_pressed(Code(necs::BTN_DPAD_RIGHT));
             }
-        } else if val == -1.0 {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadLeft, 1.0, Code(necs::BTN_DPAD_LEFT)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
+
+            if release_right {
+                if let Some(event) = event.take() {
+                    gilrs.insert_event(event);
+                }
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(
+                        Button::DPadRight,
+                        0.0,
+                        Code(necs::BTN_DPAD_RIGHT),
+                    ),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
+                    ..ev
+                });
             }
-        } else if gilrs
-            .gamepad(id)
-            .state()
-            .is_pressed(Code(necs::BTN_DPAD_RIGHT))
-        {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadRight, 0.0, Code(necs::BTN_DPAD_RIGHT)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
+
+            if release_left {
+                if let Some(event) = event.take() {
+                    gilrs.insert_event(event);
+                }
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(
+                        Button::DPadLeft,
+                        0.0,
+                        Code(necs::BTN_DPAD_LEFT),
+                    ),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonReleased(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
+                    ..ev
+                });
             }
-        } else {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadLeft, 0.0, Code(necs::BTN_DPAD_LEFT)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonReleased(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
+
+            event
+        }
+        EventType::AxisChanged(Axis::DPadY, val, _) => {
+            let mut release_up = false;
+            let mut release_down = false;
+            let mut event = None;
+
+            if val == 1.0 {
+                // The axis value might change from down (-1.0) to up (1.0) immediately without us
+                // getting an additional event for the release at the center position (0.0).
+                release_down = gamepad.state().is_pressed(Code(necs::BTN_DPAD_DOWN));
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(Button::DPadUp, 1.0, Code(necs::BTN_DPAD_UP)),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
+                    ..ev
+                });
+            } else if val == -1.0 {
+                // The axis value might change from up (1.0) to down (-1.0) immediately without us
+                // getting an additional event for the release at the center position (0.0).
+                release_up = gamepad.state().is_pressed(Code(necs::BTN_DPAD_UP));
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(
+                        Button::DPadDown,
+                        1.0,
+                        Code(necs::BTN_DPAD_DOWN),
+                    ),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
+                    ..ev
+                });
+            } else {
+                release_up = gamepad.state().is_pressed(Code(necs::BTN_DPAD_UP));
+                release_down = gamepad.state().is_pressed(Code(necs::BTN_DPAD_DOWN));
             }
-        }),
-        Some(Event {
-            event: EventType::AxisChanged(Axis::DPadY, val, _),
-            id,
-            time,
-        }) if can_map(&gilrs.gamepad(id)) => Some(if val == 1.0 {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadUp, 1.0, Code(necs::BTN_DPAD_UP)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
+
+            if release_up {
+                if let Some(event) = event.take() {
+                    gilrs.insert_event(event);
+                }
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(Button::DPadUp, 0.0, Code(necs::BTN_DPAD_UP)),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
+                    ..ev
+                });
             }
-        } else if val == -1.0 {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadDown, 1.0, Code(necs::BTN_DPAD_DOWN)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
+
+            if release_down {
+                if let Some(event) = event.take() {
+                    gilrs.insert_event(event);
+                }
+
+                gilrs.insert_event(Event {
+                    event: EventType::ButtonChanged(
+                        Button::DPadDown,
+                        0.0,
+                        Code(necs::BTN_DPAD_DOWN),
+                    ),
+                    ..ev
+                });
+                event = Some(Event {
+                    event: EventType::ButtonReleased(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
+                    ..ev
+                });
             }
-        } else if gilrs
-            .gamepad(id)
-            .state()
-            .is_pressed(Code(necs::BTN_DPAD_UP))
-        {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadUp, 0.0, Code(necs::BTN_DPAD_UP)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
-            }
-        } else {
-            gilrs.insert_event(Event {
-                id,
-                time,
-                event: EventType::ButtonChanged(Button::DPadDown, 0.0, Code(necs::BTN_DPAD_DOWN)),
-            });
-            Event {
-                id,
-                time,
-                event: EventType::ButtonReleased(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
-            }
-        }),
-        _ => ev,
+
+            event
+        }
+        _ => Some(ev),
     }
 }
 
