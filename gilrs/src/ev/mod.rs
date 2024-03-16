@@ -101,6 +101,8 @@ pub enum EventType {
     Disconnected,
     /// There was an `Event`, but it was dropped by one of filters. You should ignore it.
     Dropped,
+    /// A force feedback effect has ran for its duration and stopped.
+    ForceFeedbackEffectCompleted,
 }
 
 #[repr(u16)]

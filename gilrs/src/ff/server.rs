@@ -14,6 +14,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::gamepad::GamepadId;
+use crate::Event;
 use gilrs_core::FfDevice;
 
 use vec_map::VecMap;
@@ -71,6 +72,10 @@ pub(crate) enum Message {
         id: usize,
         gain: f32,
     },
+}
+
+pub(crate) enum FfMessage {
+    EffectCompleted { event: Event },
 }
 
 impl Message {
@@ -138,11 +143,12 @@ impl From<FfDevice> for Device {
     }
 }
 
-pub(crate) fn run(rx: Receiver<Message>) {
+pub(crate) fn run(tx: Sender<FfMessage>, rx: Receiver<Message>) {
     let mut effects = VecMap::<Effect>::new();
     let mut devices = VecMap::<Device>::new();
     let sleep_dur = Duration::from_millis(TICK_DURATION.into());
     let mut tick = Ticks(0);
+    let mut completion_events = Vec::<Event>::new();
 
     loop {
         let t1 = Instant::now();
@@ -250,7 +256,11 @@ pub(crate) fn run(rx: Receiver<Message>) {
             }
         }
 
-        combine_and_play(&mut effects, &mut devices, tick);
+        combine_and_play(&mut effects, &mut devices, tick, &mut completion_events);
+        completion_events.iter().for_each(|ev| {
+            let _ = tx.send(FfMessage::EffectCompleted { event: *ev });
+        });
+        completion_events.clear();
 
         let dur = Instant::now().duration_since(t1);
         if dur > sleep_dur {
@@ -266,25 +276,32 @@ pub(crate) fn run(rx: Receiver<Message>) {
     }
 }
 
-pub(crate) fn init() -> Sender<Message> {
+pub(crate) fn init() -> (Sender<Message>, Receiver<FfMessage>) {
     let (tx, _rx) = mpsc::channel();
+    let (_tx2, rx2) = mpsc::channel();
 
     // Wasm doesn't support threads and force feedback
     #[cfg(not(target_arch = "wasm32"))]
     std::thread::Builder::new()
         .name("gilrs".to_owned())
-        .spawn(move || run(_rx))
+        .spawn(move || run(_tx2, _rx))
         .expect("failed to spawn thread");
 
-    tx
+    (tx, rx2)
 }
 
-fn combine_and_play(effects: &mut VecMap<Effect>, devices: &mut VecMap<Device>, tick: Ticks) {
+fn combine_and_play(
+    effects: &mut VecMap<Effect>,
+    devices: &mut VecMap<Device>,
+    tick: Ticks,
+    completion_events: &mut Vec<Event>,
+) {
     for (dev_id, dev) in devices {
         let mut magnitude = Magnitude::zero();
         for (_, ref mut effect) in effects.iter_mut() {
             if effect.devices.contains_key(dev_id) {
                 magnitude += effect.combine_base_effects(tick, dev.position);
+                completion_events.extend(effect.flush_completion_events());
             }
         }
         trace!(

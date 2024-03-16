@@ -11,7 +11,7 @@ use crate::{
         Axis, AxisOrBtn, Button, Code, Event, EventType,
     },
     ff::{
-        server::{self, Message},
+        server::{self, FfMessage, Message},
         Error as FfError,
     },
     mapping::{Mapping, MappingData, MappingDb},
@@ -29,7 +29,7 @@ use std::{
     collections::VecDeque,
     error,
     fmt::{self, Display},
-    sync::mpsc::Sender,
+    sync::mpsc::{Receiver, Sender},
     time::Duration,
 };
 
@@ -134,6 +134,7 @@ pub struct Gilrs {
     inner: gilrs_core::Gilrs,
     next_id: usize,
     tx: Sender<Message>,
+    rx: Receiver<FfMessage>,
     counter: u64,
     mappings: MappingDb,
     default_filters: bool,
@@ -210,6 +211,11 @@ impl Gilrs {
         is_blocking: bool,
         blocking_timeout: Option<Duration>,
     ) -> Option<Event> {
+        if let Some(msg) = self.rx.try_recv().ok() {
+            match msg {
+                FfMessage::EffectCompleted { event } => return Some(event),
+            }
+        }
         if let Some(ev) = self.events.pop_front() {
             Some(ev)
         } else {
@@ -391,7 +397,7 @@ impl Gilrs {
                 data.state
                     .update_axis(nec, AxisData::new(value, counter, event.time));
             }
-            Disconnected | Connected | Dropped => (),
+            Disconnected | Connected | Dropped | ForceFeedbackEffectCompleted => (),
         }
     }
 
@@ -711,10 +717,13 @@ impl GilrsBuilder {
             Err(PlatformError::Other(e)) => return Err(Error::Other(e)),
         };
 
+        let (tx, rx) = server::init();
+
         let mut gilrs = Gilrs {
             inner,
             next_id: 0,
-            tx: server::init(),
+            tx,
+            rx,
             counter: 0,
             mappings: self.mappings,
             default_filters: self.default_filters,

@@ -7,7 +7,9 @@
 
 use std::error::Error;
 use std::ops::{AddAssign, Mul};
-use std::{fmt, u16};
+use std::{fmt, mem, u16};
+
+use crate::{Event, EventType, GamepadId};
 
 use super::base_effect::{BaseEffect, BaseEffectType};
 use super::time::{Repeat, Ticks};
@@ -248,6 +250,7 @@ pub(crate) struct EffectSource {
     pub(super) position: [f32; 3],
     pub(super) gain: f32,
     pub(super) state: EffectState,
+    pub(super) completion_events: Vec<Event>,
 }
 
 impl EffectSource {
@@ -267,6 +270,7 @@ impl EffectSource {
             position,
             gain,
             state: EffectState::Stopped,
+            completion_events: vec![],
         }
     }
 
@@ -282,6 +286,10 @@ impl EffectSource {
         match self.repeat {
             Repeat::For(max_dur) if ticks > max_dur => {
                 self.state = EffectState::Stopped;
+                self.devices.keys().for_each(|id| {
+                    let event = Event::new(GamepadId(id), EventType::ForceFeedbackEffectCompleted);
+                    self.completion_events.push(event);
+                });
             }
             _ => (),
         }
@@ -306,6 +314,10 @@ impl EffectSource {
             };
         }
         final_magnitude * attenuation
+    }
+
+    pub(super) fn flush_completion_events(&mut self) -> Vec<Event> {
+        mem::take(&mut self.completion_events)
     }
 }
 
