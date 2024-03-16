@@ -3,6 +3,14 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.10.6 - 2024-03-16
+----------
+
+### Fixed
+
+- `axis_dpad_to_button` filter will now properly generate release event when
+  axis value change from -1 to 1 (or 1 to -1) while skipping 0.
+
 v0.10.5 - 2024-03-06
 ----------
 
