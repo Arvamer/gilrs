@@ -264,11 +264,12 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
         return Some(ev);
     }
 
+    let mut out_event = ev.drop();
+
     match ev.event {
         EventType::AxisChanged(Axis::DPadX, val, _) => {
             let mut release_left = false;
             let mut release_right = false;
-            let mut event = None;
 
             if val == 1.0 {
                 // The axis value might change from left (-1.0) to right (1.0) immediately without
@@ -283,10 +284,10 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     ),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonPressed(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
                     ..ev
-                });
+                };
             } else if val == -1.0 {
                 // The axis value might change from right (1.0) to left (-1.0) immediately without
                 // us getting an additional event for the release at the center position (0.0).
@@ -300,18 +301,18 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     ),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonPressed(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
                     ..ev
-                });
+                };
             } else {
                 release_left = gamepad.state().is_pressed(Code(necs::BTN_DPAD_LEFT));
                 release_right = gamepad.state().is_pressed(Code(necs::BTN_DPAD_RIGHT));
             }
 
             if release_right {
-                if let Some(event) = event.take() {
-                    gilrs.insert_event(event);
+                if !out_event.is_dropped() {
+                    gilrs.insert_event(out_event);
                 }
 
                 gilrs.insert_event(Event {
@@ -322,15 +323,15 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     ),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonReleased(Button::DPadRight, Code(necs::BTN_DPAD_RIGHT)),
                     ..ev
-                });
+                };
             }
 
             if release_left {
-                if let Some(event) = event.take() {
-                    gilrs.insert_event(event);
+                if !out_event.is_dropped() {
+                    gilrs.insert_event(out_event);
                 }
 
                 gilrs.insert_event(Event {
@@ -341,18 +342,17 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     ),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonReleased(Button::DPadLeft, Code(necs::BTN_DPAD_LEFT)),
                     ..ev
-                });
+                };
             }
 
-            event
+            Some(out_event)
         }
         EventType::AxisChanged(Axis::DPadY, val, _) => {
             let mut release_up = false;
             let mut release_down = false;
-            let mut event = None;
 
             if val == 1.0 {
                 // The axis value might change from down (-1.0) to up (1.0) immediately without us
@@ -363,10 +363,10 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     event: EventType::ButtonChanged(Button::DPadUp, 1.0, Code(necs::BTN_DPAD_UP)),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonPressed(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
                     ..ev
-                });
+                };
             } else if val == -1.0 {
                 // The axis value might change from up (1.0) to down (-1.0) immediately without us
                 // getting an additional event for the release at the center position (0.0).
@@ -380,33 +380,33 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     ),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonPressed(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
                     ..ev
-                });
+                };
             } else {
                 release_up = gamepad.state().is_pressed(Code(necs::BTN_DPAD_UP));
                 release_down = gamepad.state().is_pressed(Code(necs::BTN_DPAD_DOWN));
             }
 
             if release_up {
-                if let Some(event) = event.take() {
-                    gilrs.insert_event(event);
+                if !out_event.is_dropped() {
+                    gilrs.insert_event(out_event);
                 }
 
                 gilrs.insert_event(Event {
                     event: EventType::ButtonChanged(Button::DPadUp, 0.0, Code(necs::BTN_DPAD_UP)),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonReleased(Button::DPadUp, Code(necs::BTN_DPAD_UP)),
                     ..ev
-                });
+                };
             }
 
             if release_down {
-                if let Some(event) = event.take() {
-                    gilrs.insert_event(event);
+                if !out_event.is_dropped() {
+                    gilrs.insert_event(out_event);
                 }
 
                 gilrs.insert_event(Event {
@@ -417,13 +417,13 @@ pub fn axis_dpad_to_button(ev: Option<Event>, gilrs: &mut Gilrs) -> Option<Event
                     ),
                     ..ev
                 });
-                event = Some(Event {
+                out_event = Event {
                     event: EventType::ButtonReleased(Button::DPadDown, Code(necs::BTN_DPAD_DOWN)),
                     ..ev
-                });
+                };
             }
 
-            event
+            Some(out_event)
         }
         _ => Some(ev),
     }
