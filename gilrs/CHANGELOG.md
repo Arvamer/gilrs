@@ -3,6 +3,14 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.10.7 - 2024-02-28
+----------
+
+### Fixed
+
+- Fixed `axis_dpad_to_button` sometimes changing events to None and causing
+  panics in builds with debug assertions.
+
 v0.10.6 - 2024-03-16
 ----------
 
