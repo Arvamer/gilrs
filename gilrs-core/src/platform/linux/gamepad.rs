@@ -1111,10 +1111,10 @@ impl Display for EvCode {
         match self.kind {
             EV_SYN => f.write_str("SYN")?,
             EV_KEY => f.write_str("KEY")?,
-            0x02 => f.write_str("REL")?,
+            EV_REL => f.write_str("REL")?,
             EV_ABS => f.write_str("ABS")?,
-            0x04 => f.write_str("MSC")?,
-            0x05 => f.write_str("SW")?,
+            EV_MSC => f.write_str("MSC")?,
+            EV_SW => f.write_str("SW")?,
             kind => f.write_fmt(format_args!("EV_TYPE_{}", kind))?,
         }
 
@@ -1151,7 +1151,10 @@ const KEY_MAX: u16 = 0x2ff;
 const EV_MAX: u16 = 0x1f;
 const EV_SYN: u16 = 0x00;
 const EV_KEY: u16 = 0x01;
+const EV_REL: u16 = 0x02;
 const EV_ABS: u16 = 0x03;
+const EV_MSC: u16 = 0x04;
+const EV_SW: u16 = 0x05;
 const ABS_MAX: u16 = 0x3f;
 const EV_FF: u16 = 0x15;
 
