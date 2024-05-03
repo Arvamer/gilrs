@@ -48,8 +48,13 @@ fn main() {
 
     let path = Path::new(&cargo_manifest_dir).join(sdl_game_controller_db_path);
 
-    let original_file = File::open(&path)
-        .unwrap_or_else(|_| panic!("Could not open gamecontrollerdb.txt {:?}", &path));
+    let original_file = File::open(&path).unwrap_or_else(|_| {
+        panic!(
+            "Could not open gamecontrollerdb.txt {:?}. Did you forget to pull the \
+             `SDL_GameControllerDB` submodule?",
+            &path
+        )
+    });
     let original_reader = BufReader::new(original_file);
 
     original_reader
