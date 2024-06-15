@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+v0.5.12 - 2024-06-15
+----------
+
+### Fixed
+
+- Fixed building on FreeBSD and DragonFly by not using linux implementation
+
+### Changed
+
+- Updated dependencies
+
 v0.5.11 - 2024-03-06
 ----------
 
