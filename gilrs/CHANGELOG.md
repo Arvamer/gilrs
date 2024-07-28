@@ -3,6 +3,13 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.10.9 - 2024-07-28
+----------
+
+### Changed
+
+- Updated bundled mappings.
+
 v0.10.8 - 2024-07-06
 ----------
 
