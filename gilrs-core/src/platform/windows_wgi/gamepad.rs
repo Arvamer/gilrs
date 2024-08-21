@@ -120,7 +120,8 @@ impl Gilrs {
                 }
                 Ok(())
             });
-        RawGameController::RawGameControllerAdded(&added_handler).unwrap();
+        let controller_added_token =
+            RawGameController::RawGameControllerAdded(&added_handler).unwrap();
 
         let removed_tx = tx.clone();
         let removed_handler: EventHandler<RawGameController> =
@@ -132,7 +133,8 @@ impl Gilrs {
                 }
                 Ok(())
             });
-        RawGameController::RawGameControllerRemoved(&removed_handler).unwrap();
+        let controller_removed_token =
+            RawGameController::RawGameControllerRemoved(&removed_handler).unwrap();
 
         std::thread::Builder::new()
             .name("gilrs".to_owned())
@@ -201,6 +203,18 @@ impl Gilrs {
                         );
                     }
                     thread::sleep(Duration::from_millis(EVENT_THREAD_SLEEP_TIME));
+                }
+
+                if let Err(e) =
+                    RawGameController::RemoveRawGameControllerAdded(controller_added_token)
+                {
+                    error!("Failed to remove RawGameControllerAdded event handler: {e}");
+                }
+
+                if let Err(e) =
+                    RawGameController::RemoveRawGameControllerRemoved(controller_removed_token)
+                {
+                    error!("Failed to remove RawGameControllerRemoved event handler: {e}");
                 }
             })
             .expect("failed to spawn thread")
