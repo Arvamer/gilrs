@@ -188,7 +188,11 @@ impl Gilrs {
 
                         // Make last update's reading the old reading and get a new one.
                         std::mem::swap(old_reading, new_reading);
-                        new_reading.update(controller).unwrap();
+                        if let Err(e) = new_reading.update(controller) {
+                            if e.code().is_err() {
+                                error!("Reading::update() function failed with {e}");
+                            }
+                        }
 
                         // Skip if this is the same reading as the last one.
                         if old_reading.time() == new_reading.time() {
