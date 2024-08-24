@@ -22,8 +22,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct Gilrs {
-    gamepads: Vec<Gamepad>,
     event_cache: VecDeque<Event>,
+    gamepads: Vec<Gamepad>,
+    new_web_gamepads: Vec<WebGamepad>,
     next_event_error_logged: bool,
 }
 
@@ -37,8 +38,9 @@ impl Gilrs {
 
         Ok({
             Gilrs {
-                gamepads: Vec::new(),
                 event_cache: VecDeque::new(),
+                gamepads: Vec::new(),
+                new_web_gamepads: Vec::new(),
                 next_event_error_logged: false,
             }
         })
@@ -78,87 +80,100 @@ impl Gilrs {
             }
         };
 
-        let mut new_gamepads: Vec<_> = gamepads
-            .iter()
-            .map(|val| {
-                if val.is_null() {
-                    None
-                } else {
-                    Some(Gamepad::new(WebGamepad::from(val)))
-                }
-            })
-            .collect();
-        if new_gamepads.len() < self.gamepads.len() {
-            new_gamepads.resize_with(self.gamepads.len(), || None);
+        // Gather all non-null gamepads
+        for maybe_js_gamepad in gamepads {
+            if !maybe_js_gamepad.is_null() {
+                self.new_web_gamepads
+                    .push(WebGamepad::from(maybe_js_gamepad));
+            }
         }
 
-        for (index, new) in new_gamepads.into_iter().enumerate() {
-            match (self.gamepads.get_mut(index), new) {
-                (Some(old), Some(new)) => {
-                    if !old.connected {
+        // Update existing gamepads
+        for (id, gamepad) in self.gamepads.iter_mut().enumerate() {
+            let maybe_js_gamepad_index = self
+                .new_web_gamepads
+                .iter()
+                .position(|x| gamepad.gamepad.index() == x.index());
+            if let Some(js_gamepad_index) = maybe_js_gamepad_index {
+                gamepad.gamepad = self.new_web_gamepads.swap_remove(js_gamepad_index);
+
+                if !gamepad.connected {
+                    self.event_cache
+                        .push_back(Event::new(id, EventType::Connected));
+                    gamepad.connected = true;
+                }
+
+                let buttons = gamepad.gamepad.buttons();
+                for btn_index in 0..gamepad
+                    .mapping
+                    .buttons()
+                    .len()
+                    .min(buttons.length() as usize)
+                {
+                    let (old_pressed, old_value) = gamepad.mapping.buttons()[btn_index];
+
+                    let ev_code = crate::EvCode(gamepad.button_code(btn_index));
+                    let button_object = GamepadButton::from(buttons.get(btn_index as u32));
+
+                    let new_pressed = button_object.pressed();
+                    let new_value = button_object.value();
+
+                    if [BTN_LT2, BTN_RT2].contains(&ev_code.0) && old_value != new_value {
+                        // Treat left and right triggers as axes so we get non-binary values.
+                        // Button Pressed/Changed events are generated from the axis changed
+                        // events later.
+                        let value = (new_value * i32::MAX as f64) as i32;
                         self.event_cache
-                            .push_back(Event::new(new.index(), EventType::Connected));
-                    }
-
-                    // Compare the two gamepads and generate events
-                    let buttons = old.mapping.buttons().zip(new.mapping.buttons()).enumerate();
-                    for (btn_index, (old_button, new_button)) in buttons {
-                        let ev_code = crate::EvCode(new.button_code(btn_index));
-
-                        if [BTN_LT2, BTN_RT2].contains(&ev_code.0) && old_button.1 != new_button.1 {
-                            // Treat left and right triggers as axes so we get non-binary values.
-                            // Button Pressed/Changed events are generated from the axis changed
-                            // events later.
-                            let value = (new_button.1 * i32::MAX as f64) as i32;
-                            self.event_cache.push_back(Event::new(
-                                index,
-                                EventType::AxisValueChanged(value, ev_code),
-                            ));
-                        } else {
-                            match (old_button.0, new_button.0) {
-                                (false, true) => self.event_cache.push_back(Event::new(
-                                    index,
-                                    EventType::ButtonPressed(ev_code),
-                                )),
-                                (true, false) => self.event_cache.push_back(Event::new(
-                                    index,
-                                    EventType::ButtonReleased(ev_code),
-                                )),
-                                _ => (),
-                            }
+                            .push_back(Event::new(id, EventType::AxisValueChanged(value, ev_code)));
+                    } else {
+                        match (old_pressed, new_pressed) {
+                            (false, true) => self
+                                .event_cache
+                                .push_back(Event::new(id, EventType::ButtonPressed(ev_code))),
+                            (true, false) => self
+                                .event_cache
+                                .push_back(Event::new(id, EventType::ButtonReleased(ev_code))),
+                            _ => (),
                         }
                     }
 
-                    let axes = old.mapping.axes().zip(new.mapping.axes()).enumerate();
-                    for (axis_index, (old_axis, new_axis)) in axes {
-                        if old_axis != new_axis {
-                            let ev_code = crate::EvCode(new.axis_code(axis_index));
-                            let value = (new_axis * i32::MAX as f64) as i32;
-                            self.event_cache.push_back(Event::new(
-                                index,
-                                EventType::AxisValueChanged(value, ev_code),
-                            ));
-                        }
+                    gamepad.mapping.buttons_mut()[btn_index] = (new_pressed, new_value);
+                }
+
+                let axes = gamepad.gamepad.axes();
+                for axis_index in 0..gamepad.mapping.axes().len().min(axes.length() as usize) {
+                    let old_value = gamepad.mapping.axes()[axis_index];
+                    let new_value = axes
+                        .get(axis_index as u32)
+                        .as_f64()
+                        .expect("axes() should be an array of f64");
+                    if old_value != new_value {
+                        let ev_code = crate::EvCode(gamepad.axis_code(axis_index));
+                        let value = (new_value * i32::MAX as f64) as i32;
+                        self.event_cache
+                            .push_back(Event::new(id, EventType::AxisValueChanged(value, ev_code)));
                     }
 
-                    *old = new;
+                    gamepad.mapping.axes_mut()[axis_index] = new_value;
                 }
-                (Some(old), None) => {
-                    // Create a disconnect event
-                    if old.connected {
-                        self.event_cache
-                            .push_back(Event::new(index, EventType::Disconnected));
-                        old.connected = false;
-                    }
+            } else {
+                // Create a disconnect event
+                if gamepad.connected {
+                    self.event_cache
+                        .push_back(Event::new(id, EventType::Disconnected));
+                    gamepad.connected = false;
                 }
-                (None, Some(new)) => {
-                    // Create a connected event
-                    let event = Event::new(index, EventType::Connected);
-                    self.event_cache.push_back(event);
-                    self.gamepads.push(new);
-                }
-                (None, None) => {}
             }
+        }
+
+        // Add new gamepads
+        for js_gamepad in self.new_web_gamepads.drain(..) {
+            let id = self.gamepads.len();
+            self.gamepads.push(Gamepad::new(js_gamepad));
+
+            // Create a connected event
+            let event = Event::new(id, EventType::Connected);
+            self.event_cache.push_back(event);
         }
 
         self.event_cache.pop_front()
@@ -190,20 +205,32 @@ enum Mapping {
 }
 
 impl Mapping {
-    fn buttons(&self) -> impl Iterator<Item = (bool, f64)> + '_ {
+    fn buttons(&self) -> &[(bool, f64)] {
         match self {
-            Mapping::Standard { buttons, .. } => buttons.iter(),
-            Mapping::NoMapping { buttons, .. } => buttons.iter(),
+            Mapping::Standard { buttons, .. } => &*buttons,
+            Mapping::NoMapping { buttons, .. } => &buttons,
         }
-        .cloned()
     }
 
-    fn axes(&self) -> impl Iterator<Item = f64> + '_ {
+    fn buttons_mut(&mut self) -> &mut [(bool, f64)] {
         match self {
-            Mapping::Standard { axes, .. } => axes.iter(),
-            Mapping::NoMapping { axes, .. } => axes.iter(),
+            Mapping::Standard { buttons, .. } => &mut *buttons,
+            Mapping::NoMapping { buttons, .. } => &mut *buttons,
         }
-        .cloned()
+    }
+
+    fn axes(&self) -> &[f64] {
+        match self {
+            Mapping::Standard { axes, .. } => &*axes,
+            Mapping::NoMapping { axes, .. } => &axes,
+        }
+    }
+
+    fn axes_mut(&mut self) -> &mut [f64] {
+        match self {
+            Mapping::Standard { axes, .. } => &mut *axes,
+            Mapping::NoMapping { axes, .. } => &mut *axes,
+        }
     }
 }
 
@@ -351,7 +378,7 @@ impl Gamepad {
         self.axes()
             .get(index)
             .copied()
-            .unwrap_or_else(|| EvCode((index + self.mapping.buttons().count()) as u8 + 31))
+            .unwrap_or_else(|| EvCode((index + self.mapping.buttons().len()) as u8 + 31))
     }
 
     pub(crate) fn axis_info(&self, _nec: EvCode) -> Option<&AxisInfo> {
