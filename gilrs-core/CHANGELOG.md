@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+v0.5.15 - 2024-08-25
+----------
+
+### Fixed
+
+- wasm: Fixed panic when browser assigned unexpected gamepad ID
+- windows: Fixed panic when receiving connected/disconnected events after instance of `Gilrs`
+  was dropped.
+- windows: Don’t panic on Reading::update() returning error
+
 v0.5.13 - 2024-07-08
 ----------
 
