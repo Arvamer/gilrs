@@ -1135,8 +1135,8 @@ fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
 }
 
 fn btn_value(info: &AxisInfo, val: i32) -> f32 {
-    let range = (info.max - info.min) as f32;
-    let mut val = (val - info.min) as f32;
+    let range = info.max as f32 - info.min as f32;
+    let mut val = val as f32 - info.min as f32;
     val /= range;
 
     utils::clamp(val, 0.0, 1.0)
@@ -1184,7 +1184,7 @@ const _: () = {
 
 #[cfg(test)]
 mod tests {
-    use super::{axis_value, Axis, AxisInfo};
+    use super::{axis_value, btn_value, Axis, AxisInfo};
 
     #[test]
     fn axis_value_documented_case() {
@@ -1196,6 +1196,7 @@ mod tests {
         let axis = Axis::LeftStickY;
         assert_eq!(0., axis_value(&info, 127, axis));
     }
+
     #[test]
     fn axis_value_overflow() {
         let info = AxisInfo {
@@ -1208,5 +1209,24 @@ mod tests {
         assert_eq!(0., axis_value(&info, -1, axis));
         assert_eq!(0., axis_value(&info, 0, axis));
         assert_eq!(0., axis_value(&info, 1, axis));
+
+        assert_eq!(1.0, axis_value(&info, i32::MIN, axis));
+        assert_eq!(-1.0, axis_value(&info, i32::MAX, axis));
+    }
+
+    #[test]
+    fn btn_value_overflow() {
+        let info = AxisInfo {
+            min: std::i32::MIN,
+            max: std::i32::MAX,
+            deadzone: None,
+        };
+
+        assert_eq!(0.5, btn_value(&info, -1));
+        assert_eq!(0.5, btn_value(&info, 0));
+        assert_eq!(0.5, btn_value(&info, 1));
+
+        assert_eq!(0.0, btn_value(&info, i32::MIN));
+        assert_eq!(1.0, btn_value(&info, i32::MAX));
     }
 }
