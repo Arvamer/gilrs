@@ -226,11 +226,16 @@ impl Gilrs {
             };
 
             match event {
-                Some(RawEvent { id, event, time }) => {
-                    trace!("Original event: {:?}", RawEvent { id, event, time });
+                Some(RawEvent {
+                    id,
+                    event: event_type,
+                    time,
+                    ..
+                }) => {
+                    trace!("Original event: {:?}", event);
                     let id = GamepadId(id);
 
-                    let event = match event {
+                    let event = match event_type {
                         RawEventType::ButtonPressed(nec) => {
                             let nec = Code(nec);
                             match self.gamepad(id).axis_or_btn_name(nec) {
@@ -356,6 +361,9 @@ impl Gilrs {
                             let _ = self.tx.send(Message::Close { id: id.0 });
 
                             EventType::Disconnected
+                        }
+                        _ => {
+                            unimplemented!()
                         }
                     };
 
@@ -715,6 +723,7 @@ impl GilrsBuilder {
                 g
             }
             Err(PlatformError::Other(e)) => return Err(Error::Other(e)),
+            Err(_) => unimplemented!(),
         };
 
         let (tx, rx) = server::init();
@@ -1152,6 +1161,7 @@ fn btn_value(info: &AxisInfo, val: i32) -> f32 {
 }
 
 /// Error type which can be returned when creating `Gilrs`.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     /// Gilrs does not support current platform, but you can use dummy context from this error if

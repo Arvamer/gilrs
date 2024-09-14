@@ -37,7 +37,7 @@
 //!
 //! loop {
 //!     // Examine new events
-//!     while let Some(Event { id, event, time }) = gilrs.next_event() {
+//!     while let Some(Event { id, event, time, .. }) = gilrs.next_event() {
 //!         println!("{:?} New event from {}: {:?}", time, id, event);
 //!         active_gamepad = Some(id);
 //!     }

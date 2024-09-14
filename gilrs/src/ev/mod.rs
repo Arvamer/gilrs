@@ -48,6 +48,7 @@ impl Code {
 /// Holds information about gamepad event.
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Event {
     /// Id of gamepad.
     pub id: GamepadId,
@@ -82,6 +83,7 @@ impl Event {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 /// Gamepad event.
 pub enum EventType {
     /// Some button on gamepad has been pressed.

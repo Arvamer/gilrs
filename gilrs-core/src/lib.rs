@@ -30,6 +30,7 @@ impl FfDevice {
 
 /// Holds information about gamepad event.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[non_exhaustive]
 pub struct Event {
     /// Id of gamepad.
     pub id: usize,
@@ -49,6 +50,7 @@ impl Event {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Gamepad event.
+#[non_exhaustive]
 pub enum EventType {
     ButtonPressed(EvCode),
     ButtonReleased(EvCode),
@@ -276,6 +278,7 @@ impl error::Error for PlatformError {
 }
 
 /// Error type which can be returned when creating `Gilrs`.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     /// Gilrs does not support current platform, but you can use dummy context from this error if

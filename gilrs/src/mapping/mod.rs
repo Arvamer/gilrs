@@ -572,6 +572,7 @@ impl MappingData {
 
 /// The error type for functions related to gamepad mapping.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MappingError {
     /// Gamepad does not have element referenced by `EvCode`.
     InvalidCode(ev::Code),
