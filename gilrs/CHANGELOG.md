@@ -12,7 +12,7 @@ v0.11.0 - 2024-09-15
 
 ### Added
 
-- Added `EventSource::ForceFeedbackEffectCompleted`
+- Added `EventType::ForceFeedbackEffectCompleted`
 
 ### Changed
 
