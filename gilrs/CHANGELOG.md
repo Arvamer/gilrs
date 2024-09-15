@@ -3,6 +3,17 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.10.10 - 2024-09-15
+----------
+
+### Changed
+
+- Updated bundled mappings.
+
+### Fixed
+
+- Fixed potential overflow in `btn_value`
+
 v0.10.9 - 2024-07-28
 ----------
 
