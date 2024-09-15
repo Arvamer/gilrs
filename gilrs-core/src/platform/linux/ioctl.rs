@@ -8,6 +8,7 @@
 // Some ioctls are exported by ioctl crate only for x86_64, so we have to define them anyway.
 // Diffing linux/input.h across different architectures (i686, x86_64 and arm) didn't show any
 // difference, so it looks like conditional compilation is not needed.
+#![allow(dead_code)]
 
 use nix::{ioctl_read, ioctl_read_buf, ioctl_write_int, ioctl_write_ptr, request_code_read};
 use std::mem::MaybeUninit;

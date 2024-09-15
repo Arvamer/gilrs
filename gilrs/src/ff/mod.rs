@@ -50,7 +50,7 @@
 //! effect.play().unwrap();
 //! ```
 //!
-//! See [`examples/ff_pos.rs`](https://gitlab.com/gilrs-project/gilrs/blob/v0.10.3/examples/ff_pos.rs) for
+//! See [`examples/ff_pos.rs`](https://gitlab.com/gilrs-project/gilrs/blob/v0.11.0/examples/ff_pos.rs) for
 //! more advanced example.
 mod base_effect;
 mod effect_source;

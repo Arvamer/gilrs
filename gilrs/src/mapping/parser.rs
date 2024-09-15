@@ -288,6 +288,7 @@ pub enum Token<'a> {
     Uuid(Uuid),
     Platform(&'a str),
     Name(&'a str),
+    #[allow(dead_code)]
     AxisMapping {
         from: u16,
         to: AxisOrBtn,
@@ -298,6 +299,7 @@ pub enum Token<'a> {
     ButtonMapping {
         from: u16,
         to: AxisOrBtn,
+        #[allow(dead_code)]
         output: AxisRange,
     },
     // This is just SDL representation, we will convert this to axis mapping later
@@ -306,6 +308,7 @@ pub enum Token<'a> {
         // ?
         direction: u16,
         to: AxisOrBtn,
+        #[allow(dead_code)]
         output: AxisRange,
     },
 }

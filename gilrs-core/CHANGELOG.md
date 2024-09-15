@@ -1,6 +1,18 @@
 Change Log
 ==========
 
+v0.6.0 - 2024-09-15
+----------
+
+### Breaking changes
+
+- Mark Error enums, `EventType` and `Event` as `non_exhaustive`
+
+### Changed
+
+- Minimal supported Rust version is now 1.73
+- Updated dependencies
+
 v0.5.15 - 2024-08-25
 ----------
 

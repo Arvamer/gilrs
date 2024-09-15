@@ -4,7 +4,7 @@ GilRs - Game Input Library for Rust
 [![pipeline status](https://gitlab.com/gilrs-project/gilrs/badges/master/pipeline.svg)](https://gitlab.com/gilrs-project/gilrs/commits/master)
 [![Crates.io](https://img.shields.io/crates/v/gilrs.svg)](https://crates.io/crates/gilrs)
 [![Documentation](https://docs.rs/gilrs/badge.svg)](https://docs.rs/gilrs/)
-[![Minimum rustc version](https://img.shields.io/badge/rustc-1.65.0+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.73.0+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
 
 [**Documentation (master)**](https://gilrs-project.gitlab.io/gilrs/doc/gilrs/)
 
@@ -15,7 +15,7 @@ Main features:
 - Unified gamepad layout—buttons and axes are represented by familiar names
 - Support for SDL2 mappings including `SDL_GAMECONTROLLERCONFIG` environment
   variable which Steam uses
-- Hotplugging—GilRs will try to assign new ID for new gamepads and reuse same
+- Hotplugging—GilRs will try to assign new ID for new gamepads and reuse the same
   ID for gamepads which reconnected
 - Force feedback (rumble)
 - Power information (is gamepad wired, current battery status)
@@ -33,7 +33,7 @@ Example
 
 ```toml
 [dependencies]
-gilrs = "0.10.3"
+gilrs = "0.11.0"
 ```
 
 ```rust
@@ -74,7 +74,6 @@ Supported features
 | OS X             |   ✓   |      ✓      |        ✕       |
 | Wasm             |   ✓   |      ✓      |       n/a      |
 | Android          |   ✕   |      ✕      |        ✕       |
-
 
 Platform specific notes
 ======================

@@ -17,6 +17,7 @@ const PATH_SEPARATOR: &str = "backslash";
 const PATH_SEPARATOR: &str = "slash";
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(path_separator, values(\"slash\",\"backslash\"))");
     println!(r#"cargo:rustc-cfg=path_separator="{}""#, PATH_SEPARATOR);
 
     let out_dir = env::var("OUT_DIR").unwrap();

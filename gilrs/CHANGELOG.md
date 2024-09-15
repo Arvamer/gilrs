@@ -3,6 +3,27 @@ Change Log
 
 See also [gilrs-core changelog](../gilrs-core/CHANGELOG.md).
 
+v0.11.0 - 2024-09-15
+----------
+
+### Breaking changes
+
+- Mark Error enums, `EventType` and `Event` as `non_exhaustive`
+
+### Added
+
+- Added `EventSource::ForceFeedbackEffectCompleted`
+
+### Changed
+
+- Minimal supported Rust version is now 1.73
+- Updated dependencies
+- Updated bundled mappings
+
+### Fixed
+
+- Fixed potential overflow in `btn_value`
+
 v0.10.6 - 2024-03-16
 ----------
 
