@@ -13,7 +13,7 @@ Main features:
 - Unified gamepad layout—buttons and axes are represented by familiar names
 - Support for SDL2 mappings including `SDL_GAMECONTROLLERCONFIG` environment
   variable which Steam uses
-- Hotplugging—GilRs will try to assign new ID for new gamepads and reuse the same
+- Hotplugging—GilRs will try to assign new IDs for new gamepads and reuse the same
   ID for gamepads which reconnected
 - Force feedback (rumble)
 - Power information (is gamepad wired, current battery status)
@@ -48,7 +48,7 @@ let mut active_gamepad = None;
 
 loop {
     // Examine new events
-    while let Some(Event { id, event, time }) = gilrs.next_event() {
+    while let Some(Event { id, event, time, .. }) = gilrs.next_event() {
         println!("{:?} New event from {}: {:?}", time, id, event);
         active_gamepad = Some(id);
     }

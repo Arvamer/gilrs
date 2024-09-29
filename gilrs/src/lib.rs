@@ -15,7 +15,7 @@
 //! - Unified gamepad layout—buttons and axes are represented by familiar names
 //! - Support for SDL2 mappings including `SDL_GAMECONTROLLERCONFIG` environment
 //!   variable which Steam uses
-//! - Hotplugging—GilRs will try to assign new IDs for new gamepads and reuse same
+//! - Hotplugging—GilRs will try to assign new IDs for new gamepads and reuse the same
 //!   ID for gamepads which reconnected
 //! - Force feedback (rumble)
 //! - Power information (is gamepad wired, current battery status)
@@ -23,7 +23,7 @@
 //! Example
 //! -------
 //!
-//! ```
+//! ```rust
 //! use gilrs::{Gilrs, Button, Event};
 //!
 //! let mut gilrs = Gilrs::new().unwrap();
