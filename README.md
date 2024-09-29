@@ -68,7 +68,7 @@ Supported features
 |                  | Input | Hotplugging | Force feedback |
 |------------------|:-----:|:-----------:|:--------------:|
 | Linux/BSD (evdev)|   ✓   |      ✓      |        ✓       |
-| Windows (XInput) |   ✓   |      ✓      |        ✓       |
+| Windows          |   ✓   |      ✓      |        ✓       |
 | OS X             |   ✓   |      ✓      |        ✕       |
 | Wasm             |   ✓   |      ✓      |       n/a      |
 | Android          |   ✕   |      ✕      |        ✕       |
@@ -87,8 +87,21 @@ On FreeBSD generic HID gamepads use hgame(4) and special use Linux driver via `w
 To build GilRs, you will need pkg-config and libudev .pc file. On some distributions this file
 is packaged in separate archive (e.g., `libudev-dev` in Debian, `libudev-devd` in FreeBSD).
 
+Windows
+-----
+
+Windows defaults to using Windows Gaming Input instead of XInput. If you need to use XInput you
+can disable the `wgi` feature (it's enabled by default) and enable the `xinput` feature.
+
+Windows Gaming Input requires an in focus window to be associated with the process to receive
+events. You can still switch back to using xInput by turning off default features and enabling
+the xinput feature.
+
+Note: Some (Older?) devices may still report inputs without a window but this is not the case
+for all devices so if you are writing a terminal based game, use the xinput feature instead.
+
 Wasm
-----
+-----
 
 Wasm implementation uses stdweb, or wasm-bindgen with the wasm-bindgen feature.
 For stdweb, you will need [cargo-web](https://github.com/koute/cargo-web) to build gilrs for
