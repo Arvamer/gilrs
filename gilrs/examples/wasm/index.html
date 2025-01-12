@@ -4,27 +4,65 @@
         <meta charset="UTF-8"/>
         <title>Gilrs Example</title>
         <style>
-            html, body {
-                margin: 0;
-                /* prevent scroll bar from showing */
+            html {
+                /* Remove touch delay: */
+                touch-action: manipulation;
+            }
+    
+            body {
+                /* Light mode background color for what is not covered by the egui canvas,
+                or where the egui canvas is translucent. */
+                background: #909090;
+            }
+    
+            @media (prefers-color-scheme: dark) {
+                body {
+                    /* Dark mode background color for what is not covered by the egui canvas,
+                    or where the egui canvas is translucent. */
+                    background: #404040;
+                }
+            }
+    
+            /* Allow canvas to fill entire web page: */
+            html,
+            body {
                 overflow: hidden;
-                /*
-                Egui automatically resizes the canvas to fit it's parent element so ensures the canvas will
-                resize to always be fullscreen.
-                */
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 100%;
+                width: 100%;
+            }
+    
+            /* Make canvas fill entire document: */
+            canvas {
+                margin-right: auto;
+                margin-left: auto;
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
                 width: 100%;
                 height: 100%;
             }
-            canvas {
-                /*
-                Egui adds these to the canvas automatically, but not until it gets focus,
-                causing it to grow until you click on it. This prevents that.
-                */
+    
+            .centered {
+                margin-right: auto;
+                margin-left: auto;
+                display: block;
                 position: absolute;
-                top: 0;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #f0f0f0;
+                font-size: 24px;
+                font-family: Ubuntu-Light, Helvetica, sans-serif;
+                text-align: center;
             }
         </style>
     </head>
+    <!-- The WASM code will resize the canvas dynamically -->
+    <!-- the id is hardcoded in main.rs . so, make sure both match. -->
+    <canvas id="the_canvas_id"></canvas>
     <script type="module">
         import init from './target/wasm_example.js'
 

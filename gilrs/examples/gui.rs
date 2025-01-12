@@ -1,9 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use crate::egui::plot::{MarkerShape, PlotPoints, Points};
-use crate::egui::RichText;
 use eframe::egui;
 use eframe::egui::Vec2;
+use egui::RichText;
+use egui_plot::{MarkerShape, Plot, PlotPoints, Points};
 use gilrs::ev::AxisOrBtn;
 use gilrs::ff::{BaseEffect, BaseEffectType, Effect, EffectBuilder, Repeat, Ticks};
 use gilrs::{Axis, GamepadId, Gilrs, GilrsBuilder};
@@ -167,7 +167,9 @@ impl eframe::App for MyEguiApp {
                                     ui.horizontal(|ui| {
                                         ui.label(&uuid);
                                         if ui.button("Copy").clicked() {
-                                            ui.output().copied_text = uuid;
+                                            ui.output_mut(|platform_output| {
+                                                platform_output.copied_text = uuid;
+                                            });
                                         }
                                     });
                                     ui.end_row();
@@ -245,7 +247,7 @@ impl eframe::App for MyEguiApp {
                                             .map(|a| a.value())
                                             .unwrap_or_default()
                                             as f64;
-                                        egui::widgets::plot::Plot::new(format!("{name}_plot"))
+                                        Plot::new(format!("{name}_plot"))
                                             .width(150.0)
                                             .height(150.0)
                                             .min_size(Vec2::splat(3.25))
@@ -318,12 +320,29 @@ fn main() {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
+    use eframe::wasm_bindgen::JsCast;
+
     console_error_panic_hook::set_once();
     let web_options = eframe::WebOptions::default();
-    eframe::start_web(
-        "canvas",
-        web_options,
-        Box::new(|cc| Box::new(MyEguiApp::new(cc))),
-    )
-    .unwrap();
+
+    wasm_bindgen_futures::spawn_local(async {
+        let document = web_sys::window()
+            .expect("No window")
+            .document()
+            .expect("No document");
+
+        let canvas = document
+            .get_element_by_id("the_canvas_id")
+            .expect("Failed to find the_canvas_id")
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .expect("the_canvas_id was not a HtmlCanvasElement");
+
+        let _ = eframe::WebRunner::new()
+            .start(
+                canvas,
+                web_options,
+                Box::new(|cc| Ok(Box::new(MyEguiApp::new(cc)))),
+            )
+            .await;
+    });
 }
