@@ -355,14 +355,14 @@ impl Gamepad {
     fn collect_axes_and_buttons(&mut self, elements: &Vec<IOHIDElement>) {
         let mut cookies = Vec::new();
 
-        self.collect_axes(&elements, &mut cookies);
+        self.collect_axes(elements, &mut cookies);
         self.axes.sort_by_key(|axis| axis.usage);
         self.hats.sort_by_key(|axis| axis.usage);
         // Because "hat is axis" is gilrs thing, we want ensure that all hats are at the end of
         // axis vector, so SDL mappings still works.
         self.axes.extend(&self.hats);
 
-        self.collect_buttons(&elements, &mut cookies);
+        self.collect_buttons(elements, &mut cookies);
         self.buttons.sort_by_key(|button| button.usage);
     }
 
@@ -452,7 +452,7 @@ impl EvCode {
     }
 
     pub fn into_u32(self) -> u32 {
-        self.page << 16 | self.usage
+        (self.page << 16) | self.usage
     }
 }
 
@@ -607,6 +607,7 @@ pub mod native_ev_codes {
     };
 }
 
+#[allow(clippy::type_complexity)]
 extern "C" fn device_matching_cb(
     context: *mut c_void,
     _result: IOReturn,
@@ -660,8 +661,8 @@ extern "C" fn device_matching_cb(
             };
 
             device_infos.push(DeviceInfo {
-                entry_id: entry_id,
-                location_id: location_id,
+                entry_id,
+                location_id,
                 is_connected: true,
             });
 
@@ -671,6 +672,7 @@ extern "C" fn device_matching_cb(
     let _ = tx.send((Event::new(id, EventType::Connected), Some(device)));
 }
 
+#[allow(clippy::type_complexity)]
 extern "C" fn device_removal_cb(
     context: *mut c_void,
     _result: IOReturn,
@@ -713,6 +715,7 @@ extern "C" fn device_removal_cb(
     let _ = tx.send((Event::new(id, EventType::Disconnected), None));
 }
 
+#[allow(clippy::type_complexity)]
 extern "C" fn input_value_cb(
     context: *mut c_void,
     _result: IOReturn,
@@ -785,10 +788,7 @@ extern "C" fn input_value_cb(
             id,
             EventType::AxisValueChanged(
                 value.get_value() as i32,
-                crate::EvCode(EvCode {
-                    page: page,
-                    usage: usage,
-                }),
+                crate::EvCode(EvCode { page, usage }),
             ),
         );
         let _ = tx.send((event, None));
@@ -796,19 +796,13 @@ extern "C" fn input_value_cb(
         if value.get_value() == 0 {
             let event = Event::new(
                 id,
-                EventType::ButtonReleased(crate::EvCode(EvCode {
-                    page: page,
-                    usage: usage,
-                })),
+                EventType::ButtonReleased(crate::EvCode(EvCode { page, usage })),
             );
             let _ = tx.send((event, None));
         } else {
             let event = Event::new(
                 id,
-                EventType::ButtonPressed(crate::EvCode(EvCode {
-                    page: page,
-                    usage: usage,
-                })),
+                EventType::ButtonPressed(crate::EvCode(EvCode { page, usage })),
             );
             let _ = tx.send((event, None));
         }
@@ -843,13 +837,13 @@ extern "C" fn input_value_cb(
         // the unused axis. For example, pressing just "up" will also give you a "released" event
         // for either the left or right button, even if it wasn't pressed before pressing "up".
         let x_axis_value = match dpad_value {
-            5 | 6 | 7 => -1, // left
-            1 | 2 | 3 => 1,  // right
+            5..=7 => -1, // left
+            1..=3 => 1,  // right
             _ => 0,
         };
         // Since we're emulating an inverted macOS gamepad axis, down is positive and up is negative
         let y_axis_value = match dpad_value {
-            3 | 4 | 5 => 1,  // down
+            3..=5 => 1,      // down
             0 | 1 | 7 => -1, // up
             _ => 0,
         };

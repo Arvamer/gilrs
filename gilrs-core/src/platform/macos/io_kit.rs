@@ -190,28 +190,21 @@ impl IOHIDDevice {
     }
 
     pub fn get_name(&self) -> Option<String> {
-        match self.get_string_property(kIOHIDProductKey) {
-            Some(name) => Some(name.to_string()),
-            None => None,
-        }
+        self.get_string_property(kIOHIDProductKey)
+            .map(|name| name.to_string())
     }
 
     pub fn get_location_id(&self) -> Option<u32> {
-        match self.get_number_property(kIOHIDLocationIDKey) {
-            Some(location_id) => match location_id.to_i32() {
-                Some(location_id) => Some(location_id as u32),
-                None => None,
-            },
-            None => None,
-        }
+        self.get_number_property(kIOHIDLocationIDKey)
+            .and_then(|location_id| location_id.to_i32().map(|location_id| location_id as u32))
     }
 
     pub fn get_bustype(&self) -> Option<u16> {
         match self.get_transport_key() {
             Some(transport_key) => {
-                if transport_key == "USB".to_string() {
+                if transport_key == "USB" {
                     Some(0x03)
-                } else if transport_key == "Bluetooth".to_string() {
+                } else if transport_key == "Bluetooth" {
                     Some(0x05)
                 } else {
                     None
@@ -222,60 +215,33 @@ impl IOHIDDevice {
     }
 
     pub fn get_transport_key(&self) -> Option<String> {
-        match self.get_string_property(kIOHIDTransportKey) {
-            Some(transport_key) => Some(transport_key.to_string()),
-            None => None,
-        }
+        self.get_string_property(kIOHIDTransportKey)
+            .map(|transport_key| transport_key.to_string())
     }
 
     pub fn get_vendor_id(&self) -> Option<u16> {
-        match self.get_number_property(kIOHIDVendorIDKey) {
-            Some(vendor_id) => match vendor_id.to_i32() {
-                Some(vendor_id) => Some(vendor_id as u16),
-                None => None,
-            },
-            None => None,
-        }
+        self.get_number_property(kIOHIDVendorIDKey)
+            .and_then(|vendor_id| vendor_id.to_i32().map(|vendor_id| vendor_id as u16))
     }
 
     pub fn get_product_id(&self) -> Option<u16> {
-        match self.get_number_property(kIOHIDProductIDKey) {
-            Some(product_id) => match product_id.to_i32() {
-                Some(product_id) => Some(product_id as u16),
-                None => None,
-            },
-            None => None,
-        }
+        self.get_number_property(kIOHIDProductIDKey)
+            .and_then(|product_id| product_id.to_i32().map(|product_id| product_id as u16))
     }
 
     pub fn get_version(&self) -> Option<u16> {
-        match self.get_number_property(kIOHIDVersionNumberKey) {
-            Some(version) => match version.to_i32() {
-                Some(version) => Some(version as u16),
-                None => None,
-            },
-            None => None,
-        }
+        self.get_number_property(kIOHIDVersionNumberKey)
+            .and_then(|version| version.to_i32().map(|version| version as u16))
     }
 
     pub fn get_page(&self) -> Option<u32> {
-        match self.get_number_property(kIOHIDPrimaryUsagePageKey) {
-            Some(page) => match page.to_i32() {
-                Some(page) => Some(page as u32),
-                None => None,
-            },
-            None => None,
-        }
+        self.get_number_property(kIOHIDPrimaryUsagePageKey)
+            .and_then(|page| page.to_i32().map(|page| page as u32))
     }
 
     pub fn get_usage(&self) -> Option<u32> {
-        match self.get_number_property(kIOHIDPrimaryUsageKey) {
-            Some(usage) => match usage.to_i32() {
-                Some(usage) => Some(usage as u32),
-                None => None,
-            },
-            None => None,
-        }
+        self.get_number_property(kIOHIDPrimaryUsageKey)
+            .and_then(|usage| usage.to_i32().map(|usage| usage as u32))
     }
 
     pub fn get_service(&self) -> Option<IOService> {
@@ -340,19 +306,27 @@ impl IOHIDElement {
             kIOHIDElementTypeInput_Misc
             | kIOHIDElementTypeInput_Button
             | kIOHIDElementTypeInput_Axis => match page {
-                kHIDPage_GenericDesktop => match usage {
-                    kHIDUsage_GD_X | kHIDUsage_GD_Y | kHIDUsage_GD_Z | kHIDUsage_GD_Rx
-                    | kHIDUsage_GD_Ry | kHIDUsage_GD_Rz | kHIDUsage_GD_Slider
-                    | kHIDUsage_GD_Dial | kHIDUsage_GD_Wheel => true,
-                    _ => false,
-                },
-                kHIDPage_Simulation => match usage {
+                kHIDPage_GenericDesktop => {
+                    matches!(
+                        usage,
+                        kHIDUsage_GD_X
+                            | kHIDUsage_GD_Y
+                            | kHIDUsage_GD_Z
+                            | kHIDUsage_GD_Rx
+                            | kHIDUsage_GD_Ry
+                            | kHIDUsage_GD_Rz
+                            | kHIDUsage_GD_Slider
+                            | kHIDUsage_GD_Dial
+                            | kHIDUsage_GD_Wheel
+                    )
+                }
+                kHIDPage_Simulation => matches!(
+                    usage,
                     kHIDUsage_Sim_Rudder
-                    | kHIDUsage_Sim_Throttle
-                    | kHIDUsage_Sim_Accelerator
-                    | kHIDUsage_Sim_Brake => true,
-                    _ => false,
-                },
+                        | kHIDUsage_Sim_Throttle
+                        | kHIDUsage_Sim_Accelerator
+                        | kHIDUsage_Sim_Brake
+                ),
                 _ => false,
             },
             _ => false,
@@ -364,16 +338,16 @@ impl IOHIDElement {
             kIOHIDElementTypeInput_Misc
             | kIOHIDElementTypeInput_Button
             | kIOHIDElementTypeInput_Axis => match page {
-                kHIDPage_GenericDesktop => match usage {
+                kHIDPage_GenericDesktop => matches!(
+                    usage,
                     kHIDUsage_GD_DPadUp
-                    | kHIDUsage_GD_DPadDown
-                    | kHIDUsage_GD_DPadRight
-                    | kHIDUsage_GD_DPadLeft
-                    | kHIDUsage_GD_Start
-                    | kHIDUsage_GD_Select
-                    | kHIDUsage_GD_SystemMainMenu => true,
-                    _ => false,
-                },
+                        | kHIDUsage_GD_DPadDown
+                        | kHIDUsage_GD_DPadRight
+                        | kHIDUsage_GD_DPadLeft
+                        | kHIDUsage_GD_Start
+                        | kHIDUsage_GD_Select
+                        | kHIDUsage_GD_SystemMainMenu
+                ),
                 kHIDPage_Button | kHIDPage_Consumer => true,
                 _ => false,
             },
@@ -386,11 +360,7 @@ impl IOHIDElement {
             kIOHIDElementTypeInput_Misc
             | kIOHIDElementTypeInput_Button
             | kIOHIDElementTypeInput_Axis => match page {
-                kHIDPage_GenericDesktop => match usage {
-                    USAGE_AXIS_DPADX => true,
-                    USAGE_AXIS_DPADY => true,
-                    _ => false,
-                },
+                kHIDPage_GenericDesktop => matches!(usage, USAGE_AXIS_DPADX | USAGE_AXIS_DPADY),
                 _ => false,
             },
             _ => false,

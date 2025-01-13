@@ -21,7 +21,7 @@
 
 pub use self::platform::*;
 
-#[cfg(any(target_os = "linux"))]
+#[cfg(target_os = "linux")]
 #[path = "linux/mod.rs"]
 mod platform;
 

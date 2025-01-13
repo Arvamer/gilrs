@@ -308,13 +308,13 @@ impl eframe::App for MyEguiApp {
 fn main() {
     env_logger::init();
     let native_options = eframe::NativeOptions {
-        initial_window_size: Some(Vec2::new(1024.0, 768.0)),
+        viewport: egui::ViewportBuilder::default().with_inner_size(Vec2::new(1024.0, 768.0)),
         ..Default::default()
     };
-    eframe::run_native(
+    let _ = eframe::run_native(
         "Gilrs Input Tester",
         native_options,
-        Box::new(|cc| Box::new(MyEguiApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(MyEguiApp::new(cc)))),
     );
 }
 

@@ -211,7 +211,7 @@ impl Gilrs {
         is_blocking: bool,
         blocking_timeout: Option<Duration>,
     ) -> Option<Event> {
-        if let Some(msg) = self.rx.try_recv().ok() {
+        if let Ok(msg) = self.rx.try_recv() {
             match msg {
                 FfMessage::EffectCompleted { event } => return Some(event),
             }
@@ -791,7 +791,7 @@ pub struct Gamepad<'a> {
     inner: &'a gilrs_core::Gamepad,
 }
 
-impl<'a> Gamepad<'a> {
+impl Gamepad<'_> {
     /// Returns the mapping name if it exists otherwise returns the os provided name.
     pub fn name(&self) -> &str {
         if let Some(map_name) = self.map_name() {
@@ -1219,8 +1219,8 @@ mod tests {
     #[test]
     fn axis_value_overflow() {
         let info = AxisInfo {
-            min: std::i32::MIN,
-            max: std::i32::MAX,
+            min: i32::MIN,
+            max: i32::MAX,
             deadzone: None,
         };
         let axis = Axis::LeftStickY;
@@ -1236,8 +1236,8 @@ mod tests {
     #[test]
     fn btn_value_overflow() {
         let info = AxisInfo {
-            min: std::i32::MIN,
-            max: std::i32::MAX,
+            min: i32::MIN,
+            max: i32::MAX,
             deadzone: None,
         };
 

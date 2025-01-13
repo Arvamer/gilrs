@@ -179,7 +179,7 @@ impl Gilrs {
         self.event_cache.pop_front()
     }
 
-    pub(crate) fn next_event_blocking(&mut self, timeout: Option<Duration>) -> Option<Event> {
+    pub(crate) fn next_event_blocking(&mut self, _timeout: Option<Duration>) -> Option<Event> {
         unimplemented!("next_event_blocking is not supported on web. Use next_event.")
     }
 
@@ -193,6 +193,7 @@ impl Gilrs {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum Mapping {
     Standard {
         buttons: [(bool, f64); 17],
@@ -207,8 +208,8 @@ enum Mapping {
 impl Mapping {
     fn buttons(&self) -> &[(bool, f64)] {
         match self {
-            Mapping::Standard { buttons, .. } => &*buttons,
-            Mapping::NoMapping { buttons, .. } => &buttons,
+            Mapping::Standard { buttons, .. } => buttons,
+            Mapping::NoMapping { buttons, .. } => buttons,
         }
     }
 
@@ -221,8 +222,8 @@ impl Mapping {
 
     fn axes(&self) -> &[f64] {
         match self {
-            Mapping::Standard { axes, .. } => &*axes,
-            Mapping::NoMapping { axes, .. } => &axes,
+            Mapping::Standard { axes, .. } => axes,
+            Mapping::NoMapping { axes, .. } => axes,
         }
     }
 
@@ -321,10 +322,6 @@ impl Gamepad {
             mapping,
             connected: true,
         }
-    }
-
-    fn index(&self) -> usize {
-        self.gamepad.index() as usize
     }
 
     pub fn name(&self) -> &str {

@@ -11,7 +11,7 @@ readme = "../README.md"
 keywords = ["gamepad", "joystick", "input"]
 categories = ["game-engines"]
 edition = "2021"
-rust-version = "1.74.0"
+rust-version = "1.80.0"
 
 [badges]
 gitlab = { repository = "gilrs-project/gilrs" }

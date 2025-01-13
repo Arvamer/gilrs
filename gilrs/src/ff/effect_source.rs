@@ -7,7 +7,7 @@
 
 use std::error::Error;
 use std::ops::{AddAssign, Mul};
-use std::{fmt, mem, u16};
+use std::{fmt, mem};
 
 use crate::{Event, EventType, GamepadId};
 
