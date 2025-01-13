@@ -1,4 +1,4 @@
-image: "rust:1.73"
+image: "rust:1.74"
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/cargo
@@ -28,7 +28,6 @@ test:i686-unknown-linux-gnu:
     - cargo test --verbose --target=i686-unknown-linux-gnu --lib --features serde-serialize
 
 build:wasm32-unknown-unknown:
-  image: "rust:1.73"
   stage: test
   before_script:
     - rustc -Vv && cargo -Vv
@@ -48,14 +47,14 @@ check:x86_64-apple-darwin:
 pages:
   stage: deploy
   script:
-  - cargo doc
-  # Remove libc from documentation to speed up deploy
-  - rm -r target/doc/libc
-  - rm -r target/doc/src/libc
-  - mkdir public
-  - mkdir public/img
-  - mv target/doc public
-  - mv controller.svg public/img/
+    - cargo doc
+    # Remove libc from documentation to speed up deploy
+    - rm -r target/doc/libc
+    - rm -r target/doc/src/libc
+    - mkdir public
+    - mkdir public/img
+    - mv target/doc public
+    - mv controller.svg public/img/
   artifacts:
     expire_in: 1 week
     paths:

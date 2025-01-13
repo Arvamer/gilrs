@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+v0.6.1 - 2025-01-13
+----------
+
+### Changed
+
+- Minimal supported Rust version is now 1.74
+- Updated `windows` crate
+
 v0.6.0 - 2024-09-15
 ----------
 

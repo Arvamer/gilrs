@@ -1,6 +1,6 @@
 [package]
 name = "gilrs-core"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Mateusz Sieczko <arvamer@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "Minimal event-based abstraction for working with gamepads"
@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["gamepad", "joystick", "input"]
 categories = ["game-engines"]
 edition = "2021"
-rust-version = "1.73.0"
+rust-version = "1.74.0"
 
 [dependencies]
 uuid = "1.0.0"
