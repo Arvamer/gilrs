@@ -411,10 +411,8 @@ fn handle_inotify(
 }
 
 fn get_gamepad_path(name: &str) -> Option<(PathBuf, PathBuf)> {
-    let event_id = match name.strip_prefix("event") {
-        Some(event_id) => event_id,
-        None => return None,
-    };
+    let event_id =  name.strip_prefix("event")?;
+
     if event_id.is_empty()
         || event_id
             .chars()
@@ -559,7 +557,7 @@ pub struct Gamepad {
 
 impl Gamepad {
     fn open(path: &CStr, syspath: &Path, discovery_backend: DiscoveryBackend) -> Option<Gamepad> {
-        if unsafe { !c::strstr(path.as_ptr(), b"js\0".as_ptr() as *const c_char).is_null() } {
+        if unsafe { !c::strstr(path.as_ptr(), c"js".as_ptr() as *const c_char).is_null() } {
             trace!("Device {:?} is js interface, ignoring.", path);
             return None;
         }
@@ -789,10 +787,7 @@ impl Gamepad {
         // Skip all unknown events and return Option on first know event or when there is no more
         // events to read. Returning None on unknown event breaks iterators.
         loop {
-            let event = match self.next_event() {
-                Some(e) => e,
-                None => return None,
-            };
+            let event = self.next_event()?;
 
             if skip {
                 if event.type_ == EV_SYN && event.code == SYN_REPORT {
@@ -1093,7 +1088,7 @@ impl EvCode {
     }
 
     pub fn into_u32(self) -> u32 {
-        u32::from(self.kind) << 16 | u32::from(self.code)
+        (u32::from(self.kind) << 16) | u32::from(self.code)
     }
 }
 

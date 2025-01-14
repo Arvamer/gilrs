@@ -214,13 +214,13 @@ impl Monitor {
     pub fn new(udev: &Udev) -> Option<Self> {
         unsafe {
             let monitor =
-                ud::udev_monitor_new_from_netlink(udev.0, b"udev\0".as_ptr() as *const c_char);
+                ud::udev_monitor_new_from_netlink(udev.0, c"udev".as_ptr() as *const c_char);
             if monitor.is_null() {
                 None
             } else {
                 ud::udev_monitor_filter_add_match_subsystem_devtype(
                     monitor,
-                    b"input\0".as_ptr() as *const c_char,
+                    c"input".as_ptr() as *const c_char,
                     ptr::null(),
                 );
                 ud::udev_monitor_enable_receiving(monitor);

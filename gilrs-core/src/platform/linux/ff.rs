@@ -8,7 +8,6 @@
 use std::fs::File;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::os::unix::io::AsRawFd;
-use std::u16::MAX as U16_MAX;
 use std::{mem, slice};
 
 use super::ioctl::{self, ff_effect, ff_replay, ff_rumble_effect, input_event};
@@ -48,8 +47,8 @@ impl Device {
 
     pub fn set_ff_state(&mut self, strong: u16, weak: u16, min_duration: Duration) {
         let duration = min_duration.as_secs() * 1000 + u64::from(min_duration.subsec_millis());
-        let duration = if duration > u64::from(U16_MAX) {
-            U16_MAX
+        let duration = if duration > u64::from(u16::MAX) {
+            u16::MAX
         } else {
             duration as u16
         };
