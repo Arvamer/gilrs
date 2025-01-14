@@ -13,9 +13,9 @@ use crate::{utils, AxisInfo, Event, EventType, PlatformError, PowerInfo};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
-use std::{thread, u32};
 use uuid::Uuid;
 use windows::core::HSTRING;
 use windows::Devices::Power::BatteryReport;
@@ -770,8 +770,9 @@ pub struct EvCode {
 }
 
 impl EvCode {
-    pub fn into_u32(self) -> u32 {
-        (self.kind as u32) << 16 | self.index
+    pub 
+    fn into_u32(self) -> u32 {
+        ((self.kind as u32) << 16) | self.index
     }
 }
 

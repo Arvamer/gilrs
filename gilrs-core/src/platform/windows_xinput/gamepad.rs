@@ -15,7 +15,7 @@ use std::sync::{
     Arc,
 };
 use std::time::Duration;
-use std::{mem, thread, u16, u32};
+use std::{mem, thread};
 
 use rusty_xinput::{
     BatteryLevel, BatteryType, XInputHandle, XInputLoadingFailure, XInputState, XInputUsageError,
@@ -47,11 +47,7 @@ impl Gilrs {
             .map_err(|e| PlatformError::Other(Box::new(Error::FailedToLoadDll(e))))?;
         let xinput_handle = Arc::new(xinput_handle);
 
-        let mut gamepad_ids: [usize; MAX_XINPUT_CONTROLLERS] = Default::default();
-
-        for id in 0..MAX_XINPUT_CONTROLLERS {
-            gamepad_ids[id] = id;
-        }
+        let gamepad_ids: [usize; MAX_XINPUT_CONTROLLERS] = std::array::from_fn(|idx| idx);
 
         // Map controller IDs to Gamepads
         let gamepads = gamepad_ids.map(|id| Gamepad::new(id as u32, xinput_handle.clone()));
@@ -396,22 +392,14 @@ pub struct Gamepad {
 
 impl Gamepad {
     fn new(id: u32, xinput_handle: Arc<XInputHandle>) -> Gamepad {
-        let is_connected = {
-            if xinput_handle.get_state(id).is_ok() {
-                true
-            } else {
-                false
-            }
-        };
+        let is_connected = xinput_handle.get_state(id).is_ok();
 
-        let gamepad = Gamepad {
+        Gamepad {
             uuid: Uuid::nil(),
             id,
             is_connected,
             xinput_handle,
-        };
-
-        gamepad
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -531,9 +519,6 @@ impl Display for Error {
 }
 
 pub mod native_ev_codes {
-    use std::i16::{MAX as I16_MAX, MIN as I16_MIN};
-    use std::u8::{MAX as U8_MAX, MIN as U8_MIN};
-
     use winapi::um::xinput::{
         XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
         XINPUT_GAMEPAD_TRIGGER_THRESHOLD,
@@ -606,28 +591,28 @@ pub mod native_ev_codes {
     pub(super) static AXES_INFO: [Option<AxisInfo>; 12] = [
         // LeftStickX
         Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
+            min: i16::MIN as i32,
+            max: i16::MAX as i32,
             deadzone: Some(XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32),
         }),
         // LeftStickY
         Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
+            min: i16::MIN as i32,
+            max: i16::MAX as i32,
             deadzone: Some(XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE as u32),
         }),
         // LeftZ
         None,
         // RightStickX
         Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
+            min: i16::MIN as i32,
+            max: i16::MAX as i32,
             deadzone: Some(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32),
         }),
         // RightStickY
         Some(AxisInfo {
-            min: I16_MIN as i32,
-            max: I16_MAX as i32,
+            min: i16::MIN as i32,
+            max: i16::MAX as i32,
             deadzone: Some(XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE as u32),
         }),
         // RightZ
@@ -642,14 +627,14 @@ pub mod native_ev_codes {
         None,
         // RightTrigger2
         Some(AxisInfo {
-            min: U8_MIN as i32,
-            max: U8_MAX as i32,
+            min: u8::MIN as i32,
+            max: u8::MAX as i32,
             deadzone: Some(XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32),
         }),
         // LeftTrigger2
         Some(AxisInfo {
-            min: U8_MIN as i32,
-            max: U8_MAX as i32,
+            min: u8::MIN as i32,
+            max: u8::MAX as i32,
             deadzone: Some(XINPUT_GAMEPAD_TRIGGER_THRESHOLD as u32),
         }),
     ];
