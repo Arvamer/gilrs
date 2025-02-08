@@ -15,7 +15,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use uuid::Uuid;
 use windows::core::HSTRING;
 use windows::Devices::Power::BatteryReport;
@@ -143,6 +143,7 @@ impl Gilrs {
                 // To avoid allocating every update, store old and new readings for every controller
                 // and swap their memory
                 let mut readings: Vec<(HSTRING, Reading, Reading)> = Vec::new();
+                let mut last_failed_get_id: Option<Instant> = None;
                 loop {
                     match stop_rx.try_recv() {
                         Ok(_) => break,
@@ -166,7 +167,20 @@ impl Gilrs {
                     }
 
                     for controller in controllers.iter() {
-                        let id: HSTRING = controller.NonRoamableId().unwrap();
+                        let id: HSTRING = match controller.NonRoamableId() {
+                            Ok(id) => id,
+                            Err(e) => {
+                                if last_failed_get_id.map_or(true, |x| x.elapsed().as_secs() > 59) {
+                                    error!(
+                                        "Failed to get gamepad id: {e}! Skipping reading events \
+                                         for this gamepad."
+                                    );
+                                    last_failed_get_id = Some(Instant::now());
+                                }
+
+                                continue;
+                            }
+                        };
                         // Find readings for this controller or insert new ones.
                         let index = match readings.iter().position(|(other_id, ..)| id == *other_id)
                         {
@@ -770,8 +784,7 @@ pub struct EvCode {
 }
 
 impl EvCode {
-    pub 
-    fn into_u32(self) -> u32 {
+    pub fn into_u32(self) -> u32 {
         ((self.kind as u32) << 16) | self.index
     }
 }
