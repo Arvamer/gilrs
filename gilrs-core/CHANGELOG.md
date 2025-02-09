@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+v0.6.2 - 2025-02-09
+----------
+
+### Fixed
+
+- Fixed possible panic on Windows when `NonRoamableId()` could return error.
+
+### Changed
+
+- Minimal supported Rust version is now 1.80.
+
 v0.6.1 - 2025-01-13
 ----------
 
