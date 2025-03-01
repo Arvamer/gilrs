@@ -8,6 +8,7 @@
 use super::io_kit::*;
 use super::FfDevice;
 use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
+use io_kit_sys::hid::usage_tables::kHIDPage_VendorDefinedStart;
 use uuid::Uuid;
 
 use core_foundation::runloop::{kCFRunLoopDefaultMode, CFRunLoop};
@@ -197,10 +198,15 @@ impl Gamepad {
 
         let page = match device.get_page() {
             Some(page) => {
+                if page >= kHIDPage_VendorDefinedStart {
+                    error!("Device HID page is Vendor Defined. {device:?}");
+                    return None;
+                }
+
                 if page == kHIDPage_GenericDesktop {
                     page
                 } else {
-                    error!("Failed to get valid device: {:?}", page);
+                    error!("Failed to get valid device. Expecting kHIDPage_GenericDesktop. Got 0x{:X?}", page);
                     return None;
                 }
             }
@@ -641,6 +647,20 @@ extern "C" fn device_matching_cb(
             return;
         }
     };
+
+    // Filter devices which will not succed in open(). If devices are added to the
+    // DeviceInfo vec, it will cause a mismatch of IDs as they're derived from
+    // the length of the DeviceInfo Vec, but devices which fail to open() will not
+    // be pushed into the Gilrs inner gamepads vec, and panics will ensue.
+    //
+    // Try to open the device early, and if it fails, do not add it to device_infos
+    match Gamepad::open(device.clone()) {
+        Some(gamepad) => drop(gamepad),
+        None => {
+            warn!("Failed to open device {device:?}. Skipping.");
+            return;
+        }
+    }
 
     let mut device_infos = device_infos.lock().unwrap();
     let id = match device_infos
