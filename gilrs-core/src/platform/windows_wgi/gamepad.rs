@@ -111,28 +111,26 @@ impl Gilrs {
 
     fn spawn_thread(tx: Sender<WgiEvent>, stop_rx: Receiver<()>) -> JoinHandle<()> {
         let added_tx = tx.clone();
-        let added_handler: EventHandler<RawGameController> =
-            EventHandler::new(move |_, g: &Option<RawGameController>| {
-                if let Some(g) = g {
-                    added_tx
-                        .send(WgiEvent::new(g.clone(), EventType::Connected))
-                        .expect("should be able to send to main thread");
-                }
-                Ok(())
-            });
+        let added_handler = EventHandler::<RawGameController>::new(move |_, g| {
+            if let Some(g) = g.as_ref() {
+                added_tx
+                    .send(WgiEvent::new(g.clone(), EventType::Connected))
+                    .expect("should be able to send to main thread");
+            }
+            Ok(())
+        });
         let controller_added_token =
             RawGameController::RawGameControllerAdded(&added_handler).unwrap();
 
         let removed_tx = tx.clone();
-        let removed_handler: EventHandler<RawGameController> =
-            EventHandler::new(move |_, g: &Option<RawGameController>| {
-                if let Some(g) = g {
-                    removed_tx
-                        .send(WgiEvent::new(g.clone(), EventType::Disconnected))
-                        .expect("should be able to send to main thread");
-                }
-                Ok(())
-            });
+        let removed_handler = EventHandler::<RawGameController>::new(move |_, g| {
+            if let Some(g) = g.as_ref() {
+                removed_tx
+                    .send(WgiEvent::new(g.clone(), EventType::Disconnected))
+                    .expect("should be able to send to main thread");
+            }
+            Ok(())
+        });
         let controller_removed_token =
             RawGameController::RawGameControllerRemoved(&removed_handler).unwrap();
 
