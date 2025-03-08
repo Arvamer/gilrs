@@ -6,8 +6,6 @@ GilRs - Game Input Library for Rust
 [![Documentation](https://docs.rs/gilrs/badge.svg)](https://docs.rs/gilrs/)
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.80.0+-yellow.svg)](https://gitlab.com/gilrs-project/gilrs)
 
-[**Documentation (master)**](https://gilrs-project.gitlab.io/gilrs/doc/gilrs/)
-
 GilRs abstract platform specific APIs to provide unified interfaces for working with gamepads.
 
 Main features:
