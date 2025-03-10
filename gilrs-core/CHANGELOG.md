@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+v0.6.3 - 2025-03-10
+----------
+
+### Fixed
+
+- Fixed panic on macOS when gamepad’s vec had unexpected length after failing to open a device
+
+### Changed
+
+- Updated `windows` crate
+
 v0.6.2 - 2025-02-09
 ----------
 
