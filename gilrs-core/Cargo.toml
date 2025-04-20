@@ -29,8 +29,19 @@ vec_map = "0.8"
 inotify = { version = "0.11.0", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-foundation = "0.10.0"
-io-kit-sys = "0.4.1"
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "CFArray",
+    "CFDictionary",
+    "CFNumber",
+    "CFString",
+    "CFRunLoop",
+] }
+objc2-io-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "libc",
+    "hid",
+] }
 vec_map = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -41,7 +52,7 @@ windows = { version = ">=0.44, <=0.62", optional = true, features = [
     "Foundation_Collections",
     "Devices_Power",
     "System_Power",
-    "Gaming_Input_ForceFeedback"
+    "Gaming_Input_ForceFeedback",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

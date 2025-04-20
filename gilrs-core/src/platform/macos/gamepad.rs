@@ -8,20 +8,19 @@
 use super::io_kit::*;
 use super::FfDevice;
 use crate::{AxisInfo, Event, EventType, PlatformError, PowerInfo};
-use io_kit_sys::hid::usage_tables::kHIDPage_VendorDefinedStart;
-use uuid::Uuid;
 
-use core_foundation::runloop::{kCFRunLoopDefaultMode, CFRunLoop};
-use io_kit_sys::hid::base::{IOHIDDeviceRef, IOHIDValueRef};
-use io_kit_sys::hid::usage_tables::{
-    kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad, kHIDUsage_GD_Joystick,
-    kHIDUsage_GD_MultiAxisController,
+use objc2_core_foundation::{kCFRunLoopDefaultMode, CFRetained, CFRunLoop, Type};
+use objc2_io_kit::{
+    kHIDPage_GenericDesktop, kHIDPage_VendorDefinedStart, kHIDUsage_GD_GamePad,
+    kHIDUsage_GD_Joystick, kHIDUsage_GD_MultiAxisController, IOHIDDevice, IOHIDElement, IOHIDValue,
+    IOReturn,
 };
-use io_kit_sys::ret::IOReturn;
+use uuid::Uuid;
 use vec_map::VecMap;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::os::raw::c_void;
+use std::ptr::NonNull;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -31,7 +30,7 @@ use std::time::Duration;
 pub struct Gilrs {
     gamepads: Vec<Gamepad>,
     device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
-    rx: Receiver<(Event, Option<IOHIDDevice>)>,
+    rx: Receiver<(Event, Option<Device>)>,
 }
 
 impl Gilrs {
@@ -50,13 +49,13 @@ impl Gilrs {
     }
 
     fn spawn_thread(
-        tx: Sender<(Event, Option<IOHIDDevice>)>,
+        tx: Sender<(Event, Option<Device>)>,
         device_infos: Arc<Mutex<Vec<DeviceInfo>>>,
     ) {
         thread::Builder::new()
             .name("gilrs".to_owned())
-            .spawn(move || unsafe {
-                let mut manager = match new_manager() {
+            .spawn(move || {
+                let manager = match new_manager() {
                     Some(manager) => manager,
                     None => {
                         error!("Failed to create IOHIDManager object");
@@ -64,22 +63,32 @@ impl Gilrs {
                     }
                 };
 
-                let rl = CFRunLoop::get_current();
+                let rl = CFRunLoop::current().unwrap();
 
-                manager.schedule_with_run_loop(&rl, kCFRunLoopDefaultMode);
+                // SAFETY: We pass the current thread's runloop, so the
+                // callback will be run on this thread below.
+                unsafe { manager.schedule_with_run_loop(&rl, kCFRunLoopDefaultMode.unwrap()) };
 
+                // SAFETY: The contexts pointer is a valid pointer.
                 let context = &(tx.clone(), device_infos.clone()) as *const Context as *mut c_void;
-                manager.register_device_matching_callback(device_matching_cb, context);
+                unsafe {
+                    manager.register_device_matching_callback(Some(device_matching_cb), context)
+                };
 
+                // SAFETY: Same as above.
                 let context = &(tx.clone(), device_infos.clone()) as *const Context as *mut c_void;
-                manager.register_device_removal_callback(device_removal_cb, context);
+                unsafe {
+                    manager.register_device_removal_callback(Some(device_removal_cb), context)
+                };
 
+                // SAFETY: Same as above.
                 let context = &(tx, device_infos) as *const Context as *mut c_void;
-                manager.register_input_value_callback(input_value_cb, context);
+                unsafe { manager.register_input_value_callback(Some(input_value_cb), context) };
 
-                CFRunLoop::run_current();
+                CFRunLoop::run();
 
-                manager.unschedule_from_run_loop(&rl, kCFRunLoopDefaultMode);
+                // SAFETY: There are no threading requirements from this.
+                unsafe { manager.unschedule_from_run_loop(&rl, kCFRunLoopDefaultMode.unwrap()) };
             })
             .expect("failed to spawn thread");
     }
@@ -99,14 +108,14 @@ impl Gilrs {
         self.handle_event(event)
     }
 
-    fn handle_event(&mut self, event: Option<(Event, Option<IOHIDDevice>)>) -> Option<Event> {
+    fn handle_event(&mut self, event: Option<(Event, Option<Device>)>) -> Option<Event> {
         match event {
             Some((event, Some(device))) => {
                 if event.event == EventType::Connected {
                     if self.gamepads.get(event.id).is_some() {
                         self.gamepads[event.id].is_connected = true;
                     } else {
-                        match Gamepad::open(device) {
+                        match Gamepad::open(&device.0) {
                             Some(gamepad) => {
                                 self.gamepads.push(gamepad);
                             }
@@ -173,8 +182,8 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    fn open(device: IOHIDDevice) -> Option<Gamepad> {
-        let io_service = match device.get_service() {
+    fn open(device: &IOHIDDevice) -> Option<Gamepad> {
+        let io_service = match IOService::new(device.service()) {
             Some(io_service) => io_service,
             None => {
                 error!("Failed to get device service");
@@ -357,7 +366,7 @@ impl Gamepad {
         self.is_connected
     }
 
-    fn collect_axes_and_buttons(&mut self, elements: &Vec<IOHIDElement>) {
+    fn collect_axes_and_buttons(&mut self, elements: &Vec<CFRetained<IOHIDElement>>) {
         let mut cookies = Vec::new();
 
         self.collect_axes(elements, &mut cookies);
@@ -371,7 +380,7 @@ impl Gamepad {
         self.buttons.sort_by_key(|button| button.usage);
     }
 
-    fn collect_axes(&mut self, elements: &Vec<IOHIDElement>, cookies: &mut Vec<u32>) {
+    fn collect_axes(&mut self, elements: &Vec<CFRetained<IOHIDElement>>, cookies: &mut Vec<u32>) {
         for element in elements {
             let type_ = element.r#type();
             let cookie = element.cookie();
@@ -417,7 +426,11 @@ impl Gamepad {
         }
     }
 
-    fn collect_buttons(&mut self, elements: &Vec<IOHIDElement>, cookies: &mut Vec<u32>) {
+    fn collect_buttons(
+        &mut self,
+        elements: &Vec<CFRetained<IOHIDElement>>,
+        cookies: &mut Vec<u32>,
+    ) {
         for element in elements {
             let type_ = element.r#type();
             let cookie = element.cookie();
@@ -612,27 +625,20 @@ pub mod native_ev_codes {
     };
 }
 
-type Context = (
-    Sender<(Event, Option<IOHIDDevice>)>,
-    Arc<Mutex<Vec<DeviceInfo>>>,
-);
+type Context = (Sender<(Event, Option<Device>)>, Arc<Mutex<Vec<DeviceInfo>>>);
 
-extern "C" fn device_matching_cb(
+extern "C-unwind" fn device_matching_cb(
     context: *mut c_void,
     _result: IOReturn,
     _sender: *mut c_void,
-    value: IOHIDDeviceRef,
+    device: NonNull<IOHIDDevice>,
 ) {
+    // SAFETY: Validity of the pointer is upheld by the caller.
+    let device = unsafe { device.as_ref() };
+    // SAFETY: The context is the one we passed in `Gilrs::spawn_thread`.
     let (tx, device_infos): &Context = unsafe { &*(context as *mut _) };
-    let device = match IOHIDDevice::new(value) {
-        Some(device) => device,
-        None => {
-            error!("Failed to get device");
-            return;
-        }
-    };
 
-    let io_service = match device.get_service() {
+    let io_service = match IOService::new(device.service()) {
         Some(io_service) => io_service,
         None => {
             error!("Failed to get device service");
@@ -654,7 +660,7 @@ extern "C" fn device_matching_cb(
     // be pushed into the Gilrs inner gamepads vec, and panics will ensue.
     //
     // Try to open the device early, and if it fails, do not add it to device_infos
-    match Gamepad::open(device.clone()) {
+    match Gamepad::open(&device) {
         Some(gamepad) => drop(gamepad),
         None => {
             warn!("Failed to open device {device:?}. Skipping.");
@@ -689,25 +695,23 @@ extern "C" fn device_matching_cb(
             device_infos.len() - 1
         }
     };
-    let _ = tx.send((Event::new(id, EventType::Connected), Some(device)));
+    let _ = tx.send((
+        Event::new(id, EventType::Connected),
+        Some(Device(device.retain())),
+    ));
 }
 
 #[allow(clippy::type_complexity)]
-extern "C" fn device_removal_cb(
+unsafe extern "C-unwind" fn device_removal_cb(
     context: *mut c_void,
     _result: IOReturn,
     _sender: *mut c_void,
-    value: IOHIDDeviceRef,
+    device: NonNull<IOHIDDevice>,
 ) {
+    // SAFETY: Validity of the pointer is upheld by the caller.
+    let device = unsafe { device.as_ref() };
+    // SAFETY: The context is the one we passed in `Gilrs::spawn_thread`.
     let (tx, device_infos): &Context = unsafe { &*(context as *mut _) };
-
-    let device = match IOHIDDevice::new(value) {
-        Some(device) => device,
-        None => {
-            error!("Failed to get device");
-            return;
-        }
-    };
 
     let location_id = match device.get_location_id() {
         Some(location_id) => location_id,
@@ -733,15 +737,19 @@ extern "C" fn device_removal_cb(
 }
 
 #[allow(clippy::type_complexity)]
-extern "C" fn input_value_cb(
+unsafe extern "C-unwind" fn input_value_cb(
     context: *mut c_void,
     _result: IOReturn,
     sender: *mut c_void,
-    value: IOHIDValueRef,
+    value: NonNull<IOHIDValue>,
 ) {
+    // SAFETY: Validity of the pointer is upheld by the caller.
+    let value = unsafe { value.as_ref() };
+    // SAFETY: The context is the one we passed in `Gilrs::spawn_thread`.
     let (tx, device_infos): &Context = unsafe { &*(context as *mut _) };
 
-    let device = match IOHIDDevice::new(sender as _) {
+    // SAFETY: TODO.
+    let device = match unsafe { sender.cast::<IOHIDDevice>().as_ref() } {
         Some(device) => device,
         None => {
             error!("Failed to get device");
@@ -777,21 +785,7 @@ extern "C" fn input_value_cb(
         }
     };
 
-    let value = match IOHIDValue::new(value) {
-        Some(value) => value,
-        None => {
-            error!("Failed to get value");
-            return;
-        }
-    };
-
-    let element = match value.element() {
-        Some(element) => element,
-        None => {
-            error!("Failed to get element of value");
-            return;
-        }
-    };
+    let element = value.element();
 
     let type_ = element.r#type();
     let page = element.usage_page();

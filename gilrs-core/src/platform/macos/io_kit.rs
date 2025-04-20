@@ -4,224 +4,144 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-#![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
-#![allow(non_snake_case)]
 
-use core_foundation::array::{CFArray, CFArrayGetCount, CFArrayGetValueAtIndex};
-use core_foundation::base::{kCFAllocatorDefault, CFRelease, CFType, TCFType};
-use core_foundation::dictionary::CFDictionary;
-use core_foundation::impl_TCFType;
-use core_foundation::number::CFNumber;
-use core_foundation::runloop::{CFRunLoop, CFRunLoopMode};
-use core_foundation::string::{kCFStringEncodingUTF8, CFString, CFStringCreateWithCString};
-
-use io_kit_sys::hid::base::{
-    IOHIDDeviceCallback, IOHIDDeviceRef, IOHIDElementRef, IOHIDValueCallback, IOHIDValueRef,
+use objc2_core_foundation::{
+    kCFAllocatorDefault, CFArray, CFDictionary, CFNumber, CFRetained, CFString,
+    CFStringBuiltInEncodings, CFType,
 };
-use io_kit_sys::hid::device::*;
-use io_kit_sys::hid::element::*;
-use io_kit_sys::hid::keys::*;
-use io_kit_sys::hid::manager::*;
-use io_kit_sys::hid::usage_tables::*;
-use io_kit_sys::hid::value::{
-    IOHIDValueGetElement, IOHIDValueGetIntegerValue, IOHIDValueGetTypeID,
+use objc2_io_kit::{
+    io_service_t, kHIDPage_Button, kHIDPage_Consumer, kHIDPage_GenericDesktop, kHIDPage_Simulation,
+    kHIDUsage_Button_1, kHIDUsage_GD_DPadDown, kHIDUsage_GD_DPadLeft, kHIDUsage_GD_DPadRight,
+    kHIDUsage_GD_DPadUp, kHIDUsage_GD_Dial, kHIDUsage_GD_GamePad, kHIDUsage_GD_Hatswitch,
+    kHIDUsage_GD_Joystick, kHIDUsage_GD_MultiAxisController, kHIDUsage_GD_Rx, kHIDUsage_GD_Ry,
+    kHIDUsage_GD_Rz, kHIDUsage_GD_Select, kHIDUsage_GD_Slider, kHIDUsage_GD_Start,
+    kHIDUsage_GD_SystemMainMenu, kHIDUsage_GD_Wheel, kHIDUsage_GD_X, kHIDUsage_GD_Y,
+    kHIDUsage_GD_Z, kHIDUsage_Sim_Accelerator, kHIDUsage_Sim_Brake, kHIDUsage_Sim_Rudder,
+    kHIDUsage_Sim_Throttle, kIOHIDDeviceUsageKey, kIOHIDDeviceUsagePageKey, kIOHIDLocationIDKey,
+    kIOHIDOptionsTypeNone, kIOHIDPrimaryUsageKey, kIOHIDPrimaryUsagePageKey, kIOHIDProductIDKey,
+    kIOHIDProductKey, kIOHIDVendorIDKey, kIOHIDVersionNumberKey, kIOReturnSuccess, IOHIDDevice,
+    IOHIDElement, IOHIDElementType, IOHIDManager, IOObjectRelease, IOObjectRetain,
+    IORegistryEntryGetRegistryEntryID, IO_OBJECT_NULL,
 };
-use io_kit_sys::ret::kIOReturnSuccess;
-use io_kit_sys::types::{io_service_t, IO_OBJECT_NULL};
-use io_kit_sys::{IOObjectRelease, IOObjectRetain, IORegistryEntryGetRegistryEntryID};
 
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_void};
-use std::ptr;
 
-#[repr(C)]
-#[derive(Debug)]
-pub(crate) struct IOHIDManager(IOHIDManagerRef);
+pub fn new_manager() -> Option<CFRetained<IOHIDManager>> {
+    let manager = IOHIDManager::new(None, kIOHIDOptionsTypeNone);
 
-impl_TCFType!(IOHIDManager, IOHIDManagerRef, IOHIDManagerGetTypeID);
-
-pub fn new_manager() -> Option<IOHIDManager> {
-    let manager = unsafe { IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone) };
-
-    if manager.is_null() {
-        return None;
-    }
-
-    let matchers = CFArray::from_CFTypes(&[
+    let matchers = CFArray::from_retained_objects(&[
         create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick),
         create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad),
         create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController),
     ]);
-    unsafe {
-        IOHIDManagerSetDeviceMatchingMultiple(manager, matchers.as_concrete_TypeRef());
-    };
 
-    let ret = unsafe { IOHIDManagerOpen(manager, kIOHIDOptionsTypeNone) };
+    // SAFETY: The matchers are of the correct type.
+    unsafe { manager.set_device_matching_multiple(Some(matchers.as_opaque())) };
 
-    if ret == kIOReturnSuccess {
-        Some(IOHIDManager(manager))
-    } else {
-        unsafe { CFRelease(manager as _) };
+    let ret = manager.open(kIOHIDOptionsTypeNone);
+    if ret != kIOReturnSuccess {
         None
+    } else {
+        Some(manager)
     }
 }
 
-impl IOHIDManager {
-    pub fn schedule_with_run_loop(&mut self, run_loop: &CFRunLoop, run_loop_mode: CFRunLoopMode) {
-        unsafe {
-            IOHIDManagerScheduleWithRunLoop(self.0, run_loop.as_concrete_TypeRef(), run_loop_mode)
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct Device(pub CFRetained<IOHIDDevice>);
 
-    pub fn unschedule_from_run_loop(&mut self, run_loop: &CFRunLoop, run_loop_mode: CFRunLoopMode) {
-        unsafe {
-            IOHIDManagerUnscheduleFromRunLoop(self.0, run_loop.as_concrete_TypeRef(), run_loop_mode)
-        }
-    }
+// SAFETY: TODO, unsure?
+unsafe impl Sync for Device {}
+unsafe impl Send for Device {}
 
-    pub fn register_device_matching_callback(
-        &mut self,
-        callback: IOHIDDeviceCallback,
-        context: *mut c_void,
-    ) {
-        unsafe { IOHIDManagerRegisterDeviceMatchingCallback(self.0, callback, context) }
-    }
+pub trait DeviceExt: Properties {
+    fn device(&self) -> &IOHIDDevice;
 
-    pub fn register_device_removal_callback(
-        &mut self,
-        callback: IOHIDDeviceCallback,
-        context: *mut c_void,
-    ) {
-        unsafe { IOHIDManagerRegisterDeviceRemovalCallback(self.0, callback, context) }
-    }
-
-    pub fn register_input_value_callback(
-        &mut self,
-        callback: IOHIDValueCallback,
-        context: *mut c_void,
-    ) {
-        unsafe { IOHIDManagerRegisterInputValueCallback(self.0, callback, context) }
-    }
-}
-
-impl Drop for IOHIDManager {
-    fn drop(&mut self) {
-        unsafe { CFRelease(self.as_CFTypeRef()) }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub(crate) struct IOHIDDevice(IOHIDDeviceRef);
-
-impl_TCFType!(IOHIDDevice, IOHIDDeviceRef, IOHIDDeviceGetTypeID);
-
-impl IOHIDDevice {
-    pub fn new(device: IOHIDDeviceRef) -> Option<IOHIDDevice> {
-        if device.is_null() {
-            None
-        } else {
-            Some(IOHIDDevice(device))
-        }
-    }
-
-    pub fn get_name(&self) -> Option<String> {
+    fn get_name(&self) -> Option<String> {
         self.get_string_property(kIOHIDProductKey)
             .map(|name| name.to_string())
     }
 
-    pub fn get_location_id(&self) -> Option<u32> {
+    fn get_location_id(&self) -> Option<u32> {
         self.get_number_property(kIOHIDLocationIDKey)
-            .and_then(|location_id| location_id.to_i32().map(|location_id| location_id as u32))
+            .and_then(|location_id| location_id.as_i32().map(|location_id| location_id as u32))
     }
 
-    pub fn get_vendor_id(&self) -> Option<u16> {
+    fn get_vendor_id(&self) -> Option<u16> {
         self.get_number_property(kIOHIDVendorIDKey)
-            .and_then(|vendor_id| vendor_id.to_i32().map(|vendor_id| vendor_id as u16))
+            .and_then(|vendor_id| vendor_id.as_i32().map(|vendor_id| vendor_id as u16))
     }
 
-    pub fn get_product_id(&self) -> Option<u16> {
+    fn get_product_id(&self) -> Option<u16> {
         self.get_number_property(kIOHIDProductIDKey)
-            .and_then(|product_id| product_id.to_i32().map(|product_id| product_id as u16))
+            .and_then(|product_id| product_id.as_i32().map(|product_id| product_id as u16))
     }
 
-    pub fn get_version(&self) -> Option<u16> {
+    fn get_version(&self) -> Option<u16> {
         self.get_number_property(kIOHIDVersionNumberKey)
-            .and_then(|version| version.to_i32().map(|version| version as u16))
+            .and_then(|version| version.as_i32().map(|version| version as u16))
     }
 
-    pub fn get_page(&self) -> Option<u32> {
+    fn get_page(&self) -> Option<u32> {
         self.get_number_property(kIOHIDPrimaryUsagePageKey)
-            .and_then(|page| page.to_i32().map(|page| page as u32))
+            .and_then(|page| page.as_i32().map(|page| page as u32))
     }
 
-    pub fn get_usage(&self) -> Option<u32> {
+    fn get_usage(&self) -> Option<u32> {
         self.get_number_property(kIOHIDPrimaryUsageKey)
-            .and_then(|usage| usage.to_i32().map(|usage| usage as u32))
+            .and_then(|usage| usage.as_i32().map(|usage| usage as u32))
     }
 
-    pub fn get_service(&self) -> Option<IOService> {
-        unsafe { IOService::new(IOHIDDeviceGetService(self.0)) }
+    fn get_service(&self) -> Option<IOService> {
+        IOService::new(self.device().service())
     }
 }
 
-pub fn device_elements(device: &IOHIDDevice) -> Vec<IOHIDElement> {
-    let elements =
-        unsafe { IOHIDDeviceCopyMatchingElements(device.0, ptr::null(), kIOHIDOptionsTypeNone) };
+pub fn device_elements(device: &IOHIDDevice) -> Vec<CFRetained<IOHIDElement>> {
+    // SAFETY: We pass `None` as the dictionary, which means we don't have to worry about
+    // type-safety there.
+    let elements = unsafe { device.matching_elements(None, kIOHIDOptionsTypeNone) };
 
-    if elements.is_null() {
+    let Some(elements) = elements else {
         return vec![];
+    };
+
+    // SAFETY: `IOHIDDeviceCopyMatchingElements` is documented to return CFArray of IOHIDElement.
+    let elements = unsafe { elements.cast_unchecked::<IOHIDElement>() };
+
+    elements.into_iter().collect()
+}
+
+impl DeviceExt for IOHIDDevice {
+    fn device(&self) -> &IOHIDDevice {
+        self
     }
-
-    let element_count = unsafe { CFArrayGetCount(elements) };
-    let mut vec = Vec::with_capacity(element_count as _);
-
-    for i in 0..element_count {
-        let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
-
-        if element.is_null() {
-            continue;
-        }
-
-        vec.push(IOHIDElement(element as _));
-    }
-
-    vec
 }
 
 impl Properties for IOHIDDevice {
-    fn get_property(&self, key: *const c_char) -> Option<CFType> {
-        let key =
-            unsafe { CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8) };
-        let value = unsafe { IOHIDDeviceGetProperty(self.0, key) };
-
-        if value.is_null() {
-            None
-        } else {
-            Some(unsafe { TCFType::wrap_under_get_rule(value) })
-        }
+    fn get_property(&self, key: &CStr) -> Option<CFRetained<CFType>> {
+        debug_assert!(key.to_str().is_ok());
+        // SAFETY: The key is a valid C string with UTF-8 contents.
+        let key = unsafe {
+            CFString::with_c_string(
+                kCFAllocatorDefault,
+                key.as_ptr(),
+                CFStringBuiltInEncodings::EncodingUTF8.0,
+            )?
+        };
+        self.property(&key)
     }
 }
 
-unsafe impl Send for IOHIDDevice {}
-unsafe impl Sync for IOHIDDevice {}
-
-#[repr(C)]
-#[derive(Debug)]
-pub(crate) struct IOHIDElement(IOHIDElementRef);
-
-impl_TCFType!(IOHIDElement, IOHIDElementRef, IOHIDElementGetTypeID);
-
 pub fn element_is_collection(type_: IOHIDElementType) -> bool {
-    type_ == kIOHIDElementTypeCollection
+    type_ == IOHIDElementType::Collection
 }
 
 pub fn element_is_axis(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
     match type_ {
-        kIOHIDElementTypeInput_Misc
-        | kIOHIDElementTypeInput_Button
-        | kIOHIDElementTypeInput_Axis => match page {
+        IOHIDElementType::Input_Misc
+        | IOHIDElementType::Input_Button
+        | IOHIDElementType::Input_Axis => match page {
             kHIDPage_GenericDesktop => {
                 matches!(
                     usage,
@@ -251,9 +171,9 @@ pub fn element_is_axis(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
 
 pub fn element_is_button(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
     match type_ {
-        kIOHIDElementTypeInput_Misc
-        | kIOHIDElementTypeInput_Button
-        | kIOHIDElementTypeInput_Axis => match page {
+        IOHIDElementType::Input_Misc
+        | IOHIDElementType::Input_Button
+        | IOHIDElementType::Input_Axis => match page {
             kHIDPage_GenericDesktop => matches!(
                 usage,
                 kHIDUsage_GD_DPadUp
@@ -273,9 +193,9 @@ pub fn element_is_button(type_: IOHIDElementType, page: u32, usage: u32) -> bool
 
 pub fn element_is_hat(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
     match type_ {
-        kIOHIDElementTypeInput_Misc
-        | kIOHIDElementTypeInput_Button
-        | kIOHIDElementTypeInput_Axis => match page {
+        IOHIDElementType::Input_Misc
+        | IOHIDElementType::Input_Button
+        | IOHIDElementType::Input_Axis => match page {
             kHIDPage_GenericDesktop => matches!(usage, USAGE_AXIS_DPADX | USAGE_AXIS_DPADY),
             _ => false,
         },
@@ -283,96 +203,31 @@ pub fn element_is_hat(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
     }
 }
 
-impl IOHIDElement {
-    pub fn cookie(&self) -> u32 {
-        unsafe { IOHIDElementGetCookie(self.0) }
-    }
+pub fn element_children(element: &IOHIDElement) -> Vec<CFRetained<IOHIDElement>> {
+    let elements = element.children();
 
-    pub fn r#type(&self) -> u32 {
-        unsafe { IOHIDElementGetType(self.0) }
-    }
-
-    pub fn usage_page(&self) -> u32 {
-        unsafe { IOHIDElementGetUsagePage(self.0) }
-    }
-
-    pub fn usage(&self) -> u32 {
-        unsafe { IOHIDElementGetUsage(self.0) }
-    }
-
-    pub fn logical_min(&self) -> isize {
-        unsafe { IOHIDElementGetLogicalMin(self.0) }
-    }
-
-    pub fn logical_max(&self) -> isize {
-        unsafe { IOHIDElementGetLogicalMax(self.0) }
-    }
-}
-
-pub fn element_children(element: &IOHIDElement) -> Vec<IOHIDElement> {
-    let elements = unsafe { IOHIDElementGetChildren(element.0) };
-
-    if elements.is_null() {
+    let Some(elements) = elements else {
         return vec![];
-    }
+    };
 
-    let element_count = unsafe { CFArrayGetCount(elements) };
-    let mut vec = Vec::with_capacity(element_count as _);
+    // SAFETY: `IOHIDElementGetChildren` is documented to return CFArray of IOHIDElement.
+    let elements = unsafe { elements.cast_unchecked::<IOHIDElement>() };
 
-    for i in 0..element_count {
-        let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
-
-        if element.is_null() {
-            continue;
-        }
-
-        vec.push(IOHIDElement(element as _));
-    }
-
-    vec
+    elements.into_iter().collect()
 }
 
 impl Properties for IOHIDElement {
-    fn get_property(&self, key: *const c_char) -> Option<CFType> {
-        let key =
-            unsafe { CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8) };
-        let value = unsafe { IOHIDElementGetProperty(self.0, key) };
-
-        if value.is_null() {
-            None
-        } else {
-            Some(unsafe { TCFType::wrap_under_get_rule(value) })
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub(crate) struct IOHIDValue(IOHIDValueRef);
-
-impl_TCFType!(IOHIDValue, IOHIDValueRef, IOHIDValueGetTypeID);
-
-impl IOHIDValue {
-    pub fn new(value: IOHIDValueRef) -> Option<IOHIDValue> {
-        if value.is_null() {
-            None
-        } else {
-            Some(IOHIDValue(value))
-        }
-    }
-
-    pub fn integer_value(&self) -> isize {
-        unsafe { IOHIDValueGetIntegerValue(self.0) }
-    }
-
-    pub fn element(&self) -> Option<IOHIDElement> {
-        let element = unsafe { IOHIDValueGetElement(self.0) };
-
-        if element.is_null() {
-            None
-        } else {
-            Some(IOHIDElement(element))
-        }
+    fn get_property(&self, key: &CStr) -> Option<CFRetained<CFType>> {
+        debug_assert!(key.to_str().is_ok());
+        // SAFETY: The key is a valid C string with UTF-8 contents.
+        let key = unsafe {
+            CFString::with_c_string(
+                kCFAllocatorDefault,
+                key.as_ptr(),
+                CFStringBuiltInEncodings::EncodingUTF8.0,
+            )?
+        };
+        self.property(&key)
     }
 }
 
@@ -386,7 +241,8 @@ impl IOService {
             return None;
         }
 
-        let result = unsafe { IOObjectRetain(io_service) };
+        // We pair this retain with a release in `Drop`.
+        let result = IOObjectRetain(io_service);
 
         if result == kIOReturnSuccess {
             Some(IOService(io_service))
@@ -396,71 +252,53 @@ impl IOService {
     }
 
     pub fn get_registry_entry_id(&self) -> Option<u64> {
-        unsafe {
-            IOObjectRetain(self.0);
+        IOObjectRetain(self.0);
 
-            let mut entry_id = 0;
-            let result = IORegistryEntryGetRegistryEntryID(self.0, &mut entry_id);
+        let mut entry_id = 0;
+        // SAFETY: `&mut entry_id` is a valid pointer.
+        let result = unsafe { IORegistryEntryGetRegistryEntryID(self.0, &mut entry_id) };
 
-            IOObjectRelease(self.0);
+        IOObjectRelease(self.0);
 
-            if result == kIOReturnSuccess {
-                Some(entry_id)
-            } else {
-                None
-            }
+        if result == kIOReturnSuccess {
+            Some(entry_id)
+        } else {
+            None
         }
     }
 }
 
 impl Drop for IOService {
     fn drop(&mut self) {
-        unsafe {
-            IOObjectRelease(self.0 as _);
-        }
+        IOObjectRelease(self.0 as _);
     }
 }
 
-trait Properties {
-    fn get_number_property(&self, key: *const c_char) -> Option<CFNumber> {
-        match self.get_property(key) {
-            Some(value) => {
-                if value.instance_of::<CFNumber>() {
-                    Some(unsafe { CFNumber::wrap_under_get_rule(value.as_CFTypeRef() as _) })
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
+pub trait Properties {
+    fn get_property(&self, key: &CStr) -> Option<CFRetained<CFType>>;
+
+    fn get_number_property(&self, key: &CStr) -> Option<CFRetained<CFNumber>> {
+        self.get_property(key)
+            .and_then(|value| value.downcast::<CFNumber>().ok())
     }
 
-    fn get_string_property(&self, key: *const c_char) -> Option<CFString> {
-        match self.get_property(key) {
-            Some(value) => {
-                if value.instance_of::<CFString>() {
-                    Some(unsafe { CFString::wrap_under_get_rule(value.as_CFTypeRef() as _) })
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
+    fn get_string_property(&self, key: &CStr) -> Option<CFRetained<CFString>> {
+        self.get_property(key)
+            .and_then(|value| value.downcast::<CFString>().ok())
     }
-
-    fn get_property(&self, key: *const c_char) -> Option<CFType>;
 }
 
-fn create_hid_device_matcher(page: u32, usage: u32) -> CFDictionary<CFString, CFNumber> {
-    let page_key = unsafe { CStr::from_ptr(kIOHIDDeviceUsagePageKey as _) };
-    let page_key = CFString::from(page_key.to_str().unwrap());
-    let page_value = CFNumber::from(page as i32);
+fn create_hid_device_matcher(
+    page: u32,
+    usage: u32,
+) -> CFRetained<CFDictionary<CFString, CFNumber>> {
+    let page_key = CFString::from_static_str(kIOHIDDeviceUsagePageKey.to_str().unwrap());
+    let page_value = CFNumber::new_i32(page as i32);
 
-    let usage_key = unsafe { CStr::from_ptr(kIOHIDDeviceUsageKey as _) };
-    let usage_key = CFString::from(usage_key.to_str().unwrap());
-    let usage_value = CFNumber::from(usage as i32);
+    let usage_key = CFString::from_static_str(kIOHIDDeviceUsageKey.to_str().unwrap());
+    let usage_value = CFNumber::new_i32(usage as i32);
 
-    CFDictionary::from_CFType_pairs(&[(page_key, page_value), (usage_key, usage_value)])
+    CFDictionary::from_slices(&[&*page_key, &*usage_key], &[&*page_value, &*usage_value])
 }
 
 // Revisions:
