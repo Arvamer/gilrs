@@ -56,7 +56,7 @@ impl Gilrs {
         thread::Builder::new()
             .name("gilrs".to_owned())
             .spawn(move || unsafe {
-                let mut manager = match IOHIDManager::new() {
+                let mut manager = match new_manager() {
                     Some(manager) => manager,
                     None => {
                         error!("Failed to create IOHIDManager object");
@@ -64,20 +64,22 @@ impl Gilrs {
                     }
                 };
 
-                manager.schedule_with_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
+                let rl = CFRunLoop::get_current();
 
-                let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
+                manager.schedule_with_run_loop(&rl, kCFRunLoopDefaultMode);
+
+                let context = &(tx.clone(), device_infos.clone()) as *const Context as *mut c_void;
                 manager.register_device_matching_callback(device_matching_cb, context);
 
-                let context = &(tx.clone(), device_infos.clone()) as *const _ as *mut c_void;
+                let context = &(tx.clone(), device_infos.clone()) as *const Context as *mut c_void;
                 manager.register_device_removal_callback(device_removal_cb, context);
 
-                let context = &(tx, device_infos) as *const _ as *mut c_void;
+                let context = &(tx, device_infos) as *const Context as *mut c_void;
                 manager.register_input_value_callback(input_value_cb, context);
 
                 CFRunLoop::run_current();
 
-                manager.unschedule_from_run_loop(CFRunLoop::get_current(), kCFRunLoopDefaultMode);
+                manager.unschedule_from_run_loop(&rl, kCFRunLoopDefaultMode);
             })
             .expect("failed to spawn thread");
     }
@@ -256,7 +258,7 @@ impl Gamepad {
             buttons: Vec::with_capacity(16),
             is_connected: true,
         };
-        gamepad.collect_axes_and_buttons(&device.get_elements());
+        gamepad.collect_axes_and_buttons(&device_elements(&device));
 
         Some(gamepad)
     }
@@ -371,26 +373,26 @@ impl Gamepad {
 
     fn collect_axes(&mut self, elements: &Vec<IOHIDElement>, cookies: &mut Vec<u32>) {
         for element in elements {
-            let type_ = element.get_type();
-            let cookie = element.get_cookie();
-            let page = element.get_page();
-            let usage = element.get_usage();
+            let type_ = element.r#type();
+            let cookie = element.cookie();
+            let page = element.usage_page();
+            let usage = element.usage();
 
-            if IOHIDElement::is_collection_type(type_) {
-                let children = element.get_children();
+            if element_is_collection(type_) {
+                let children = element_children(element);
                 self.collect_axes(&children, cookies);
-            } else if IOHIDElement::is_axis(type_, page, usage) && !cookies.contains(&cookie) {
+            } else if element_is_axis(type_, page, usage) && !cookies.contains(&cookie) {
                 cookies.push(cookie);
                 self.axes_info.insert(
                     usage as usize,
                     AxisInfo {
-                        min: element.get_logical_min() as _,
-                        max: element.get_logical_max() as _,
+                        min: element.logical_min() as _,
+                        max: element.logical_max() as _,
                         deadzone: None,
                     },
                 );
                 self.axes.push(EvCode::new(page, usage));
-            } else if IOHIDElement::is_hat(type_, page, usage) && !cookies.contains(&cookie) {
+            } else if element_is_hat(type_, page, usage) && !cookies.contains(&cookie) {
                 cookies.push(cookie);
                 self.axes_info.insert(
                     usage as usize,
@@ -417,15 +419,15 @@ impl Gamepad {
 
     fn collect_buttons(&mut self, elements: &Vec<IOHIDElement>, cookies: &mut Vec<u32>) {
         for element in elements {
-            let type_ = element.get_type();
-            let cookie = element.get_cookie();
-            let page = element.get_page();
-            let usage = element.get_usage();
+            let type_ = element.r#type();
+            let cookie = element.cookie();
+            let page = element.usage_page();
+            let usage = element.usage();
 
-            if IOHIDElement::is_collection_type(type_) {
-                let children = element.get_children();
+            if element_is_collection(type_) {
+                let children = element_children(element);
                 self.collect_buttons(&children, cookies);
-            } else if IOHIDElement::is_button(type_, page, usage) && !cookies.contains(&cookie) {
+            } else if element_is_button(type_, page, usage) && !cookies.contains(&cookie) {
                 cookies.push(cookie);
                 self.buttons.push(EvCode::new(page, usage));
             }
@@ -462,8 +464,8 @@ impl EvCode {
 impl From<IOHIDElement> for crate::EvCode {
     fn from(e: IOHIDElement) -> Self {
         crate::EvCode(EvCode {
-            page: e.get_page(),
-            usage: e.get_usage(),
+            page: e.usage_page(),
+            usage: e.usage(),
         })
     }
 }
@@ -610,17 +612,18 @@ pub mod native_ev_codes {
     };
 }
 
-#[allow(clippy::type_complexity)]
+type Context = (
+    Sender<(Event, Option<IOHIDDevice>)>,
+    Arc<Mutex<Vec<DeviceInfo>>>,
+);
+
 extern "C" fn device_matching_cb(
     context: *mut c_void,
     _result: IOReturn,
     _sender: *mut c_void,
     value: IOHIDDeviceRef,
 ) {
-    let (tx, device_infos): &(
-        Sender<(Event, Option<IOHIDDevice>)>,
-        Arc<Mutex<Vec<DeviceInfo>>>,
-    ) = unsafe { &*(context as *mut _) };
+    let (tx, device_infos): &Context = unsafe { &*(context as *mut _) };
     let device = match IOHIDDevice::new(value) {
         Some(device) => device,
         None => {
@@ -696,10 +699,7 @@ extern "C" fn device_removal_cb(
     _sender: *mut c_void,
     value: IOHIDDeviceRef,
 ) {
-    let (tx, device_infos): &(
-        Sender<(Event, Option<IOHIDDevice>)>,
-        Arc<Mutex<Vec<DeviceInfo>>>,
-    ) = unsafe { &*(context as *mut _) };
+    let (tx, device_infos): &Context = unsafe { &*(context as *mut _) };
 
     let device = match IOHIDDevice::new(value) {
         Some(device) => device,
@@ -739,10 +739,7 @@ extern "C" fn input_value_cb(
     sender: *mut c_void,
     value: IOHIDValueRef,
 ) {
-    let (tx, device_infos): &(
-        Sender<(Event, Option<IOHIDDevice>)>,
-        Arc<Mutex<Vec<DeviceInfo>>>,
-    ) = unsafe { &*(context as *mut _) };
+    let (tx, device_infos): &Context = unsafe { &*(context as *mut _) };
 
     let device = match IOHIDDevice::new(sender as _) {
         Some(device) => device,
@@ -788,7 +785,7 @@ extern "C" fn input_value_cb(
         }
     };
 
-    let element = match value.get_element() {
+    let element = match value.element() {
         Some(element) => element,
         None => {
             error!("Failed to get element of value");
@@ -796,21 +793,21 @@ extern "C" fn input_value_cb(
         }
     };
 
-    let type_ = element.get_type();
-    let page = element.get_page();
-    let usage = element.get_usage();
+    let type_ = element.r#type();
+    let page = element.usage_page();
+    let usage = element.usage();
 
-    if IOHIDElement::is_axis(type_, page, usage) {
+    if element_is_axis(type_, page, usage) {
         let event = Event::new(
             id,
             EventType::AxisValueChanged(
-                value.get_value() as i32,
+                value.integer_value() as i32,
                 crate::EvCode(EvCode { page, usage }),
             ),
         );
         let _ = tx.send((event, None));
-    } else if IOHIDElement::is_button(type_, page, usage) {
-        if value.get_value() == 0 {
+    } else if element_is_button(type_, page, usage) {
+        if value.integer_value() == 0 {
             let event = Event::new(
                 id,
                 EventType::ButtonReleased(crate::EvCode(EvCode { page, usage })),
@@ -823,7 +820,7 @@ extern "C" fn input_value_cb(
             );
             let _ = tx.send((event, None));
         }
-    } else if IOHIDElement::is_hat(type_, page, usage) {
+    } else if element_is_hat(type_, page, usage) {
         // Hat switch values are reported with a range of usually 8 numbers (sometimes 4). The logic
         // below uses the reported min/max values of that range to map that onto a range of 0-7 for
         // the directions (and any other value indicates the center position). Lucky for us, they
@@ -837,8 +834,8 @@ extern "C" fn input_value_cb(
         //        / | \
         //       5  4  3
         //         down
-        let range = element.get_logical_max() - element.get_logical_min() + 1;
-        let shifted_value = value.get_value() - element.get_logical_min();
+        let range = element.logical_max() - element.logical_min() + 1;
+        let shifted_value = value.integer_value() - element.logical_min();
         let dpad_value = match range {
             4 => shifted_value * 2, // 4-position hat switch - scale it up to 8
             8 => shifted_value,     // 8-position hat switch - no adjustment necessary

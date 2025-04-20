@@ -41,40 +41,40 @@ pub(crate) struct IOHIDManager(IOHIDManagerRef);
 
 impl_TCFType!(IOHIDManager, IOHIDManagerRef, IOHIDManagerGetTypeID);
 
-impl IOHIDManager {
-    pub fn new() -> Option<Self> {
-        let manager = unsafe { IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone) };
+pub fn new_manager() -> Option<IOHIDManager> {
+    let manager = unsafe { IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone) };
 
-        if manager.is_null() {
-            return None;
-        }
-
-        let matchers = CFArray::from_CFTypes(&[
-            create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick),
-            create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad),
-            create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController),
-        ]);
-        unsafe {
-            IOHIDManagerSetDeviceMatchingMultiple(manager, matchers.as_concrete_TypeRef());
-        };
-
-        let ret = unsafe { IOHIDManagerOpen(manager, kIOHIDOptionsTypeNone) };
-
-        if ret == kIOReturnSuccess {
-            Some(IOHIDManager(manager))
-        } else {
-            unsafe { CFRelease(manager as _) };
-            None
-        }
+    if manager.is_null() {
+        return None;
     }
 
-    pub fn schedule_with_run_loop(&mut self, run_loop: CFRunLoop, run_loop_mode: CFRunLoopMode) {
+    let matchers = CFArray::from_CFTypes(&[
+        create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick),
+        create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad),
+        create_hid_device_matcher(kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController),
+    ]);
+    unsafe {
+        IOHIDManagerSetDeviceMatchingMultiple(manager, matchers.as_concrete_TypeRef());
+    };
+
+    let ret = unsafe { IOHIDManagerOpen(manager, kIOHIDOptionsTypeNone) };
+
+    if ret == kIOReturnSuccess {
+        Some(IOHIDManager(manager))
+    } else {
+        unsafe { CFRelease(manager as _) };
+        None
+    }
+}
+
+impl IOHIDManager {
+    pub fn schedule_with_run_loop(&mut self, run_loop: &CFRunLoop, run_loop_mode: CFRunLoopMode) {
         unsafe {
             IOHIDManagerScheduleWithRunLoop(self.0, run_loop.as_concrete_TypeRef(), run_loop_mode)
         }
     }
 
-    pub fn unschedule_from_run_loop(&mut self, run_loop: CFRunLoop, run_loop_mode: CFRunLoopMode) {
+    pub fn unschedule_from_run_loop(&mut self, run_loop: &CFRunLoop, run_loop_mode: CFRunLoopMode) {
         unsafe {
             IOHIDManagerUnscheduleFromRunLoop(self.0, run_loop.as_concrete_TypeRef(), run_loop_mode)
         }
@@ -164,30 +164,30 @@ impl IOHIDDevice {
     pub fn get_service(&self) -> Option<IOService> {
         unsafe { IOService::new(IOHIDDeviceGetService(self.0)) }
     }
+}
 
-    pub fn get_elements(&self) -> Vec<IOHIDElement> {
-        let elements =
-            unsafe { IOHIDDeviceCopyMatchingElements(self.0, ptr::null(), kIOHIDOptionsTypeNone) };
+pub fn device_elements(device: &IOHIDDevice) -> Vec<IOHIDElement> {
+    let elements =
+        unsafe { IOHIDDeviceCopyMatchingElements(device.0, ptr::null(), kIOHIDOptionsTypeNone) };
 
-        if elements.is_null() {
-            return vec![];
-        }
-
-        let element_count = unsafe { CFArrayGetCount(elements) };
-        let mut vec = Vec::with_capacity(element_count as _);
-
-        for i in 0..element_count {
-            let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
-
-            if element.is_null() {
-                continue;
-            }
-
-            vec.push(IOHIDElement(element as _));
-        }
-
-        vec
+    if elements.is_null() {
+        return vec![];
     }
+
+    let element_count = unsafe { CFArrayGetCount(elements) };
+    let mut vec = Vec::with_capacity(element_count as _);
+
+    for i in 0..element_count {
+        let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
+
+        if element.is_null() {
+            continue;
+        }
+
+        vec.push(IOHIDElement(element as _));
+    }
+
+    vec
 }
 
 impl Properties for IOHIDDevice {
@@ -213,123 +213,123 @@ pub(crate) struct IOHIDElement(IOHIDElementRef);
 
 impl_TCFType!(IOHIDElement, IOHIDElementRef, IOHIDElementGetTypeID);
 
+pub fn element_is_collection(type_: IOHIDElementType) -> bool {
+    type_ == kIOHIDElementTypeCollection
+}
+
+pub fn element_is_axis(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
+    match type_ {
+        kIOHIDElementTypeInput_Misc
+        | kIOHIDElementTypeInput_Button
+        | kIOHIDElementTypeInput_Axis => match page {
+            kHIDPage_GenericDesktop => {
+                matches!(
+                    usage,
+                    kHIDUsage_GD_X
+                        | kHIDUsage_GD_Y
+                        | kHIDUsage_GD_Z
+                        | kHIDUsage_GD_Rx
+                        | kHIDUsage_GD_Ry
+                        | kHIDUsage_GD_Rz
+                        | kHIDUsage_GD_Slider
+                        | kHIDUsage_GD_Dial
+                        | kHIDUsage_GD_Wheel
+                )
+            }
+            kHIDPage_Simulation => matches!(
+                usage,
+                kHIDUsage_Sim_Rudder
+                    | kHIDUsage_Sim_Throttle
+                    | kHIDUsage_Sim_Accelerator
+                    | kHIDUsage_Sim_Brake
+            ),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+pub fn element_is_button(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
+    match type_ {
+        kIOHIDElementTypeInput_Misc
+        | kIOHIDElementTypeInput_Button
+        | kIOHIDElementTypeInput_Axis => match page {
+            kHIDPage_GenericDesktop => matches!(
+                usage,
+                kHIDUsage_GD_DPadUp
+                    | kHIDUsage_GD_DPadDown
+                    | kHIDUsage_GD_DPadRight
+                    | kHIDUsage_GD_DPadLeft
+                    | kHIDUsage_GD_Start
+                    | kHIDUsage_GD_Select
+                    | kHIDUsage_GD_SystemMainMenu
+            ),
+            kHIDPage_Button | kHIDPage_Consumer => true,
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+pub fn element_is_hat(type_: IOHIDElementType, page: u32, usage: u32) -> bool {
+    match type_ {
+        kIOHIDElementTypeInput_Misc
+        | kIOHIDElementTypeInput_Button
+        | kIOHIDElementTypeInput_Axis => match page {
+            kHIDPage_GenericDesktop => matches!(usage, USAGE_AXIS_DPADX | USAGE_AXIS_DPADY),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
 impl IOHIDElement {
-    pub fn is_collection_type(type_: u32) -> bool {
-        type_ == kIOHIDElementTypeCollection
-    }
-
-    pub fn is_axis(type_: u32, page: u32, usage: u32) -> bool {
-        match type_ {
-            kIOHIDElementTypeInput_Misc
-            | kIOHIDElementTypeInput_Button
-            | kIOHIDElementTypeInput_Axis => match page {
-                kHIDPage_GenericDesktop => {
-                    matches!(
-                        usage,
-                        kHIDUsage_GD_X
-                            | kHIDUsage_GD_Y
-                            | kHIDUsage_GD_Z
-                            | kHIDUsage_GD_Rx
-                            | kHIDUsage_GD_Ry
-                            | kHIDUsage_GD_Rz
-                            | kHIDUsage_GD_Slider
-                            | kHIDUsage_GD_Dial
-                            | kHIDUsage_GD_Wheel
-                    )
-                }
-                kHIDPage_Simulation => matches!(
-                    usage,
-                    kHIDUsage_Sim_Rudder
-                        | kHIDUsage_Sim_Throttle
-                        | kHIDUsage_Sim_Accelerator
-                        | kHIDUsage_Sim_Brake
-                ),
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    pub fn is_button(type_: u32, page: u32, usage: u32) -> bool {
-        match type_ {
-            kIOHIDElementTypeInput_Misc
-            | kIOHIDElementTypeInput_Button
-            | kIOHIDElementTypeInput_Axis => match page {
-                kHIDPage_GenericDesktop => matches!(
-                    usage,
-                    kHIDUsage_GD_DPadUp
-                        | kHIDUsage_GD_DPadDown
-                        | kHIDUsage_GD_DPadRight
-                        | kHIDUsage_GD_DPadLeft
-                        | kHIDUsage_GD_Start
-                        | kHIDUsage_GD_Select
-                        | kHIDUsage_GD_SystemMainMenu
-                ),
-                kHIDPage_Button | kHIDPage_Consumer => true,
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    pub fn is_hat(type_: u32, page: u32, usage: u32) -> bool {
-        match type_ {
-            kIOHIDElementTypeInput_Misc
-            | kIOHIDElementTypeInput_Button
-            | kIOHIDElementTypeInput_Axis => match page {
-                kHIDPage_GenericDesktop => matches!(usage, USAGE_AXIS_DPADX | USAGE_AXIS_DPADY),
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    pub fn get_cookie(&self) -> u32 {
+    pub fn cookie(&self) -> u32 {
         unsafe { IOHIDElementGetCookie(self.0) }
     }
 
-    pub fn get_type(&self) -> u32 {
+    pub fn r#type(&self) -> u32 {
         unsafe { IOHIDElementGetType(self.0) }
     }
 
-    pub fn get_page(&self) -> u32 {
+    pub fn usage_page(&self) -> u32 {
         unsafe { IOHIDElementGetUsagePage(self.0) }
     }
 
-    pub fn get_usage(&self) -> u32 {
+    pub fn usage(&self) -> u32 {
         unsafe { IOHIDElementGetUsage(self.0) }
     }
 
-    pub fn get_logical_min(&self) -> i64 {
-        unsafe { IOHIDElementGetLogicalMin(self.0).try_into().unwrap() }
+    pub fn logical_min(&self) -> isize {
+        unsafe { IOHIDElementGetLogicalMin(self.0) }
     }
 
-    pub fn get_logical_max(&self) -> i64 {
-        unsafe { IOHIDElementGetLogicalMax(self.0).try_into().unwrap() }
+    pub fn logical_max(&self) -> isize {
+        unsafe { IOHIDElementGetLogicalMax(self.0) }
+    }
+}
+
+pub fn element_children(element: &IOHIDElement) -> Vec<IOHIDElement> {
+    let elements = unsafe { IOHIDElementGetChildren(element.0) };
+
+    if elements.is_null() {
+        return vec![];
     }
 
-    pub fn get_children(&self) -> Vec<IOHIDElement> {
-        let elements = unsafe { IOHIDElementGetChildren(self.0) };
+    let element_count = unsafe { CFArrayGetCount(elements) };
+    let mut vec = Vec::with_capacity(element_count as _);
 
-        if elements.is_null() {
-            return vec![];
+    for i in 0..element_count {
+        let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
+
+        if element.is_null() {
+            continue;
         }
 
-        let element_count = unsafe { CFArrayGetCount(elements) };
-        let mut vec = Vec::with_capacity(element_count as _);
-
-        for i in 0..element_count {
-            let element = unsafe { CFArrayGetValueAtIndex(elements, i) };
-
-            if element.is_null() {
-                continue;
-            }
-
-            vec.push(IOHIDElement(element as _));
-        }
-
-        vec
+        vec.push(IOHIDElement(element as _));
     }
+
+    vec
 }
 
 impl Properties for IOHIDElement {
@@ -361,11 +361,11 @@ impl IOHIDValue {
         }
     }
 
-    pub fn get_value(&self) -> i64 {
-        unsafe { IOHIDValueGetIntegerValue(self.0).try_into().unwrap() }
+    pub fn integer_value(&self) -> isize {
+        unsafe { IOHIDValueGetIntegerValue(self.0) }
     }
 
-    pub fn get_element(&self) -> Option<IOHIDElement> {
+    pub fn element(&self) -> Option<IOHIDElement> {
         let element = unsafe { IOHIDValueGetElement(self.0) };
 
         if element.is_null() {
