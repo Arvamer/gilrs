@@ -8,18 +8,12 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
-use core_foundation::array::{
-    kCFTypeArrayCallBacks, CFArray, CFArrayCallBacks, CFArrayGetCount, CFArrayGetValueAtIndex,
-    __CFArray,
-};
-use core_foundation::base::{
-    kCFAllocatorDefault, CFAllocatorRef, CFIndex, CFRelease, CFType, TCFType,
-};
+use core_foundation::array::{CFArray, CFArrayGetCount, CFArrayGetValueAtIndex};
+use core_foundation::base::{kCFAllocatorDefault, CFRelease, CFType, TCFType};
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::impl_TCFType;
 use core_foundation::number::CFNumber;
 use core_foundation::runloop::{CFRunLoop, CFRunLoopMode};
-use core_foundation::set::CFSetApplyFunction;
 use core_foundation::string::{kCFStringEncodingUTF8, CFString, CFStringCreateWithCString};
 
 use io_kit_sys::hid::base::{
@@ -33,7 +27,7 @@ use io_kit_sys::hid::usage_tables::*;
 use io_kit_sys::hid::value::{
     IOHIDValueGetElement, IOHIDValueGetIntegerValue, IOHIDValueGetTypeID,
 };
-use io_kit_sys::ret::{kIOReturnSuccess, IOReturn};
+use io_kit_sys::ret::kIOReturnSuccess;
 use io_kit_sys::types::{io_service_t, IO_OBJECT_NULL};
 use io_kit_sys::{IOObjectRelease, IOObjectRetain, IORegistryEntryGetRegistryEntryID};
 
@@ -43,18 +37,7 @@ use std::ptr;
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct IOHIDManager(IOHIDManagerRef);
-
-pub type CFMutableArrayRef = *mut __CFArray;
-
-extern "C" {
-    pub fn CFArrayCreateMutable(
-        allocator: CFAllocatorRef,
-        capacity: CFIndex,
-        callBacks: *const CFArrayCallBacks,
-    ) -> CFMutableArrayRef;
-    pub fn CFArrayAppendValue(theArray: CFMutableArrayRef, value: *const c_void);
-}
+pub(crate) struct IOHIDManager(IOHIDManagerRef);
 
 impl_TCFType!(IOHIDManager, IOHIDManagerRef, IOHIDManagerGetTypeID);
 
@@ -83,14 +66,6 @@ impl IOHIDManager {
             unsafe { CFRelease(manager as _) };
             None
         }
-    }
-
-    pub fn open(&mut self) -> IOReturn {
-        unsafe { IOHIDManagerOpen(self.0, kIOHIDOptionsTypeNone) }
-    }
-
-    pub fn close(&mut self) -> IOReturn {
-        unsafe { IOHIDManagerClose(self.0, kIOHIDOptionsTypeNone) }
     }
 
     pub fn schedule_with_run_loop(&mut self, run_loop: CFRunLoop, run_loop_mode: CFRunLoopMode) {
@@ -128,44 +103,6 @@ impl IOHIDManager {
     ) {
         unsafe { IOHIDManagerRegisterInputValueCallback(self.0, callback, context) }
     }
-
-    pub fn get_devices(&mut self) -> Vec<IOHIDDevice> {
-        let copied = unsafe { IOHIDManagerCopyDevices(self.0) };
-
-        if copied.is_null() {
-            return vec![];
-        }
-
-        let devices =
-            unsafe { CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) };
-
-        if devices.is_null() {
-            unsafe { CFRelease(copied as _) };
-            return vec![];
-        }
-
-        unsafe { CFSetApplyFunction(copied, cf_set_applier, devices as _) };
-        unsafe { CFRelease(copied as _) };
-
-        let device_count = unsafe { CFArrayGetCount(devices) };
-        let mut vec = Vec::with_capacity(device_count as _);
-
-        for i in 0..device_count {
-            let device = unsafe { CFArrayGetValueAtIndex(devices, i) };
-
-            if device.is_null() {
-                continue;
-            }
-
-            if let Some(device) = IOHIDDevice::new(device as _) {
-                vec.push(device);
-            }
-        }
-
-        unsafe { CFRelease(devices as _) };
-
-        vec
-    }
 }
 
 impl Drop for IOHIDManager {
@@ -176,7 +113,7 @@ impl Drop for IOHIDManager {
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct IOHIDDevice(IOHIDDeviceRef);
+pub(crate) struct IOHIDDevice(IOHIDDeviceRef);
 
 impl_TCFType!(IOHIDDevice, IOHIDDeviceRef, IOHIDDeviceGetTypeID);
 
@@ -197,26 +134,6 @@ impl IOHIDDevice {
     pub fn get_location_id(&self) -> Option<u32> {
         self.get_number_property(kIOHIDLocationIDKey)
             .and_then(|location_id| location_id.to_i32().map(|location_id| location_id as u32))
-    }
-
-    pub fn get_bustype(&self) -> Option<u16> {
-        match self.get_transport_key() {
-            Some(transport_key) => {
-                if transport_key == "USB" {
-                    Some(0x03)
-                } else if transport_key == "Bluetooth" {
-                    Some(0x05)
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
-    }
-
-    pub fn get_transport_key(&self) -> Option<String> {
-        self.get_string_property(kIOHIDTransportKey)
-            .map(|transport_key| transport_key.to_string())
     }
 
     pub fn get_vendor_id(&self) -> Option<u16> {
@@ -292,7 +209,7 @@ unsafe impl Sync for IOHIDDevice {}
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct IOHIDElement(IOHIDElementRef);
+pub(crate) struct IOHIDElement(IOHIDElementRef);
 
 impl_TCFType!(IOHIDElement, IOHIDElementRef, IOHIDElementGetTypeID);
 
@@ -391,20 +308,6 @@ impl IOHIDElement {
         unsafe { IOHIDElementGetLogicalMax(self.0).try_into().unwrap() }
     }
 
-    pub fn get_calibration_dead_zone_min(&self) -> Option<i64> {
-        match self.get_number_property(kIOHIDElementCalibrationDeadZoneMinKey) {
-            Some(calibration_dead_zone_min) => calibration_dead_zone_min.to_i64(),
-            None => None,
-        }
-    }
-
-    pub fn get_calibration_dead_zone_max(&self) -> Option<i64> {
-        match self.get_number_property(kIOHIDElementCalibrationDeadZoneMaxKey) {
-            Some(calibration_dead_zone_max) => calibration_dead_zone_max.to_i64(),
-            None => None,
-        }
-    }
-
     pub fn get_children(&self) -> Vec<IOHIDElement> {
         let elements = unsafe { IOHIDElementGetChildren(self.0) };
 
@@ -445,7 +348,7 @@ impl Properties for IOHIDElement {
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct IOHIDValue(IOHIDValueRef);
+pub(crate) struct IOHIDValue(IOHIDValueRef);
 
 impl_TCFType!(IOHIDValue, IOHIDValueRef, IOHIDValueGetTypeID);
 
@@ -475,7 +378,7 @@ impl IOHIDValue {
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct IOService(io_service_t);
+pub(crate) struct IOService(io_service_t);
 
 impl IOService {
     pub fn new(io_service: io_service_t) -> Option<IOService> {
@@ -558,10 +461,6 @@ fn create_hid_device_matcher(page: u32, usage: u32) -> CFDictionary<CFString, CF
     let usage_value = CFNumber::from(usage as i32);
 
     CFDictionary::from_CFType_pairs(&[(page_key, page_value), (usage_key, usage_value)])
-}
-
-extern "C" fn cf_set_applier(value: *const c_void, context: *const c_void) {
-    unsafe { CFArrayAppendValue(context as _, value) };
 }
 
 // Revisions:
