@@ -984,23 +984,25 @@ impl GamepadData {
         gamepad: &gilrs_core::Gamepad,
         db: &MappingDb,
     ) -> Self {
+        let uuid = Uuid::from_bytes(gamepad.uuid());
         let mapping = db
-            .get(Uuid::from_bytes(gamepad.uuid()))
+            .get(uuid)
             .map(
                 |s| match Mapping::parse_sdl_mapping(s, gamepad.buttons(), gamepad.axes()) {
                     Ok(result) => result,
                     Err(e) => {
                         warn!(
-                            "Unable to parse SDL mapping for UUID {}\n\t{:?}\n\tDefault mapping \
+                            "Unable to parse SDL mapping for UUID {uuid}\n\t{e:?}\n\tDefault mapping \
                              will be used.",
-                            Uuid::from_bytes(gamepad.uuid()),
-                            e
                         );
                         Mapping::default(gamepad)
                     }
                 },
             )
-            .unwrap_or_else(|| Mapping::default(gamepad));
+            .unwrap_or_else(|| {
+                warn!("No mapping found for UUID {uuid}\n\tDefault mapping will be used.");
+                Mapping::default(gamepad)
+            });
 
         if gamepad.is_ff_supported() && gamepad.is_connected() {
             if let Some(device) = gamepad.ff_device() {
