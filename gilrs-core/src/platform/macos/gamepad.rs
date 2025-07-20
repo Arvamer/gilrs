@@ -523,11 +523,11 @@ pub mod native_ev_codes {
         usage: super::USAGE_AXIS_LT,
     };
     pub const AXIS_RT2: EvCode = EvCode {
-        page: super::PAGE_GENERIC_DESKTOP,
+        page: super::PAGE_SIMULATION,
         usage: super::USAGE_AXIS_RT2,
     };
     pub const AXIS_LT2: EvCode = EvCode {
-        page: super::PAGE_GENERIC_DESKTOP,
+        page: super::PAGE_SIMULATION,
         usage: super::USAGE_AXIS_LT2,
     };
 
