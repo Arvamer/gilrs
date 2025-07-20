@@ -215,7 +215,7 @@ impl Gamepad {
         }
     }
 
-    /// Returns information about specific axis. `None` may be returned if device doesn't have axis
+    /// Returns information about a specific axis. `None` may be returned if a device doesn't have an axis
     /// with provided `EvCode`.
     pub fn axis_info(&self, nec: EvCode) -> Option<&AxisInfo> {
         self.inner.axis_info(nec.0)
@@ -248,7 +248,7 @@ impl Display for EvCode {
 /// Private version of `Error` that use `platform::Gilrs`.
 #[derive(Debug)]
 enum PlatformError {
-    /// Gilrs does not support current platform, but you can use dummy context from this error if
+    /// Gilrs does not support the current platform, but you can use dummy context from this error if
     /// gamepad input is not essential.
     #[allow(dead_code)]
     NotImplemented(platform::Gilrs),

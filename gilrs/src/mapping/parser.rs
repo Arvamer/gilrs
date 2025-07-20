@@ -400,7 +400,7 @@ mod tests {
                 if let Err(ref e) = token {
                     if e.kind() != &ErrorKind::EmptyValue {
                         errors += 1;
-                        println!("{:?}", e);
+                        println!("{e:?}");
                         println!(
                             "{}: {} (...) {}\n",
                             index,

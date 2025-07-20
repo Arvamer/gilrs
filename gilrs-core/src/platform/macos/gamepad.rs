@@ -239,10 +239,7 @@ impl Gamepad {
             "Unknown".into()
         });
 
-        let uuid = match Self::create_uuid(&device) {
-            Some(uuid) => uuid,
-            None => Uuid::nil(),
-        };
+        let uuid = Self::create_uuid(&device).unwrap_or_default();
 
         let mut gamepad = Gamepad {
             name,
@@ -364,8 +361,8 @@ impl Gamepad {
         self.collect_axes(elements, &mut cookies);
         self.axes.sort_by_key(|axis| axis.usage);
         self.hats.sort_by_key(|axis| axis.usage);
-        // Because "hat is axis" is gilrs thing, we want ensure that all hats are at the end of
-        // axis vector, so SDL mappings still works.
+        // Because "hat is axis" is a gilrs thing, we want to ensure that all hats are at the end of
+        // the axis vector, so the SDL mappings still work.
         self.axes.extend(&self.hats);
 
         self.collect_buttons(elements, &mut cookies);

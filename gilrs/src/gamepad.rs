@@ -212,8 +212,8 @@ impl Gilrs {
         blocking_timeout: Option<Duration>,
     ) -> Option<Event> {
         if let Ok(msg) = self.rx.try_recv() {
-            match msg {
-                FfMessage::EffectCompleted { event } => return Some(event),
+            return match msg {
+                FfMessage::EffectCompleted { event } => Some(event),
             }
         }
         if let Some(ev) = self.events.pop_front() {
@@ -1022,7 +1022,7 @@ impl GamepadData {
     /// if `mapping_source()` is `SdlMappings` returns the name of the mapping used by the gamepad.
     /// Otherwise returns `None`.
     ///
-    /// Warning: Mappings are set after event `Connected` is processed therefore this function will
+    /// Warning: Mappings are set after event `Connected` is processed, therefore this function will
     /// always return `None` before first calls to `Gilrs::next_event()`.
     pub fn map_name(&self) -> Option<&str> {
         if self.mapping.is_default() {
@@ -1032,11 +1032,11 @@ impl GamepadData {
         }
     }
 
-    /// Examines cached gamepad state to check if given button is pressed. Panics if `btn` is
+    /// Examines cached gamepad state to check if the given button is pressed. Panics if `btn` is
     /// `Unknown`.
     ///
     /// If you know `Code` of the element that you want to examine, it's recommended to use methods
-    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// directly on `State`, because this version has to check which `Code` is mapped to element of
     /// gamepad.
     pub fn is_pressed(&self, btn: Button) -> bool {
         assert_ne!(btn, Button::Unknown);
@@ -1050,7 +1050,7 @@ impl GamepadData {
     /// Examines cached gamepad state to check axis's value. Panics if `axis` is `Unknown`.
     ///
     /// If you know `Code` of the element that you want to examine, it's recommended to use methods
-    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// directly on `State`, because this version has to check which `Code` is mapped to element of
     /// gamepad.
     pub fn value(&self, axis: Axis) -> f32 {
         assert_ne!(axis, Axis::Unknown);
@@ -1063,7 +1063,7 @@ impl GamepadData {
     /// Returns button state and when it changed.
     ///
     /// If you know `Code` of the element that you want to examine, it's recommended to use methods
-    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// directly on `State`, because this version has to check which `Code` is mapped to element of
     /// gamepad.
     pub fn button_data(&self, btn: Button) -> Option<&ButtonData> {
         self.button_code(btn)
@@ -1073,7 +1073,7 @@ impl GamepadData {
     /// Returns axis state and when it changed.
     ///
     /// If you know `Code` of the element that you want to examine, it's recommended to use methods
-    /// directly on `State`, because this version have to check which `Code` is mapped to element of
+    /// directly on `State`, because this version has to check which `Code` is mapped to element of
     /// gamepad.
     pub fn axis_data(&self, axis: Axis) -> Option<&AxisData> {
         self.axis_code(axis)
@@ -1110,8 +1110,8 @@ pub enum MappingSource {
 
 /// Gamepad ID.
 ///
-/// It's not possible to create instance of this type directly, but you can obtain one from Gamepad
-/// handle or any event. ID is valid for entire lifetime of `Gilrs` context.
+/// It's not possible to create an instance of this type directly, but you can obtain one from a Gamepad
+/// handle or any event. ID is valid for the entire lifetime of the `Gilrs` context.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 #[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
 pub struct GamepadId(pub(crate) usize);
@@ -1136,7 +1136,7 @@ fn axis_value(info: &AxisInfo, val: i32, axis: Axis) -> f32 {
         // Only consider adjusting range & val if calculating the range doesn't cause overflow.  If
         // the range is so large overflow occurs, adjusting values by 1.0 would be insignificant.
         if i_range % 2 == 1 {
-            // Add one to range and val, so value at center (like 127/255) will be mapped 0.0
+            // Add one to range and val, so the value is centered (like 127/255) will be mapped 0.0
             range += 1.0;
             val += 1.0;
         }
@@ -1166,7 +1166,7 @@ fn btn_value(info: &AxisInfo, val: i32) -> f32 {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
-    /// Gilrs does not support current platform, but you can use dummy context from this error if
+    /// Gilrs does not support the current platform, but you can use dummy context from this error if
     /// gamepad input is not essential.
     NotImplemented(Gilrs),
     /// Either `pressed ≤ released` or one of values is outside [0.0, 1.0] range.
