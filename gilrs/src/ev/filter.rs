@@ -86,7 +86,7 @@ pub struct Jitter {
 }
 
 impl Jitter {
-    /// Creates new `Repeat` filter with threshold set to 0.01.
+    /// Creates new `Jitter` filter with threshold set to 0.01.
     pub fn new() -> Self {
         Jitter { threshold: 0.01 }
     }
