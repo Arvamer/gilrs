@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+v0.6.5 - 2025-07-21
+----------
+
+### Changed
+
+- Updated `windows` and `nix` crates
+
 v0.6.4 - 2025-04-06
 ----------
 
