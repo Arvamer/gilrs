@@ -2,6 +2,7 @@ use gilrs::{Axis, Button, Gilrs};
 use uuid::Uuid;
 
 fn main() {
+    env_logger::init();
     let gilrs = Gilrs::new().unwrap();
     for (id, gamepad) in gilrs.gamepads() {
         println!(
